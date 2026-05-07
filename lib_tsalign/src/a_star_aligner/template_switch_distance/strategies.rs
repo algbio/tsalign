@@ -12,9 +12,12 @@ use template_switch_count::TemplateSwitchCountStrategy;
 use template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 
+use crate::a_star_aligner::template_switch_distance::strategies::descendant::TemplateSwitchDescendantStrategy;
+
 use super::{AlignmentType, Context, Identifier};
 
 pub mod chaining;
+pub mod descendant;
 pub mod node_ord;
 pub mod primary_match;
 pub mod primary_range;
@@ -36,6 +39,7 @@ pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type PrimaryMatch: PrimaryMatchStrategy<Self::Cost>;
     type PrimaryRange: PrimaryRangeStrategy;
     type TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy;
+    type Descendant: TemplateSwitchDescendantStrategy;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -45,6 +49,7 @@ pub struct AlignmentStrategiesNodeMemory<Selector: AlignmentStrategySelector> {
     pub template_switch_count: Selector::TemplateSwitchCount,
     pub primary_match: Selector::PrimaryMatch,
     pub template_switch_total_length: Selector::TemplateSwitchTotalLength,
+    pub descendant_strategy: Selector::Descendant,
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
@@ -86,6 +91,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
             template_switch_total_length: Strategies::TemplateSwitchTotalLength::create_root(
                 context,
             ),
+            descendant_strategy: Strategies::Descendant::create_root(context),
         }
     }
 
@@ -125,6 +131,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
                 alignment_type,
                 context,
             ),
+            descendant_strategy: self.descendant_strategy.generate_successor(
+                identifier,
+                alignment_type,
+                context,
+            ),
         }
     }
 }
@@ -141,6 +152,7 @@ pub struct AlignmentStrategySelection<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > {
     #[allow(clippy::type_complexity)]
     phantom_data: PhantomData<(
@@ -155,6 +167,7 @@ pub struct AlignmentStrategySelection<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     )>,
 }
 
@@ -170,6 +183,7 @@ impl<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
@@ -183,6 +197,7 @@ impl<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     >
 {
     type Alphabet = AlphabetType;
@@ -196,6 +211,7 @@ impl<
     type PrimaryMatch = PrimaryMatch;
     type PrimaryRange = PrimaryRange;
     type TemplateSwitchTotalLength = TemplateSwitchTotalLength;
+    type Descendant = Descendant;
 }
 
 impl<
@@ -210,6 +226,7 @@ impl<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > Debug
     for AlignmentStrategySelection<
         AlphabetType,
@@ -223,6 +240,7 @@ impl<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     >
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -242,6 +260,7 @@ impl<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > Clone
     for AlignmentStrategySelection<
         AlphabetType,
@@ -255,6 +274,7 @@ impl<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     >
 {
     fn clone(&self) -> Self {
@@ -276,6 +296,7 @@ impl<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -289,6 +310,7 @@ impl<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     >
 {
     fn eq(&self, other: &Self) -> bool {
@@ -308,6 +330,7 @@ impl<
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    Descendant: TemplateSwitchDescendantStrategy,
 > Eq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -321,6 +344,7 @@ impl<
         PrimaryMatch,
         PrimaryRange,
         TemplateSwitchTotalLength,
+        Descendant,
     >
 {
 }

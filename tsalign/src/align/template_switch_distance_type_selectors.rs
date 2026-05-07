@@ -5,26 +5,33 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::AlignmentRange,
-        template_switch_distance::strategies::{
-            AlignmentStrategySelection,
-            chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
-            node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
-            primary_match::AllowPrimaryMatchStrategy,
-            primary_range::NoPrunePrimaryRangeStrategy,
-            secondary_deletion::AllowSecondaryDeletionStrategy,
-            shortcut::NoShortcutStrategy,
-            template_switch_count::{
-                MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
-                TemplateSwitchCountStrategy,
-            },
-            template_switch_min_length::{
-                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
-                PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
-            },
-            template_switch_total_length::{
-                MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
-                TemplateSwitchTotalLengthStrategy,
+        template_switch_distance::{
+            context::DynamicStrategies,
+            strategies::{
+                AlignmentStrategySelection,
+                chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
+                descendant::{
+                    AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
+                    TemplateSwitchDescendantStrategy,
+                },
+                node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
+                primary_match::AllowPrimaryMatchStrategy,
+                primary_range::NoPrunePrimaryRangeStrategy,
+                secondary_deletion::AllowSecondaryDeletionStrategy,
+                shortcut::NoShortcutStrategy,
+                template_switch_count::{
+                    MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
+                    TemplateSwitchCountStrategy,
+                },
+                template_switch_min_length::{
+                    LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                    PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                    PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
+                },
+                template_switch_total_length::{
+                    MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
+                    TemplateSwitchTotalLengthStrategy,
+                },
             },
         },
         template_switch_distance_a_star_align,
@@ -65,6 +72,12 @@ pub enum TemplateSwitchChainingStrategySelector {
 pub enum TemplateSwitchTotalLengthStrategySelector {
     None,
     Maximise,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchDescendantStrategySelector {
+    AllowAny,
+    AllowOnlyAllEqual,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -204,7 +217,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 NodeOrd,
                 TemplateSwitchMinLength,
                 PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(cli, reference, query, reference_name, query_name)
+            >(cli, reference, query, range, reference_name, query_name)
             unimplemented!("No reason to precompute without using the information.");
         }*/
         TemplateSwitchChainingStrategySelector::LowerBound => {
@@ -272,7 +285,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
 ) {
     match cli.ts_total_length_strategy {
         TemplateSwitchTotalLengthStrategySelector::None => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_template_switch_descendant_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -291,7 +304,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
             )
         }
         TemplateSwitchTotalLengthStrategySelector::Maximise => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_template_switch_descendant_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -299,6 +312,67 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
                 Chaining,
                 TemplateSwitchCount,
                 MaxTemplateSwitchTotalLengthStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+    }
+}
+
+fn align_a_star_template_switch_select_template_switch_descendant_strategy<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    range: AlignmentRange,
+    reference_name: &str,
+    query_name: &str,
+    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+) {
+    match cli.ts_descendant_strategy {
+        TemplateSwitchDescendantStrategySelector::AllowAny => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                TemplateSwitchTotalLength,
+                AnyTemplateSwitchDescendantStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+        TemplateSwitchDescendantStrategySelector::AllowOnlyAllEqual => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                TemplateSwitchTotalLength,
+                OnlyEqualTemplateSwitchDescendantStrategy,
             >(
                 cli,
                 reference,
@@ -320,6 +394,7 @@ fn align_a_star_template_switch_distance_call<
     Chaining: ChainingStrategy<U64Cost>,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
     TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
+    TemplateSwitchDescendant: TemplateSwitchDescendantStrategy,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -330,6 +405,7 @@ fn align_a_star_template_switch_distance_call<
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
     let costs = load_tsa_config(&cli.configuration_directory).unwrap();
+    let dynamic_strategies = DynamicStrategies {};
 
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -344,6 +420,7 @@ fn align_a_star_template_switch_distance_call<
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
             TemplateSwitchTotalLength,
+            TemplateSwitchDescendant,
         >,
         _,
     >(
@@ -353,6 +430,7 @@ fn align_a_star_template_switch_distance_call<
         query_name,
         range,
         &costs,
+        dynamic_strategies,
         cli.cost_limit,
         cli.memory_limit,
         cli.force_label_correcting,

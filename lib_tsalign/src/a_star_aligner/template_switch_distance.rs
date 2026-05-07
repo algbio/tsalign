@@ -23,7 +23,10 @@ pub use identifier::{
     GapType, Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
 };
 
-use crate::config::BaseCost;
+use crate::{
+    a_star_aligner::template_switch_distance::strategies::descendant::TemplateSwitchDescendantStrategy,
+    config::BaseCost,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
@@ -250,6 +253,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 else {
                     unreachable!("This closure is only called on template switch entrances.")
                 };
+
+                // Check descendant restriction.
+                if !self
+                    .strategies
+                    .descendant_strategy
+                    .is_descendant_allowed(*template_switch_primary)
+                {
+                    return None;
+                }
 
                 let base_cost = base_cost.get(
                     *template_switch_primary,

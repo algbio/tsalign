@@ -47,6 +47,7 @@ use template_switch_distance_type_selectors::{
 use crate::align::{
     a_star_chain_ts::align_a_star_chain_ts,
     fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
+    template_switch_distance_type_selectors::TemplateSwitchDescendantStrategySelector,
 };
 
 mod a_star_chain_ts;
@@ -115,6 +116,10 @@ pub struct Cli {
     /// tsalign selects an alignment with maximal total TS length out of all the alignments with optimal cost.
     #[clap(long, default_value = "maximise")]
     ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
+
+    /// If set to allow-only-all-equal, then only solutions are considered where all descendants of all TSMs are equal.
+    #[clap(long, default_value = "allow-any")]
+    ts_descendant_strategy: TemplateSwitchDescendantStrategySelector,
 
     /// The maximum amount of successors to generate while processing a node during chaining.
     /// Can be tuned to optimise performance.

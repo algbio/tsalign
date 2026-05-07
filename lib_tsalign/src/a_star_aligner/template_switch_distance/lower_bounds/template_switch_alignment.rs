@@ -19,10 +19,11 @@ use crate::{
         alignment_result::IAlignmentType,
         template_switch_distance::{
             Context, Identifier,
-            context::Memory,
+            context::{DynamicStrategies, Memory},
             strategies::{
                 AlignmentStrategySelection,
                 chaining::NoChainingStrategy,
+                descendant::AnyTemplateSwitchDescendantStrategy,
                 node_ord::CostOnlyNodeOrdStrategy,
                 primary_match::{
                     MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
@@ -60,6 +61,7 @@ type TSALBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     MaxConsecutivePrimaryMatchStrategy,
     NoPrunePrimaryRangeStrategy,
     NoTemplateSwitchTotalLengthStrategy,
+    AnyTemplateSwitchDescendantStrategy,
 >;
 
 impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
@@ -113,6 +115,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                             .min_substitution_cost(),
                     },
                 },
+                DynamicStrategies {},
                 None,
                 None,
                 false,

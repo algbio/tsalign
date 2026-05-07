@@ -6,7 +6,7 @@ use std::{
 use alignment_geometry::AlignmentRange;
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost};
+use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost, reset::Reset};
 use log::{debug, info};
 use template_switch_distance::{
     context::Memory,
@@ -19,7 +19,13 @@ use template_switch_distance::{
 };
 use traitsequence::interface::Sequence;
 
-use crate::{a_star_aligner::alignment_result::alignment::Alignment, config};
+use crate::{
+    a_star_aligner::{
+        alignment_result::alignment::Alignment,
+        template_switch_distance::context::DynamicStrategies,
+    },
+    config,
+};
 
 pub mod alignment_geometry;
 pub mod alignment_result;
@@ -186,6 +192,7 @@ pub fn template_switch_distance_a_star_align<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
     >,
+    mut dynamic_strategies: DynamicStrategies,
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
     force_label_correcting: bool,
@@ -209,6 +216,7 @@ where
         shortcut: (),
         primary_match: (),
     };
+    dynamic_strategies.reset();
 
     info!("Calling aligner...");
     let mut result = a_star_align(
@@ -220,6 +228,7 @@ where
             range.clone(),
             config.clone(),
             memory,
+            dynamic_strategies,
             cost_limit,
             memory_limit,
             force_label_correcting,

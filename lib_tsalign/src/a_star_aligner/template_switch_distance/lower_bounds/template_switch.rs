@@ -18,11 +18,12 @@ use crate::{
         alignment_result::IAlignmentType,
         template_switch_distance::{
             Context, Identifier, Node,
-            context::Memory,
+            context::{DynamicStrategies, Memory},
             identifier::GapType,
             strategies::{
                 AlignmentStrategySelection, chaining::NoChainingStrategy,
-                node_ord::CostOnlyNodeOrdStrategy, primary_match::AllowPrimaryMatchStrategy,
+                descendant::AnyTemplateSwitchDescendantStrategy, node_ord::CostOnlyNodeOrdStrategy,
+                primary_match::AllowPrimaryMatchStrategy,
                 primary_range::NoPrunePrimaryRangeStrategy,
                 secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
@@ -62,6 +63,7 @@ type TSLBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     AllowPrimaryMatchStrategy,
     NoPrunePrimaryRangeStrategy,
     NoTemplateSwitchTotalLengthStrategy,
+    AnyTemplateSwitchDescendantStrategy,
 >;
 
 impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
@@ -106,6 +108,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     shortcut: (),
                     primary_match: (),
                 },
+                DynamicStrategies {},
                 None,
                 None,
                 false,
