@@ -143,7 +143,7 @@ impl TSAligner {
 }
 
 /// Bindings for the `lib_tsalign` library.
-#[pymodule]
+#[pymodule(name = "_tsalign")]
 fn tsalign(m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_class::<TSPairwiseAlignment>()?;
