@@ -338,9 +338,16 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
 
         // The offset only affects which part of the secondary string is being compared against, but otherwise does not change anything.
         // Hence we can ignore it for the lower bound, and simply choose its minimum.
-        offset_costs: vec![
+        rq_qr_offset_costs: vec![
             (isize::MIN, Cost::max_value()),
-            (0, config.offset_costs.min(..).unwrap()),
+            (0, config.rq_qr_offset_costs.min(..).unwrap()),
+            (1, Cost::max_value()),
+        ]
+        .try_into()
+        .unwrap(),
+        rr_qq_offset_costs: vec![
+            (isize::MIN, Cost::max_value()),
+            (0, config.rr_qq_offset_costs.min(..).unwrap()),
             (1, Cost::max_value()),
         ]
         .try_into()

@@ -744,9 +744,11 @@ impl Alignment<AlignmentType> {
                     secondary = ts_secondary;
                     direction = ts_direction;
                     let cost_increment = config.base_cost.get(primary, secondary, direction);
-                    let Some(cost_increment) =
-                        cost_increment.checked_add(&config.offset_costs.evaluate(&first_offset))
-                    else {
+                    let Some(cost_increment) = cost_increment.checked_add(
+                        &config
+                            .offset_costs(primary, secondary)
+                            .evaluate(&first_offset),
+                    ) else {
                         return Cost::max_value();
                     };
                     primary_index = match primary {
@@ -863,22 +865,22 @@ mod tests {
     static START_COSTS: LazyLock<Vec<U64Cost>> = LazyLock::new(|| {
         [
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&-6)
+                + CONFIG.rq_qr_offset_costs.evaluate(&-6)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
                 + CONFIG.length_costs.evaluate(&2)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&-4)
+                + CONFIG.rq_qr_offset_costs.evaluate(&-4)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
                 + CONFIG.length_costs.evaluate(&3)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&-2)
+                + CONFIG.rq_qr_offset_costs.evaluate(&-2)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
                 + CONFIG.length_costs.evaluate(&4)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&0)
+                + CONFIG.rq_qr_offset_costs.evaluate(&0)
                 + CONFIG.secondary_reverse_edit_costs.substitution_cost(
                     DnaAlphabet::ascii_to_character(b'G').unwrap(),
                     DnaAlphabet::ascii_to_character(b'T').unwrap(),
@@ -887,7 +889,7 @@ mod tests {
                 + CONFIG.length_costs.evaluate(&5)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&2)
+                + CONFIG.rq_qr_offset_costs.evaluate(&2)
                 + CONFIG.secondary_reverse_edit_costs.substitution_cost(
                     DnaAlphabet::ascii_to_character(b'G').unwrap(),
                     DnaAlphabet::ascii_to_character(b'T').unwrap(),
@@ -1017,22 +1019,22 @@ mod tests {
     static END_COSTS: LazyLock<Vec<U64Cost>> = LazyLock::new(|| {
         [
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.rq_qr_offset_costs.evaluate(&10)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
                 + CONFIG.length_costs.evaluate(&2)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.rq_qr_offset_costs.evaluate(&10)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
                 + CONFIG.length_costs.evaluate(&3)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.rq_qr_offset_costs.evaluate(&10)
                 + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
                 + CONFIG.length_costs.evaluate(&4)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.rq_qr_offset_costs.evaluate(&10)
                 + CONFIG.secondary_reverse_edit_costs.substitution_cost(
                     DnaAlphabet::ascii_to_character(b'A').unwrap(),
                     DnaAlphabet::ascii_to_character(b'C').unwrap(),
@@ -1041,7 +1043,7 @@ mod tests {
                 + CONFIG.length_costs.evaluate(&5)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
-                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.rq_qr_offset_costs.evaluate(&10)
                 + CONFIG.secondary_reverse_edit_costs.substitution_cost(
                     DnaAlphabet::ascii_to_character(b'A').unwrap(),
                     DnaAlphabet::ascii_to_character(b'C').unwrap(),
@@ -1207,7 +1209,13 @@ mod tests {
             ),
             left_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
             right_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
-            offset_costs: CostFunction::try_from(
+            rq_qr_offset_costs: CostFunction::try_from(
+                (-20..=20)
+                    .map(|i| (i, U64Cost::from(17 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+            rr_qq_offset_costs: CostFunction::try_from(
                 (-20..=20)
                     .map(|i| (i, U64Cost::from(17 * u64::try_from(i + 21).unwrap())))
                     .collect::<Vec<_>>(),

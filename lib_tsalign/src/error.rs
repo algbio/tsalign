@@ -33,9 +33,14 @@ pub enum Error {
     CostFunctionIndexNotIncreasing { index: usize },
 
     #[error(
-        "The offset costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
+        "The rq and qr offset costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
     )]
-    OffsetCostsNotVShaped,
+    RQQROffsetCostsNotVShaped,
+
+    #[error(
+        "The rr and qq offset costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
+    )]
+    RRQQOffsetCostsNotVShaped,
 
     #[error(
         "The length difference costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."

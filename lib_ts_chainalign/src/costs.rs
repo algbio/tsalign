@@ -14,9 +14,12 @@ pub struct GapAffineCosts<Cost> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TsLimits {
-    /// The maximum range of the 12-jump of a template switch.
+    /// The maximum range of the 12-jump of an inter (12 or 21) template switch.
     /// This parameter is ignored for now.
-    pub jump_12: Range<isize>,
+    pub inter_jump_12: Range<isize>,
+    /// The maximum range of the 12-jump of an intra (11 or 22) template switch.
+    /// This parameter is ignored for now.
+    pub intra_jump_12: Range<isize>,
     /// The maximum range of the 34-jump of a template switch.
     /// This parameter is ignored for now.
     pub jump_34: Range<isize>,
@@ -63,7 +66,8 @@ impl<Cost: Zero> GapAffineCosts<Cost> {
 impl TsLimits {
     pub fn new_unlimited() -> Self {
         Self {
-            jump_12: isize::MIN..isize::MAX,
+            inter_jump_12: isize::MIN..isize::MAX,
+            intra_jump_12: isize::MIN..isize::MAX,
             jump_34: isize::MIN..isize::MAX,
             length_23: usize::MIN..usize::MAX,
             ancestor_gap: isize::MIN..isize::MAX,

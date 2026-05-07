@@ -49,7 +49,8 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing jump costs");
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
-        let (input, offset_costs) = parse_named_cost_function("Offset")(input)?;
+        let (input, rq_qr_offset_costs) = parse_named_cost_function("RQQROffset")(input)?;
+        let (input, rr_qq_offset_costs) = parse_named_cost_function("RRQQOffset")(input)?;
         let (input, length_costs) = parse_named_cost_function("Length")(input)?;
         let (input, length_difference_costs) =
             parse_named_cost_function("LengthDifference")(input)?;
@@ -99,7 +100,8 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 left_flank_edit_costs,
                 right_flank_edit_costs,
 
-                offset_costs,
+                rq_qr_offset_costs,
+                rr_qq_offset_costs,
                 length_costs,
                 length_difference_costs,
                 forward_anti_primary_gap_costs,
@@ -237,8 +239,10 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
         writeln!(f, "qqr_cost = {}", self.base_cost.qqr)?;
 
         writeln!(f, "# Jump Costs")?;
-        writeln!(f, "Offset")?;
-        writeln!(f, "{}", self.offset_costs)?;
+        writeln!(f, "RQQROffset")?;
+        writeln!(f, "{}", self.rq_qr_offset_costs)?;
+        writeln!(f, "RRQQOffset")?;
+        writeln!(f, "{}", self.rr_qq_offset_costs)?;
         writeln!(f, "Length")?;
         writeln!(f, "{}", self.length_costs)?;
         writeln!(f, "LengthDifference")?;
