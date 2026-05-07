@@ -40,6 +40,7 @@ pub struct Context<
 
     pub a_star_buffers: AStarBuffers<Box<Node<Strategies>>>,
     pub memory: Memory<Strategies>,
+    pub dynamic_strategies: DynamicStrategies,
 
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
@@ -60,6 +61,8 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 >>::Memory,
 }
 
+pub struct DynamicStrategies {}
+
 impl<
     'reference,
     'query,
@@ -76,6 +79,7 @@ impl<
         range: AlignmentRange,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
+        dynamic_strategies: DynamicStrategies,
         cost_limit: Option<Strategies::Cost>,
         memory_limit: Option<usize>,
         force_label_correcting: bool,
@@ -89,6 +93,7 @@ impl<
             config,
             a_star_buffers: Default::default(),
             memory,
+            dynamic_strategies,
             cost_limit,
             memory_limit,
             force_label_correcting,
@@ -780,6 +785,7 @@ impl<
 {
     fn reset(&mut self) {
         self.memory.reset();
+        self.dynamic_strategies.reset();
     }
 }
 
@@ -787,6 +793,10 @@ impl<Strategies: AlignmentStrategySelector> Reset for Memory<Strategies> {
     fn reset(&mut self) {
         self.template_switch_min_length.reset();
     }
+}
+
+impl Reset for DynamicStrategies {
+    fn reset(&mut self) {}
 }
 
 impl<

@@ -10,21 +10,25 @@ use noisy_float::types::r64;
 use crate::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        template_switch_distance::strategies::{
-            AlignmentStrategySelection,
-            chaining::NoChainingStrategy,
-            node_ord::AntiDiagonalNodeOrdStrategy,
-            primary_match::AllowPrimaryMatchStrategy,
-            primary_range::NoPrunePrimaryRangeStrategy,
-            secondary_deletion::AllowSecondaryDeletionStrategy,
-            shortcut::NoShortcutStrategy,
-            template_switch_count::NoTemplateSwitchCountStrategy,
-            template_switch_min_length::{
-                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
-                PreprocessedTemplateSwitchMinLengthStrategy,
+        template_switch_distance::{
+            context::DynamicStrategies,
+            strategies::{
+                AlignmentStrategySelection,
+                chaining::NoChainingStrategy,
+                descendant::AnyTemplateSwitchDescendantStrategy,
+                node_ord::AntiDiagonalNodeOrdStrategy,
+                primary_match::AllowPrimaryMatchStrategy,
+                primary_range::NoPrunePrimaryRangeStrategy,
+                secondary_deletion::AllowSecondaryDeletionStrategy,
+                shortcut::NoShortcutStrategy,
+                template_switch_count::NoTemplateSwitchCountStrategy,
+                template_switch_min_length::{
+                    LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                    PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                    PreprocessedTemplateSwitchMinLengthStrategy,
+                },
+                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
             },
-            template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
         },
         template_switch_distance_a_star_align,
     },
@@ -59,6 +63,7 @@ fn test_tsnax_disc1_473() {
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
             NoTemplateSwitchTotalLengthStrategy,
+            AnyTemplateSwitchDescendantStrategy,
         >,
         _,
     >(
@@ -68,6 +73,7 @@ fn test_tsnax_disc1_473() {
         "qry",
         range.clone(),
         &config,
+        DynamicStrategies {},
         None,
         None,
         false,
@@ -100,6 +106,7 @@ fn test_tsnax_disc1_473() {
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
             NoTemplateSwitchTotalLengthStrategy,
+            AnyTemplateSwitchDescendantStrategy,
         >,
         _,
     >(
@@ -109,6 +116,7 @@ fn test_tsnax_disc1_473() {
         "qry",
         range.clone(),
         &config,
+        DynamicStrategies {},
         None,
         None,
         false,
@@ -131,6 +139,7 @@ fn test_tsnax_disc1_473() {
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
             NoTemplateSwitchTotalLengthStrategy,
+            AnyTemplateSwitchDescendantStrategy,
         >,
         _,
     >(
@@ -140,6 +149,7 @@ fn test_tsnax_disc1_473() {
         "qry",
         range.clone(),
         &config,
+        DynamicStrategies {},
         None,
         None,
         false,
@@ -162,6 +172,7 @@ fn test_tsnax_disc1_473() {
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
             NoTemplateSwitchTotalLengthStrategy,
+            AnyTemplateSwitchDescendantStrategy,
         >,
         _,
     >(
@@ -171,6 +182,7 @@ fn test_tsnax_disc1_473() {
         "qry",
         range.clone(),
         &config,
+        DynamicStrategies {},
         None,
         None,
         false,
