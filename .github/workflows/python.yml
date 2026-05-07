@@ -158,7 +158,8 @@ jobs:
         id: versions
         shell: bash
         run: |
-          tag="${GITHUB_REF##*/}"
+          git fetch --tags
+          TAG=$(git tag -l 'py_lib_tsalign-v*' | sort -V | tail -n 1)
           tag_version="${tag#*-v}"
           cargo_version=$(grep '^version' python_bindings/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           if [ "$cargo_version" != "$tag_version" ]; then
