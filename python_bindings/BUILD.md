@@ -29,4 +29,4 @@ python3
 ```
 
 ## Release
-Release by simply adjusting the version in `Cargo.toml`, create and push a tag that is called `python_bindings-v<version>`. A GitHub action should™ publish to the [PyPI repository](https://pypi.org/project/tsalign/).
+Release by simply adjusting the version in `Cargo.toml`, create and push a tag that is called `py_lib_tsalign-v<version>`. A GitHub action should™ publish to the [PyPI repository](https://pypi.org/project/tsalign/).
