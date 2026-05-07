@@ -2,15 +2,15 @@
 name = "lib_ts_chainalign"
 description = "A chaining-based sequence-to-sequence aligner that accounts for template switches"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "2.0.0"
+version = "2.0.1"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-generic_a_star = { version = "2.0.0", path = "../generic_a_star" }
-lib_tsalign = { version = "2.0.0", path = "../lib_tsalign" }
+generic_a_star = { version = "2.0.1", path = "../generic_a_star" }
+lib_tsalign = { version = "2.0.1", path = "../lib_tsalign" }
 ndarray = { version = "0.17.1", features = ["serde"] }
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"] }
