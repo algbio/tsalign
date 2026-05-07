@@ -40,7 +40,8 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub right_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
 
     // Jump costs
-    pub offset_costs: CostFunction<isize, Cost>,
+    pub rq_qr_offset_costs: CostFunction<isize, Cost>,
+    pub rr_qq_offset_costs: CostFunction<isize, Cost>,
     pub length_costs: CostFunction<usize, Cost>,
     pub length_difference_costs: CostFunction<isize, Cost>,
     pub forward_anti_primary_gap_costs: CostFunction<isize, Cost>,
@@ -71,8 +72,10 @@ pub struct BaseCost<Cost> {
 impl<AlphabetType, Cost: Bounded + Ord> TemplateSwitchConfig<AlphabetType, Cost> {
     /// Returns an error if any cost function is malformed.
     pub fn verify(&self) -> Result<()> {
-        if !self.offset_costs.is_v_shaped() {
-            Err(Error::OffsetCostsNotVShaped)
+        if !self.rq_qr_offset_costs.is_v_shaped() {
+            Err(Error::RQQROffsetCostsNotVShaped)
+        } else if !self.rr_qq_offset_costs.is_v_shaped() {
+            Err(Error::RRQQOffsetCostsNotVShaped)
         } else if !self.length_difference_costs.is_v_shaped() {
             Err(Error::LengthDifferenceCostsNotVShaped)
         } else {
@@ -99,6 +102,27 @@ impl<AlphabetType, Cost> TemplateSwitchConfig<AlphabetType, Cost> {
         match direction {
             TemplateSwitchDirection::Forward => &self.forward_anti_primary_gap_costs,
             TemplateSwitchDirection::Reverse => &self.reverse_anti_primary_gap_costs,
+        }
+    }
+
+    pub fn offset_costs(
+        &self,
+        primary: TemplateSwitchPrimary,
+        secondary: TemplateSwitchSecondary,
+    ) -> &CostFunction<isize, Cost> {
+        match (primary, secondary) {
+            (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
+                &self.rr_qq_offset_costs
+            }
+            (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
+                &self.rq_qr_offset_costs
+            }
+            (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                &self.rq_qr_offset_costs
+            }
+            (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+                &self.rr_qq_offset_costs
+            }
         }
     }
 }
@@ -182,7 +206,8 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
             secondary_reverse_edit_costs: self.secondary_reverse_edit_costs.clone(),
             left_flank_edit_costs: self.left_flank_edit_costs.clone(),
             right_flank_edit_costs: self.right_flank_edit_costs.clone(),
-            offset_costs: self.offset_costs.clone(),
+            rq_qr_offset_costs: self.rq_qr_offset_costs.clone(),
+            rr_qq_offset_costs: self.rr_qq_offset_costs.clone(),
             length_costs: self.length_costs.clone(),
             length_difference_costs: self.length_difference_costs.clone(),
             forward_anti_primary_gap_costs: self.forward_anti_primary_gap_costs.clone(),
@@ -242,10 +267,16 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<A
                 3.into(),
                 1.into(),
             ),
-            offset_costs: CostFunction::try_from(vec![
+            rq_qr_offset_costs: CostFunction::try_from(vec![
                 (isize::MIN, Cost::max_value()),
                 (-100, 0.into()),
                 (101, Cost::max_value()),
+            ])
+            .unwrap(),
+            rr_qq_offset_costs: CostFunction::try_from(vec![
+                (isize::MIN, Cost::max_value()),
+                (-100, 0.into()),
+                (1, Cost::max_value()),
             ])
             .unwrap(),
             length_costs: CostFunction::try_from(vec![(0, Cost::max_value()), (5, 0.into())])

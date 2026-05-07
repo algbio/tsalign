@@ -350,12 +350,16 @@ impl<
 
                 // Template switches are always allowed, as long as we have a left flank.
                 if flank_index == config.left_flank_length && can_start_another_template_switch {
-                    let offset_costs = config.offset_costs.evaluate(&0);
+                    let rq_qr_offset_costs = config.rq_qr_offset_costs.evaluate(&0);
+                    let rr_qq_offset_costs = config.rr_qq_offset_costs.evaluate(&0);
 
-                    if offset_costs != Strategies::Cost::max_value() {
+                    if rq_qr_offset_costs != Strategies::Cost::max_value()
+                        || rr_qq_offset_costs != Strategies::Cost::max_value()
+                    {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0),
+                                rq_qr_offset_costs,
+                                rr_qq_offset_costs,
                                 &config.base_cost,
                                 self,
                             )
@@ -368,6 +372,7 @@ impl<
             Identifier::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
+                template_switch_primary,
                 template_switch_secondary,
                 template_switch_direction,
                 template_switch_first_offset,
@@ -400,11 +405,13 @@ impl<
                     }
                 {
                     let new_cost = config
-                        .offset_costs
+                        .offset_costs(template_switch_primary, template_switch_secondary)
                         .evaluate(&(&template_switch_first_offset + 1));
 
                     if new_cost != Strategies::Cost::max_value() {
-                        let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
+                        let old_cost = config
+                            .offset_costs(template_switch_primary, template_switch_secondary)
+                            .evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
@@ -428,11 +435,13 @@ impl<
                     }
                 {
                     let new_cost = config
-                        .offset_costs
+                        .offset_costs(template_switch_primary, template_switch_secondary)
                         .evaluate(&(&template_switch_first_offset - 1));
 
                     if new_cost != Strategies::Cost::max_value() {
-                        let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
+                        let old_cost = config
+                            .offset_costs(template_switch_primary, template_switch_secondary)
+                            .evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 

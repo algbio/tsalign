@@ -28,7 +28,8 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> From<TemplateSwitchConfig<Alphabet
                 .into(),
             ts_base_cost,
             ts_limits: TsLimits {
-                jump_12: value.offset_costs.zero_range().unwrap(),
+                inter_jump_12: value.rq_qr_offset_costs.zero_range().unwrap(),
+                intra_jump_12: value.rr_qq_offset_costs.zero_range().unwrap(),
                 // tsalign costs do not support limiting this.
                 jump_34: isize::MIN..isize::MAX,
                 length_23: value.length_costs.zero_range().unwrap(),

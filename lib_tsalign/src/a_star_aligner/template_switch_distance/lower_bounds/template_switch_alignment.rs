@@ -256,7 +256,8 @@ fn generate_template_switch_alignment_lower_bound_config<
         left_flank_edit_costs: config.left_flank_edit_costs.clone(),
         right_flank_edit_costs: config.right_flank_edit_costs.clone(),
 
-        offset_costs: CostFunction::new_max(),
+        rq_qr_offset_costs: CostFunction::new_max(),
+        rr_qq_offset_costs: CostFunction::new_max(),
         length_costs: CostFunction::new_max(),
         length_difference_costs: CostFunction::new_max(),
         forward_anti_primary_gap_costs: CostFunction::new_max(),

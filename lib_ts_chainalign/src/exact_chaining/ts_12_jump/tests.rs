@@ -37,7 +37,8 @@ fn test_start_end() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -86,7 +87,8 @@ fn test_partial_alignment() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -134,7 +136,8 @@ fn test_gap_directions() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -189,7 +192,8 @@ fn test_max_match_run_0() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -235,7 +239,8 @@ fn test_max_match_run_1() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -283,7 +288,8 @@ fn test_max_match_run_2() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -338,7 +344,8 @@ fn test_only_jump() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -381,7 +388,8 @@ fn test_only_jump_start() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,
@@ -424,7 +432,8 @@ fn test_only_jump_end() {
         ),
         ts_base_cost: U32Cost::from(2u8),
         ts_limits: TsLimits {
-            jump_12: -100..100,
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..100,
             ancestor_gap: -100..100,

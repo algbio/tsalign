@@ -220,7 +220,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &'result self,
-        cost_increment: Strategies::Cost,
+        rq_qr_cost_increment: Strategies::Cost,
+        rr_qq_cost_increment: Strategies::Cost,
         base_cost: &'result BaseCost<Strategies::Cost>,
         context: &'result Context<SubsequenceType, Strategies>,
     ) -> impl 'result + Iterator<Item = Self> {
@@ -230,7 +231,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ) {
             unreachable!("This method is only called on primary nodes.")
         }
-        debug_assert!(cost_increment < Strategies::Cost::max_value());
+        debug_assert!(
+            rq_qr_cost_increment < Strategies::Cost::max_value()
+                || rr_qq_cost_increment < Strategies::Cost::max_value(),
+        );
 
         self.node_data
             .identifier
@@ -252,8 +256,20 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     *template_switch_secondary,
                     *template_switch_direction,
                 );
+                let cost_increment = match (*template_switch_primary, *template_switch_secondary) {
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query)
+                    | (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                        rq_qr_cost_increment
+                    }
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference)
+                    | (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+                        rr_qq_cost_increment
+                    }
+                };
 
-                (base_cost != Strategies::Cost::max_value()).then(|| {
+                (base_cost != Strategies::Cost::max_value()
+                    && cost_increment != Strategies::Cost::max_value())
+                .then(|| {
                     self.generate_successor(
                         identifier,
                         cost_increment + base_cost,

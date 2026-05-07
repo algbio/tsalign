@@ -12,7 +12,11 @@ qq_cost = 4
 
 # Jump Costs
 
-Offset
+RQQROffset
+ -inf -100 101
+  inf    0 inf
+
+RRQQOffset
  -inf -100 101
   inf    0 inf
 
