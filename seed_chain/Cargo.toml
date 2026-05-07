@@ -3,7 +3,7 @@ name = "seed_chain"
 description = "A seeding and generic chaining mechanism for sequence-to-sequence alignment"
 license.workspace = true
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "2.0.4"
+version = "2.0.5"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
@@ -12,5 +12,5 @@ repository.workspace = true
 [dependencies]
 compact-genome.workspace = true
 log.workspace = true
-generic_a_star = { version = "2.0.4", path = "../generic_a_star" }
+generic_a_star = { version = "2.0.5", path = "../generic_a_star" }
 num-traits.workspace = true
