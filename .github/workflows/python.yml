@@ -2,12 +2,8 @@ name: Build (and publish) python wheels
 
 on:
   push:
-    branches:
-      - main
-      - '*python*'
     tags:
-      - '*'
-  pull_request:
+      - 'py_lib_tsalign-v*'
   workflow_dispatch:  
 
 permissions:
