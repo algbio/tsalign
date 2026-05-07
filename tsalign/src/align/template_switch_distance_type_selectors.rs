@@ -356,6 +356,7 @@ fn align_a_star_template_switch_distance_call<
         cli.cost_limit,
         cli.memory_limit,
         cli.force_label_correcting,
+        !cli.dont_extend_beyond_range,
         template_switch_count_memory,
     );
     info!("Finished aligning");

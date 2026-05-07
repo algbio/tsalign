@@ -210,6 +210,11 @@ pub struct Cli {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     use_embedded_rq_ranges: bool,
+
+    /// If set, the aligner will not attempt to extend the alignment beyond the specified range
+    /// without increasing cost.
+    #[clap(long)]
+    dont_extend_beyond_range: bool,
 }
 
 #[derive(Args)]

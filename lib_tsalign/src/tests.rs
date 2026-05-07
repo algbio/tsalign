@@ -71,6 +71,7 @@ fn test_tsnax_disc1_473() {
         None,
         None,
         false,
+        true,
         (),
     );
     assert_eq!(
@@ -111,6 +112,7 @@ fn test_tsnax_disc1_473() {
         None,
         None,
         false,
+        true,
         (),
     );
     println!("{sample_alignment}");
@@ -141,6 +143,7 @@ fn test_tsnax_disc1_473() {
         None,
         None,
         false,
+        true,
         (),
     );
     println!("{sample_alignment}");
@@ -171,6 +174,7 @@ fn test_tsnax_disc1_473() {
         None,
         None,
         false,
+        true,
         (),
     );
     println!("{sample_alignment}");

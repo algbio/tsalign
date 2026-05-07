@@ -187,12 +187,9 @@ impl<SourceType: Bounded + Clone, Cost: Bounded + Zero + Eq> CostFunction<Source
         let start = if first.1.is_zero() {
             SourceType::min_value()
         } else if first.1 == Cost::max_value() {
-            if let Some(first) = function.next() {
-                if first.1.is_zero() {
-                    first.0.clone()
-                } else {
-                    return None;
-                }
+            let first = function.next()?;
+            if first.1.is_zero() {
+                first.0.clone()
             } else {
                 return None;
             }

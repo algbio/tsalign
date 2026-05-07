@@ -129,6 +129,7 @@ impl TSAligner {
             Some(ranges),
             cost_limit,
             memory_limit,
+            true,
         );
 
         match result {

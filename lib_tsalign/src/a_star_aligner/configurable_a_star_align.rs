@@ -95,6 +95,7 @@ struct QueryData<'a> {
     ranges: Option<AlignmentRange>,
     cost_limit: Option<u64>,
     memory_limit: Option<usize>,
+    extend_beyond_range: bool,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -190,6 +191,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         ranges: Option<AlignmentRange>,
         cost_limit: Option<u64>,
         memory_limit: Option<usize>,
+        extend_beyond_range: bool,
     ) -> AlignmentResult<AlignmentType, U64Cost> {
         let data = QueryData {
             reference_name,
@@ -199,6 +201,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             ranges,
             cost_limit,
             memory_limit,
+            extend_beyond_range,
         };
         self.align_select_min_length_strategy(data)
     }
@@ -302,6 +305,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             cost_limit,
             data.memory_limit,
             false,
+            data.extend_beyond_range,
             count_strategy_memory,
         )
     }
@@ -330,7 +334,8 @@ mod tests {
                 AlignmentCoordinates::new(33, 214)
             ).into(),
             None,
-            None);
+            None,
+        true);
         println!("{res:#?}");
         assert!(res.statistics().cost.is_sign_positive());
     }
