@@ -144,8 +144,9 @@ jobs:
 
   release:
     name: Release
+    needs: [check_skip, linux, windows, macos, sources]
+    if: ${{ needs.check_skip.outputs.skip == 'false' }}
     runs-on: ubuntu-latest
-    needs: [linux, windows, macos, sources]
     permissions:
       id-token: write
       contents: write
