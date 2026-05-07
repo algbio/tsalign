@@ -272,7 +272,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 .then(|| {
                     self.generate_successor(
                         identifier,
-                        cost_increment + base_cost,
+                        base_cost + cost_increment,
                         AlignmentType::TemplateSwitchEntrance {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,

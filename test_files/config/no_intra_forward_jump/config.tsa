@@ -1,0 +1,131 @@
+# Limits
+
+left_flank_length = 0
+right_flank_length = 0
+
+# Base Cost
+
+rrf_cost = inf
+rqf_cost = inf
+qrf_cost = inf
+qqf_cost = inf
+rrr_cost = 2
+rqr_cost = 2
+qrr_cost = 2
+qqr_cost = 2
+
+# Jump Costs
+
+RQQROffset
+ -inf -100 101
+  inf    0 inf
+
+RRQQOffset
+ -inf -100   1
+  inf    0 inf
+
+Length
+   0 10 200
+ inf  0 inf
+
+LengthDifference
+ -inf -100 -20 -10 11 21 101
+  inf    4   2   0  2  4 inf
+
+ForwardAntiPrimaryGap
+ -inf   1
+    0 inf
+
+ReverseAntiPrimaryGap
+ -inf
+    0
+
+# Primary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  2  2  2
+C |  2  0  2  2
+G |  2  2  0  2
+T |  2  2  2  0
+
+GapOpenCostVector
+ A C G T
+ 3 3 3 3
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
+
+# Secondary Forward Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  4  4  4
+C |  4  0  4  4
+G |  4  4  0  4
+T |  4  4  4  0
+
+GapOpenCostVector
+ A C G T
+ 3 3 3 3
+
+GapExtendCostVector
+ A C G T
+ 2 2 2 2
+
+# Secondary Reverse Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  4  4  4
+C |  4  0  4  4
+G |  4  4  0  4
+T |  4  4  4  0
+
+GapOpenCostVector
+ A C G T
+ 3 3 3 3
+
+GapExtendCostVector
+ A C G T
+ 2 2 2 2
+
+# Left Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  3  3  3
+C |  3  0  3  3
+G |  3  3  0  3
+T |  3  3  3  0
+
+GapOpenCostVector
+ A C G T
+ 4 4 4 4
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
+
+# Right Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  3  3  3
+C |  3  0  3  3
+G |  3  3  0  3
+T |  3  3  3  0
+
+GapOpenCostVector
+ A C G T
+ 4 4 4 4
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
