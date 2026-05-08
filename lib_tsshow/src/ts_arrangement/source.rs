@@ -598,13 +598,18 @@ impl TsSourceArrangement {
             .iter()
             .filter_map(|(i, c)| match c {
                 SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
+                    if *column + 1usize == source_column =>
+                {
+                    Some(sequence.len().into())
+                }
+                SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
                     if *column == source_column =>
                 {
                     Some(i)
                 }
                 _ => None,
             })
-            .next()
+            .min()
     }
 
     pub fn reference_arrangement_to_arrangement_char_column(
@@ -710,6 +715,37 @@ impl TsSourceArrangement {
         sequence
             .iter()
             .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
+            .nth(column.primitive())
+            .unwrap()
+    }
+
+    pub fn reference_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        Self::arrangement_char_to_source_column(&self.reference, column)
+    }
+
+    pub fn query_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        Self::arrangement_char_to_source_column(&self.query, column)
+    }
+
+    fn arrangement_char_to_source_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        sequence
+            .iter_values()
+            .filter_map(|c| {
+                if c.is_char() {
+                    Some(c.source_column())
+                } else {
+                    None
+                }
+            })
             .nth(column.primitive())
             .unwrap()
     }

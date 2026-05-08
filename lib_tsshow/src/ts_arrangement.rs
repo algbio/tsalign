@@ -119,22 +119,31 @@ impl TsArrangement {
     ) -> (Range<SourceColumn>, Range<SourceColumn>) {
         let first_inner_column = self.first_interesting_column();
         let last_inner_column = self.last_interesting_column();
-        let first_printed_column_inclusive =
+        let first_printed_source_column_inclusive =
             first_inner_column.saturating_sub(context_character_amount);
-        let last_printed_column_exclusive = last_inner_column + 1usize + context_character_amount;
+        let last_printed_source_column_exclusive =
+            last_inner_column + 1usize + context_character_amount;
 
         let result = (
-            self.reference_arrangement_to_source_column(first_printed_column_inclusive)
-                ..self
-                    .try_reference_arrangement_to_source_column(last_printed_column_exclusive)
-                    .unwrap_or(self.source.reference_length().into()),
-            self.query_arrangement_to_source_column(first_printed_column_inclusive)
-                ..self
-                    .try_query_arrangement_to_source_column(last_printed_column_exclusive)
-                    .unwrap_or(self.source.query_length().into()),
+            first_printed_source_column_inclusive
+                ..last_printed_source_column_exclusive.min(self.source.reference_length().into()),
+            first_printed_source_column_inclusive
+                ..last_printed_source_column_exclusive.min(self.source.query_length().into()),
         );
-        self.remove_column_range(last_printed_column_exclusive..);
-        self.remove_column_range(..first_printed_column_inclusive);
+
+        let first_printed_arrangement_column_inclusive = self
+            .reference_source_to_arrangement_column(first_printed_source_column_inclusive)
+            .min(self.query_source_to_arrangement_column(first_printed_source_column_inclusive));
+        let last_printed_arrangement_column_exclusive = self
+            .reference_source_to_arrangement_column(
+                last_printed_source_column_exclusive.min(self.source.reference_length().into()),
+            )
+            .max(self.query_source_to_arrangement_column(
+                last_printed_source_column_exclusive.min(self.source.query_length().into()),
+            ));
+        self.remove_column_range(last_printed_arrangement_column_exclusive..);
+        self.remove_column_range(..first_printed_arrangement_column_inclusive);
+
         result
     }
 
@@ -281,6 +290,21 @@ impl TsArrangement {
         }
     }
 
+    pub fn reference_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        self.source
+            .reference_arrangement_char_to_source_column(column)
+    }
+
+    pub fn query_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        self.source.query_arrangement_char_to_source_column(column)
+    }
+
     pub fn inner_first_non_blank_column(
         &self,
         inner_identifier: TsInnerIdentifier,
@@ -296,31 +320,21 @@ impl TsArrangement {
     }
 
     /// Returns the index of the first column that is related to a TSM.
-    pub fn first_interesting_column(&self) -> ArrangementColumn {
+    pub fn first_interesting_column(&self) -> SourceColumn {
         self.inners()
             .iter_values()
             .map(|inner| {
                 [
-                    self.reference_arrangement_char_to_arrangement_column(
+                    self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp1_reference,
                     ),
-                    self.query_arrangement_char_to_arrangement_column(
-                        inner.template_switch().sp1_query,
-                    ),
-                    self.secondary_source_to_arrangement_column(
-                        inner.template_switch().sp2_secondary,
-                        inner.template_switch().secondary,
-                    ),
-                    self.secondary_source_to_arrangement_column(
-                        inner.template_switch().sp3_secondary,
-                        inner.template_switch().secondary,
-                    ),
-                    self.reference_arrangement_char_to_arrangement_column(
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query),
+                    inner.template_switch().sp2_secondary,
+                    inner.template_switch().sp3_secondary,
+                    self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp4_reference,
                     ),
-                    self.query_arrangement_char_to_arrangement_column(
-                        inner.template_switch().sp4_query,
-                    ),
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp4_query),
                 ]
                 .into_iter()
                 .min()
@@ -331,31 +345,21 @@ impl TsArrangement {
     }
 
     /// Returns the index of the last column that is related to a TSM.
-    pub fn last_interesting_column(&self) -> ArrangementColumn {
+    pub fn last_interesting_column(&self) -> SourceColumn {
         self.inners()
             .iter_values()
             .map(|inner| {
                 [
-                    self.reference_arrangement_char_to_arrangement_column(
+                    self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp1_reference,
                     ),
-                    self.query_arrangement_char_to_arrangement_column(
-                        inner.template_switch().sp1_query,
-                    ),
-                    self.secondary_source_to_arrangement_column(
-                        inner.template_switch().sp2_secondary,
-                        inner.template_switch().secondary,
-                    ),
-                    self.secondary_source_to_arrangement_column(
-                        inner.template_switch().sp3_secondary,
-                        inner.template_switch().secondary,
-                    ),
-                    self.reference_arrangement_char_to_arrangement_column(
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query),
+                    inner.template_switch().sp2_secondary,
+                    inner.template_switch().sp3_secondary,
+                    self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp4_reference,
                     ),
-                    self.query_arrangement_char_to_arrangement_column(
-                        inner.template_switch().sp4_query,
-                    ),
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp4_query),
                 ]
                 .into_iter()
                 .max()
