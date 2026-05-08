@@ -147,10 +147,7 @@ impl TsArrangement {
         result
     }
 
-    pub fn remove_column_range(
-        &mut self,
-        range: impl RangeBounds<ArrangementColumn> + Clone + Debug,
-    ) {
+    pub fn remove_column_range(&mut self, range: impl RangeBounds<ArrangementColumn> + Debug) {
         debug!("Removing column range: {range:?}");
         let range_start = match range.start_bound() {
             Bound::Included(inclusive) => *inclusive,
@@ -367,6 +364,6 @@ impl TsArrangement {
             })
             .max()
             .unwrap()
-            - 1
+            .saturating_sub(1)
     }
 }
