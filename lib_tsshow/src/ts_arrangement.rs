@@ -121,8 +121,9 @@ impl TsArrangement {
         let last_inner_column = self.last_interesting_column();
         let first_printed_source_column_inclusive =
             first_inner_column.saturating_sub(context_character_amount);
-        let last_printed_source_column_exclusive =
-            last_inner_column + 1usize + context_character_amount;
+        let last_printed_source_column_exclusive = last_inner_column
+            .saturating_add(1usize)
+            .saturating_add(context_character_amount);
 
         let result = (
             first_printed_source_column_inclusive
@@ -338,7 +339,7 @@ impl TsArrangement {
                 .unwrap()
             })
             .min()
-            .unwrap()
+            .unwrap_or(0.into())
     }
 
     /// Returns the index of the last column that is related to a TSM.
@@ -363,7 +364,12 @@ impl TsArrangement {
                 .unwrap()
             })
             .max()
-            .unwrap()
+            .unwrap_or(
+                self.source
+                    .reference_length()
+                    .max(self.source.query_length())
+                    .into(),
+            )
             .saturating_sub(1)
     }
 }

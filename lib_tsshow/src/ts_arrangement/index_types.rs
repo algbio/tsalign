@@ -27,6 +27,10 @@ pub struct TsInnerIdentifier(usize);
 macro_rules! index_type_ops {
     ($name:ty, $inner:ty, $signed_inner:ty) => {
         impl $name {
+            pub fn saturating_add(&self, other: $inner) -> Self {
+                Self(self.0.saturating_add(other))
+            }
+
             pub fn checked_sub(&self, other: $inner) -> Option<Self> {
                 self.0.checked_sub(other).map(Self)
             }
