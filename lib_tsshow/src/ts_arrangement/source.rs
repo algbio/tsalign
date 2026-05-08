@@ -19,6 +19,8 @@ use crate::error::Result;
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
     query: TaggedVec<ArrangementColumn, SourceChar>,
+    reference_length: usize,
+    query_length: usize,
 }
 
 pub struct RemovedHiddenChars {
@@ -75,6 +77,8 @@ impl TsSourceArrangement {
                 iter::repeat_n(SourceChar::Blank, query_left_blank_count)
                     .chain((0..query_length).map(SourceChar::new_source)),
             ),
+            reference_length,
+            query_length,
         };
 
         let mut current_reference_index =
@@ -594,13 +598,18 @@ impl TsSourceArrangement {
             .iter()
             .filter_map(|(i, c)| match c {
                 SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
+                    if *column + 1usize == source_column =>
+                {
+                    Some(sequence.len().into())
+                }
+                SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
                     if *column == source_column =>
                 {
                     Some(i)
                 }
                 _ => None,
             })
-            .next()
+            .min()
     }
 
     pub fn reference_arrangement_to_arrangement_char_column(
@@ -710,6 +719,37 @@ impl TsSourceArrangement {
             .unwrap()
     }
 
+    pub fn reference_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        Self::arrangement_char_to_source_column(&self.reference, column)
+    }
+
+    pub fn query_arrangement_char_to_source_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        Self::arrangement_char_to_source_column(&self.query, column)
+    }
+
+    fn arrangement_char_to_source_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        column: ArrangementCharColumn,
+    ) -> SourceColumn {
+        sequence
+            .iter_values()
+            .filter_map(|c| {
+                if c.is_char() {
+                    Some(c.source_column())
+                } else {
+                    None
+                }
+            })
+            .nth(column.primitive())
+            .unwrap()
+    }
+
     fn count_reference_copy_chars_before_next_real_char(&self, offset: ArrangementColumn) -> usize {
         Self::count_copy_chars_before_next_real_char(&self.reference, offset)
     }
@@ -728,6 +768,14 @@ impl TsSourceArrangement {
             .take_while(|c| !c.is_source_char())
             .filter(|c| c.is_char() && c.is_copy())
             .count()
+    }
+
+    pub fn reference_length(&self) -> usize {
+        self.reference_length
+    }
+
+    pub fn query_length(&self) -> usize {
+        self.query_length
     }
 }
 
