@@ -19,6 +19,8 @@ use crate::error::Result;
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
     query: TaggedVec<ArrangementColumn, SourceChar>,
+    reference_length: usize,
+    query_length: usize,
 }
 
 pub struct RemovedHiddenChars {
@@ -75,6 +77,8 @@ impl TsSourceArrangement {
                 iter::repeat_n(SourceChar::Blank, query_left_blank_count)
                     .chain((0..query_length).map(SourceChar::new_source)),
             ),
+            reference_length,
+            query_length,
         };
 
         let mut current_reference_index =
@@ -728,6 +732,14 @@ impl TsSourceArrangement {
             .take_while(|c| !c.is_source_char())
             .filter(|c| c.is_char() && c.is_copy())
             .count()
+    }
+
+    pub fn reference_length(&self) -> usize {
+        self.reference_length
+    }
+
+    pub fn query_length(&self) -> usize {
+        self.query_length
     }
 }
 

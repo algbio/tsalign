@@ -44,17 +44,24 @@ pub struct Cli {
     #[clap(long, short = 't')]
     plain_text: bool,
 
-    /// Always render the SVG (and optionally PNG), even if an error occurs. In the case of an error, the SVG simply contains the error message.
+    /// Always render the SVG (and optionally PNG), even if an error occurs.
+    /// In the case of an error, the SVG simply contains the error message.
     #[clap(long, short = 'r')]
     render_always: bool,
 
-    /// Draw the SVG image with arrows connecting the switchpoints. Ignored if --svg is not set.
+    /// Draw the SVG image with arrows connecting the switchpoints.
+    /// Ignored if --svg is not set.
     #[clap(long, short = 'a')]
     svg_arrows: bool,
 
     /// Draw the SVG image with more complement characters than just the bare minimum needed to visualise the template switch.
     #[clap(long, short = 'c')]
     more_svg_complement: bool,
+
+    /// Draw only the given number of characters around the TSMs.
+    /// Ignored if --svg is not set.
+    #[clap(long)]
+    restrict_context_to: Option<usize>,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -103,6 +110,7 @@ pub fn cli(cli: Cli) -> Result<()> {
             &SvgConfig {
                 render_arrows: cli.svg_arrows,
                 render_more_complement: cli.more_svg_complement,
+                restrict_context: cli.restrict_context_to,
             },
         ) {
             if cli.render_always {

@@ -30,6 +30,10 @@ macro_rules! index_type_ops {
             pub fn checked_sub(&self, other: $inner) -> Option<Self> {
                 self.0.checked_sub(other).map(Self)
             }
+
+            pub fn saturating_sub(&self, other: $inner) -> Self {
+                Self(self.0.saturating_sub(other))
+            }
         }
 
         impl std::ops::Add<$inner> for $name {

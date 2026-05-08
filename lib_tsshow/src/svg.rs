@@ -25,6 +25,7 @@ use crate::{
         TsArrangement,
         character::Char,
         complement::ComplementChar,
+        index_types::ArrangementColumn,
         inner::InnerChar,
         row::TsArrangementRow,
         source::{SourceChar, TsSourceArrangement},
@@ -57,6 +58,9 @@ impl SvgLocation {
 pub struct SvgConfig {
     pub render_arrows: bool,
     pub render_more_complement: bool,
+    /// Restrict the context around the template switches to this many characters on each side.
+    /// If `None`, the full sequences will be rendered.
+    pub restrict_context: Option<usize>,
 }
 
 pub fn create_ts_svg(
@@ -96,6 +100,16 @@ pub fn create_ts_svg(
 
     ts_arrangement.remove_empty_columns();
 
+    let (reference_context_range, query_context_range) =
+        if let Some(context_character_amount) = config.restrict_context {
+            ts_arrangement.limit_context_to(context_character_amount)
+        } else {
+            (
+                0usize.into()..reference.len().into(),
+                0usize.into()..query.len().into(),
+            )
+        };
+
     let ts_arrangement = ts_arrangement;
 
     let no_ts_arrangement = no_ts_result
@@ -119,7 +133,31 @@ pub fn create_ts_svg(
                 query.len(),
                 alignment.iter_flat_cloned(),
                 &mut Vec::new(),
-            ))
+            )
+            .map(|mut no_ts_arrangement| {
+                let min_start = no_ts_arrangement
+                    .reference_source_to_arrangement_column(reference_context_range.start)
+                    .min(
+                        no_ts_arrangement
+                            .query_source_to_arrangement_column(query_context_range.start),
+                    );
+                let limit = no_ts_arrangement.width();
+                let max_end = no_ts_arrangement
+                    .try_reference_source_to_arrangement_column(reference_context_range.end)
+                    .unwrap_or(limit.into())
+                    .max(
+                        no_ts_arrangement
+                            .try_query_source_to_arrangement_column(query_context_range.end)
+                            .unwrap_or(limit.into()),
+                    );
+
+                no_ts_arrangement.remove_columns(
+                    (0usize..min_start.primitive())
+                        .chain(max_end.primitive()..limit)
+                        .map(ArrangementColumn::new),
+                );
+                no_ts_arrangement
+            }))
         })
         .transpose()?
         .transpose()?;
