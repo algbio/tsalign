@@ -3,7 +3,8 @@ use std::{cmp::Ordering, iter};
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
+        TemplateSwitchSecondary,
     },
 };
 use log::{debug, trace};
@@ -144,6 +145,7 @@ impl TsSourceArrangement {
                     secondary,
                     direction,
                     first_offset,
+                    equal_cost_range,
                     ..
                 } => {
                     template_switches_out.extend([result.align_ts(
@@ -152,6 +154,7 @@ impl TsSourceArrangement {
                         secondary,
                         direction,
                         first_offset,
+                        equal_cost_range,
                         &mut alignment,
                         &mut current_reference_index,
                         &mut current_query_index,
@@ -219,6 +222,7 @@ impl TsSourceArrangement {
         ts_secondary: TemplateSwitchSecondary,
         ts_direction: TemplateSwitchDirection,
         first_offset: isize,
+        equal_cost_range: EqualCostRange,
         mut alignment: impl Iterator<Item = AlignmentType>,
         current_reference_index: &mut ArrangementColumn,
         current_query_index: &mut ArrangementColumn,
@@ -417,6 +421,7 @@ impl TsSourceArrangement {
             sp3_secondary,
             inner,
             inner_alignment,
+            equal_cost_range,
         }
     }
 

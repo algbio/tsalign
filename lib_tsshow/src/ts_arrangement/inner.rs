@@ -33,6 +33,11 @@ pub enum InnerChar {
         lower_case: bool,
         copy_depth: Option<usize>,
     },
+    OptionalInner {
+        column: SourceColumn,
+        lower_case: bool,
+        copy_depth: Option<usize>,
+    },
     Gap {
         copy_depth: Option<usize>,
     },
@@ -427,7 +432,9 @@ impl TsInner {
 impl InnerChar {
     pub fn to_lower_case(&mut self) {
         match self {
-            InnerChar::Inner { lower_case, .. } => *lower_case = true,
+            InnerChar::Inner { lower_case, .. } | InnerChar::OptionalInner { lower_case, .. } => {
+                *lower_case = true
+            }
             InnerChar::Gap { .. } | InnerChar::Blank => panic!("Not lowercasable"),
         }
     }
@@ -457,7 +464,7 @@ impl From<SourceChar> for InnerChar {
 impl Char for InnerChar {
     fn source_column(&self) -> SourceColumn {
         match self {
-            InnerChar::Inner { column, .. } => *column,
+            InnerChar::Inner { column, .. } | InnerChar::OptionalInner { column, .. } => *column,
             InnerChar::Gap { .. } | InnerChar::Blank => panic!("Has no source column"),
         }
     }
