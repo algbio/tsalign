@@ -971,6 +971,20 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
     ));
     label_width =
         label_width.max(copy_label.chars().count() as f32 * typewriter::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    let uncertainty_label = "BLUE CHARACTERS";
+    result = result.add(svg_string(
+        uncertainty_label
+            .chars()
+            .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_SOURCE_COLOR))),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    label_width = label_width
+        .max(uncertainty_label.chars().count() as f32 * typewriter::FONT.character_width);
 
     // Explanations.
     let label_width = label_width + typewriter::FONT.character_width;
@@ -1000,6 +1014,21 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
     ));
     explanation_width = explanation_width
         .max(copy_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    let uncertainty_explanation = "Equal-cost range of the TSM";
+    result = result.add(svg_string(
+        uncertainty_explanation
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: label_width, y },
+        &sans_serif_mono::FONT,
+    ));
+    explanation_width = explanation_width.max(
+        uncertainty_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width,
+    );
     y += typewriter::FONT
         .character_height
         .max(sans_serif_mono::FONT.character_height);
