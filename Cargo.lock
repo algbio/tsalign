@@ -417,7 +417,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "generic_a_star"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "binary-heap-plus",
  "compare",
@@ -548,7 +548,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lib_ts_chainalign"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "binary-heap-plus",
  "bincode",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "lib_tsalign"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "lib_tsshow"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "ena",
  "itertools",
@@ -804,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "py_lib_tsalign"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "compact-genome",
  "lib_tsalign",
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "seed_chain"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "compact-genome",
  "generic_a_star",
@@ -1360,7 +1360,7 @@ checksum = "2b939c825d0c4295ac520f7b479927c1e5b458c9107a9d6f5ba65bc867bb93a5"
 
 [[package]]
 name = "tsalign"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1381,7 +1381,7 @@ dependencies = [
 
 [[package]]
 name = "tsalign-tests"
-version = "2.0.5"
+version = "2.1.0"
 dependencies = [
  "anyhow",
  "clap",
