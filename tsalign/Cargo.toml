@@ -3,18 +3,18 @@ name = "tsalign"
 description = "A sequence-to-sequence aligner that accounts for template switches"
 license.workspace = true
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "2.0.5"
+version = "2.1.0"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-generic_a_star = { version = "2.0.5", path = "../generic_a_star" }
-lib_tsalign = { version = "2.0.5", path = "../lib_tsalign", features = [
+generic_a_star = { version = "2.1.0", path = "../generic_a_star" }
+lib_tsalign = { version = "2.1.0", path = "../lib_tsalign", features = [
     "serde",
 ] }
-lib_ts_chainalign = { version = "2.0.5", path = "../lib_ts_chainalign" }
-lib_tsshow = { version = "2.0.5", path = "../lib_tsshow" }
+lib_ts_chainalign = { version = "2.1.0", path = "../lib_ts_chainalign" }
+lib_tsshow = { version = "2.1.0", path = "../lib_tsshow" }
 clap.workspace = true
 compact-genome = { workspace = true, features = ["io"] }
 traitsequence.workspace = true

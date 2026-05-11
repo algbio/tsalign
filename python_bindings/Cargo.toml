@@ -6,7 +6,7 @@ authors = [
     "Sebastian Schmidt <sebastian.schmidt@helsinki.fi>",
     "Jasper Krauter <jasper.krauter@helsinki.fi>",
 ]
-version = "2.0.5"
+version = "2.1.0"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
@@ -18,10 +18,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.26"
-lib_tsalign = { version = "2.0.5", path = "../lib_tsalign", features = [
+lib_tsalign = { version = "2.1.0", path = "../lib_tsalign", features = [
     "serde",
 ] }
-lib_tsshow = { version = "2.0.5", path = "../lib_tsshow" }
+lib_tsshow = { version = "2.1.0", path = "../lib_tsshow" }
 serde.workspace = true
 pythonize = "0.26"
 pyo3-log = "0.13"

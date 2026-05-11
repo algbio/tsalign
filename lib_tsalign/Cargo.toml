@@ -2,7 +2,7 @@
 name = "lib_tsalign"
 description = "A sequence-to-sequence aligner that accounts for template switches"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "2.0.5"
+version = "2.1.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,9 +26,9 @@ thiserror = "2.0.3"
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 noisy_float = { version = "0.2.0" }
-generic_a_star = { version = "2.0.5", path = "../generic_a_star" }
+generic_a_star = { version = "2.1.0", path = "../generic_a_star" }
 log.workspace = true
 rustc-hash = "2.1.1"
-seed_chain = { version = "2.0.5", path = "../seed_chain" }
+seed_chain = { version = "2.1.0", path = "../seed_chain" }
 extend_map = "0.14.3"
 template-switch-error-free-inners = "0.1.1"
