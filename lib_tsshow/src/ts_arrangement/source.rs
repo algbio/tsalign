@@ -720,8 +720,11 @@ impl TsSourceArrangement {
         sequence
             .iter()
             .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
+            .chain(iter::once(sequence.len().into()))
             .nth(column.primitive())
-            .unwrap()
+            .unwrap_or_else(|| {
+                panic!("Arrangement char column {column} has no matching arrangement column. There are only {} chars in the arrangement.", sequence.iter_values().filter(|c| c.is_char()).count())
+            })
     }
 
     pub fn reference_arrangement_char_to_source_column(

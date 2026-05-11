@@ -352,6 +352,7 @@ impl TsInnerArrangement {
                         .map(|c| c.source_column())
                         .next()
                         .unwrap();
+                    assert!(first_source_column >= last_source_column);
 
                     // Add prefix to extend to max_end.
                     let mut arrangement_column = last_initial_blank + 1usize;

@@ -278,8 +278,8 @@ pub fn create_ts_svg(
                     )
                     .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
-                    .unwrap()
-                    .0,
+                    .map(|(column, _)| column)
+                    .unwrap_or(ts_arrangement.query().len().into()),
                 TsArrangementRow::Query,
             ),
         };
