@@ -468,9 +468,9 @@ impl TsSourceArrangement {
         let copy_depth = if column == ArrangementColumn::ZERO {
             secondary_sequence[column].copy_depth()
         } else if column == ArrangementColumn::from(secondary_sequence.len()) {
-            secondary_sequence[column - 1].copy_depth()
+            secondary_sequence[column - 1usize].copy_depth()
         } else {
-            let copy_depth_1 = secondary_sequence[column - 1].copy_depth();
+            let copy_depth_1 = secondary_sequence[column - 1usize].copy_depth();
             let copy_depth_2 = secondary_sequence[column].copy_depth();
 
             if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
