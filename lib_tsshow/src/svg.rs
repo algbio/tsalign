@@ -63,6 +63,7 @@ pub struct SvgConfig {
     /// Restrict the context around the template switches to this many characters on each side.
     /// If `None`, the full sequences will be rendered.
     pub restrict_context: Option<usize>,
+    pub visualise_equal_cost_ranges: bool,
 }
 
 pub fn create_ts_svg(
@@ -94,6 +95,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
+        config.visualise_equal_cost_ranges,
     )?;
 
     if config.render_more_complement {

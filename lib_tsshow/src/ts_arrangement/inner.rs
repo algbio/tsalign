@@ -49,6 +49,7 @@ impl TsInnerArrangement {
         source_arrangement: &mut TsSourceArrangement,
         complement_arrangement: &mut TsComplementArrangement,
         template_switches: Vec<TemplateSwitch>,
+        visualise_equal_cost_ranges: bool,
     ) -> Self {
         let mut result = Self {
             inners: Default::default(),
@@ -318,90 +319,92 @@ impl TsInnerArrangement {
                     .skip(inner.len());
             inner.extend(suffix_blanks);
 
-            // Add characters to visualise TSM equal cost range.
-            if forward {
-                warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
-            } else {
-                // Insert range characters before point 2.
+            if visualise_equal_cost_ranges {
+                // Add characters to visualise TSM equal cost range.
+                if forward {
+                    warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
+                } else {
+                    // Insert range characters before point 2.
 
-                let last_initial_blank = inner
-                    .iter()
-                    .take_while(|(_, c)| c.is_blank())
-                    .last()
-                    .unwrap()
-                    .0;
-                let first_final_blank = inner
-                    .iter()
-                    .rev()
-                    .take_while(|(_, c)| c.is_blank())
-                    .last()
-                    .unwrap()
-                    .0;
-                let first_source_column = inner
-                    .iter_values()
-                    .filter(|c| c.is_source_char())
-                    .map(|c| c.source_column())
-                    .next()
-                    .unwrap();
-                let last_source_column = inner
-                    .iter_values()
-                    .rev()
-                    .filter(|c| c.is_source_char())
-                    .map(|c| c.source_column())
-                    .next()
-                    .unwrap();
+                    let last_initial_blank = inner
+                        .iter()
+                        .take_while(|(_, c)| c.is_blank())
+                        .last()
+                        .unwrap()
+                        .0;
+                    let first_final_blank = inner
+                        .iter()
+                        .rev()
+                        .take_while(|(_, c)| c.is_blank())
+                        .last()
+                        .unwrap()
+                        .0;
+                    let first_source_column = inner
+                        .iter_values()
+                        .filter(|c| c.is_source_char())
+                        .map(|c| c.source_column())
+                        .next()
+                        .unwrap();
+                    let last_source_column = inner
+                        .iter_values()
+                        .rev()
+                        .filter(|c| c.is_source_char())
+                        .map(|c| c.source_column())
+                        .next()
+                        .unwrap();
 
-                // Add prefix to extend to max_end.
-                let mut arrangement_column = last_initial_blank + 1usize;
-                let mut source_column = first_source_column;
-                #[allow(clippy::explicit_counter_loop)]
-                for _ in 0..ts.equal_cost_range.max_end {
-                    arrangement_column -= 1;
-                    source_column += 1;
-
-                    inner[arrangement_column] = InnerChar::OptionalInner {
-                        column: source_column,
-                        lower_case: false,
-                        copy_depth: None,
-                    };
-                }
-
-                // Add suffix to extend to min_start.
-                let mut arrangement_column = first_final_blank - 1usize;
-                let mut source_column = last_source_column;
-                for _ in 0..-ts.equal_cost_range.min_start {
-                    arrangement_column += 1;
-                    source_column -= 1;
-
-                    inner[arrangement_column] = InnerChar::OptionalInner {
-                        column: source_column,
-                        lower_case: false,
-                        copy_depth: None,
-                    };
-                }
-
-                // Convert prefix to extend to min_end.
-                let mut arrangement_column = last_initial_blank;
-                for _ in 0..-ts.equal_cost_range.min_end {
-                    arrangement_column += 1;
-
-                    while !inner[arrangement_column].is_source_char() {
-                        arrangement_column += 1;
-                    }
-
-                    inner[arrangement_column].to_optional();
-                }
-
-                // Convert suffix to extend to max_start.
-                let mut arrangement_column = first_final_blank;
-                for _ in 0..ts.equal_cost_range.max_start {
-                    arrangement_column -= 1;
-
-                    while !inner[arrangement_column].is_source_char() {
+                    // Add prefix to extend to max_end.
+                    let mut arrangement_column = last_initial_blank + 1usize;
+                    let mut source_column = first_source_column;
+                    #[allow(clippy::explicit_counter_loop)]
+                    for _ in 0..ts.equal_cost_range.max_end {
                         arrangement_column -= 1;
+                        source_column += 1;
+
+                        inner[arrangement_column] = InnerChar::OptionalInner {
+                            column: source_column,
+                            lower_case: false,
+                            copy_depth: None,
+                        };
                     }
 
-                    inner[arrangement_column].to_optional();
+                    // Add suffix to extend to min_start.
+                    let mut arrangement_column = first_final_blank - 1usize;
+                    let mut source_column = last_source_column;
+                    for _ in 0..-ts.equal_cost_range.min_start {
+                        arrangement_column += 1;
+                        source_column -= 1;
+
+                        inner[arrangement_column] = InnerChar::OptionalInner {
+                            column: source_column,
+                            lower_case: false,
+                            copy_depth: None,
+                        };
+                    }
+
+                    // Convert prefix to extend to min_end.
+                    let mut arrangement_column = last_initial_blank;
+                    for _ in 0..-ts.equal_cost_range.min_end {
+                        arrangement_column += 1;
+
+                        while !inner[arrangement_column].is_source_char() {
+                            arrangement_column += 1;
+                        }
+
+                        inner[arrangement_column].to_optional();
+                    }
+
+                    // Convert suffix to extend to max_start.
+                    let mut arrangement_column = first_final_blank;
+                    for _ in 0..ts.equal_cost_range.max_start {
+                        arrangement_column -= 1;
+
+                        while !inner[arrangement_column].is_source_char() {
+                            arrangement_column -= 1;
+                        }
+
+                        inner[arrangement_column].to_optional();
+                    }
                 }
             }
 

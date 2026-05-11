@@ -38,6 +38,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
+        visualise_equal_cost_ranges: bool,
     ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
@@ -49,7 +50,12 @@ impl TsArrangement {
             &mut template_switches,
         )?;
         let mut complement = TsComplementArrangement::new(&source);
-        let inner = TsInnerArrangement::new(&mut source, &mut complement, template_switches);
+        let inner = TsInnerArrangement::new(
+            &mut source,
+            &mut complement,
+            template_switches,
+            visualise_equal_cost_ranges,
+        );
 
         Ok(Self {
             source,

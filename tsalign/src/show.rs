@@ -60,8 +60,12 @@ pub struct Cli {
 
     /// Draw only the given number of characters around the TSMs.
     /// Ignored if --svg is not set.
-    #[clap(long)]
+    #[clap(long, short = 'z')]
     restrict_context_to: Option<usize>,
+
+    /// Add a visualisation of the equal-cost ranges to the SVG output.
+    #[clap(long, short = 'e')]
+    visualise_equal_cost_ranges: bool,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -111,6 +115,7 @@ pub fn cli(cli: Cli) -> Result<()> {
                 render_arrows: cli.svg_arrows,
                 render_more_complement: cli.more_svg_complement,
                 restrict_context: cli.restrict_context_to,
+                visualise_equal_cost_ranges: cli.visualise_equal_cost_ranges,
             },
         ) {
             if cli.render_always {
