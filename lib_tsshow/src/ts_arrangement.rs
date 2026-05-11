@@ -38,6 +38,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
+        visualise_equal_cost_ranges: bool,
     ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
@@ -49,7 +50,12 @@ impl TsArrangement {
             &mut template_switches,
         )?;
         let mut complement = TsComplementArrangement::new(&source);
-        let inner = TsInnerArrangement::new(&mut source, &mut complement, template_switches);
+        let inner = TsInnerArrangement::new(
+            &mut source,
+            &mut complement,
+            template_switches,
+            visualise_equal_cost_ranges,
+        );
 
         Ok(Self {
             source,
@@ -333,6 +339,18 @@ impl TsArrangement {
                         inner.template_switch().sp4_reference,
                     ),
                     self.query_arrangement_char_to_source_column(inner.template_switch().sp4_query),
+                    inner
+                        .sequence()
+                        .iter_values()
+                        .filter_map(|c| {
+                            if c.is_gap_or_blank() {
+                                None
+                            } else {
+                                Some(c.source_column())
+                            }
+                        })
+                        .next()
+                        .unwrap(),
                 ]
                 .into_iter()
                 .min()
@@ -350,14 +368,31 @@ impl TsArrangement {
                 [
                     self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp1_reference,
-                    ),
-                    self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query),
-                    inner.template_switch().sp2_secondary,
-                    inner.template_switch().sp3_secondary,
+                    )
+                    .saturating_sub(1),
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query)
+                        .saturating_sub(1),
+                    inner.template_switch().sp2_secondary.saturating_sub(1),
+                    inner.template_switch().sp3_secondary.saturating_sub(1),
                     self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp4_reference,
-                    ),
-                    self.query_arrangement_char_to_source_column(inner.template_switch().sp4_query),
+                    )
+                    .saturating_sub(1),
+                    self.query_arrangement_char_to_source_column(inner.template_switch().sp4_query)
+                        .saturating_sub(1),
+                    inner
+                        .sequence()
+                        .iter_values()
+                        .rev()
+                        .filter_map(|c| {
+                            if c.is_gap_or_blank() {
+                                None
+                            } else {
+                                Some(c.source_column())
+                            }
+                        })
+                        .next()
+                        .unwrap(),
                 ]
                 .into_iter()
                 .max()
@@ -370,6 +405,5 @@ impl TsArrangement {
                     .max(self.source.query_length())
                     .into(),
             )
-            .saturating_sub(1)
     }
 }

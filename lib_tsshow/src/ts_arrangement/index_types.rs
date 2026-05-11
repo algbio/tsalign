@@ -82,6 +82,16 @@ macro_rules! index_type_ops {
             }
         }
 
+        impl std::ops::Sub<$signed_inner> for $name {
+            type Output = Self;
+
+            fn sub(self, other: $signed_inner) -> Self::Output {
+                Self(
+                    <$inner>::try_from(<$signed_inner>::try_from(self.0).unwrap() - other).unwrap(),
+                )
+            }
+        }
+
         impl std::ops::AddAssign<$inner> for $name {
             fn add_assign(&mut self, other: $inner) {
                 self.0 += other

@@ -3,7 +3,8 @@ use std::{cmp::Ordering, iter};
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
+        TemplateSwitchSecondary,
     },
 };
 use log::{debug, trace};
@@ -144,6 +145,7 @@ impl TsSourceArrangement {
                     secondary,
                     direction,
                     first_offset,
+                    equal_cost_range,
                     ..
                 } => {
                     template_switches_out.extend([result.align_ts(
@@ -152,6 +154,7 @@ impl TsSourceArrangement {
                         secondary,
                         direction,
                         first_offset,
+                        equal_cost_range,
                         &mut alignment,
                         &mut current_reference_index,
                         &mut current_query_index,
@@ -219,6 +222,7 @@ impl TsSourceArrangement {
         ts_secondary: TemplateSwitchSecondary,
         ts_direction: TemplateSwitchDirection,
         first_offset: isize,
+        equal_cost_range: EqualCostRange,
         mut alignment: impl Iterator<Item = AlignmentType>,
         current_reference_index: &mut ArrangementColumn,
         current_query_index: &mut ArrangementColumn,
@@ -417,6 +421,7 @@ impl TsSourceArrangement {
             sp3_secondary,
             inner,
             inner_alignment,
+            equal_cost_range,
         }
     }
 
@@ -463,9 +468,9 @@ impl TsSourceArrangement {
         let copy_depth = if column == ArrangementColumn::ZERO {
             secondary_sequence[column].copy_depth()
         } else if column == ArrangementColumn::from(secondary_sequence.len()) {
-            secondary_sequence[column - 1].copy_depth()
+            secondary_sequence[column - 1usize].copy_depth()
         } else {
-            let copy_depth_1 = secondary_sequence[column - 1].copy_depth();
+            let copy_depth_1 = secondary_sequence[column - 1usize].copy_depth();
             let copy_depth_2 = secondary_sequence[column].copy_depth();
 
             if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
@@ -715,8 +720,11 @@ impl TsSourceArrangement {
         sequence
             .iter()
             .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
+            .chain(iter::once(sequence.len().into()))
             .nth(column.primitive())
-            .unwrap()
+            .unwrap_or_else(|| {
+                panic!("Arrangement char column {column} has no matching arrangement column. There are only {} chars in the arrangement.", sequence.iter_values().filter(|c| c.is_char()).count())
+            })
     }
 
     pub fn reference_arrangement_char_to_source_column(

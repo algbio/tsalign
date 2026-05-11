@@ -41,6 +41,8 @@ mod numbers;
 
 const SVG_PADDING: f32 = 10.0;
 const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
+const OPTIONAL_COPY_COLORS: &[&str] = &["#88CC88", "#669966", "#446644", "#223322"];
+const OPTIONAL_SOURCE_COLOR: &str = "blue";
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 const TS_RUNNING_NUMBER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -61,6 +63,7 @@ pub struct SvgConfig {
     /// Restrict the context around the template switches to this many characters on each side.
     /// If `None`, the full sequences will be rendered.
     pub restrict_context: Option<usize>,
+    pub visualise_equal_cost_ranges: bool,
 }
 
 pub fn create_ts_svg(
@@ -92,6 +95,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
+        config.visualise_equal_cost_ranges,
     )?;
 
     if config.render_more_complement {
@@ -274,8 +278,8 @@ pub fn create_ts_svg(
                     )
                     .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
-                    .unwrap()
-                    .0,
+                    .map(|(column, _)| column)
+                    .unwrap_or(ts_arrangement.query().len().into()),
                 TsArrangementRow::Query,
             ),
         };
@@ -801,11 +805,12 @@ fn render_source_char(
                 c
             };
 
-            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth)))
+            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, false)))
         }
-        SourceChar::Gap { copy_depth } => {
-            Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
-        }
+        SourceChar::Gap { copy_depth } => Character::new_char(
+            '-',
+            CharacterData::new_colored(copy_color(copy_depth, false)),
+        ),
         SourceChar::Separator => Character::new_char_with_default('|'),
         SourceChar::Hidden { .. } | SourceChar::Spacer | SourceChar::Blank => {
             Character::new_char_with_default(' ')
@@ -867,11 +872,25 @@ fn render_inner_char(
             } else {
                 c
             };
-            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth)))
+            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, false)))
         }
-        InnerChar::Gap { copy_depth } => {
-            Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
+        InnerChar::OptionalInner {
+            column,
+            lower_case,
+            copy_depth,
+        } => {
+            let c = source_sequence.char_at(column.into());
+            let c = if *lower_case {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            };
+            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, true)))
         }
+        InnerChar::Gap { copy_depth } => Character::new_char(
+            '-',
+            CharacterData::new_colored(copy_color(copy_depth, false)),
+        ),
         InnerChar::Blank => Character::new_char(' ', Default::default()),
     }
 }
@@ -880,9 +899,15 @@ fn render_label_char(c: char) -> Character<CharacterData> {
     Character::new_char(c, CharacterData::new_colored("#555555"))
 }
 
-fn copy_color(copy_depth: &Option<usize>) -> impl ToString {
+fn copy_color(copy_depth: &Option<usize>, is_optional: bool) -> impl ToString {
     if let Some(copy_depth) = copy_depth {
-        COPY_COLORS[copy_depth % COPY_COLORS.len()]
+        if is_optional {
+            OPTIONAL_COPY_COLORS[copy_depth % OPTIONAL_COPY_COLORS.len()]
+        } else {
+            COPY_COLORS[copy_depth % COPY_COLORS.len()]
+        }
+    } else if is_optional {
+        OPTIONAL_SOURCE_COLOR
     } else {
         "black"
     }
@@ -946,6 +971,20 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
     ));
     label_width =
         label_width.max(copy_label.chars().count() as f32 * typewriter::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    let uncertainty_label = "BLUE CHARACTERS";
+    result = result.add(svg_string(
+        uncertainty_label
+            .chars()
+            .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_SOURCE_COLOR))),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    label_width = label_width
+        .max(uncertainty_label.chars().count() as f32 * typewriter::FONT.character_width);
 
     // Explanations.
     let label_width = label_width + typewriter::FONT.character_width;
@@ -975,6 +1014,21 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
     ));
     explanation_width = explanation_width
         .max(copy_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    let uncertainty_explanation = "Equal-cost range of the TSM";
+    result = result.add(svg_string(
+        uncertainty_explanation
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: label_width, y },
+        &sans_serif_mono::FONT,
+    ));
+    explanation_width = explanation_width.max(
+        uncertainty_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width,
+    );
     y += typewriter::FONT
         .character_height
         .max(sans_serif_mono::FONT.character_height);
