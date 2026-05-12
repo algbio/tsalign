@@ -113,28 +113,17 @@ impl<Cost> TsBaseCost<Cost> {
 
 impl<Cost: UpperBounded + Eq> FromIterator<(TsKind, Cost)> for TsBaseCost<Cost> {
     fn from_iter<T: IntoIterator<Item = (TsKind, Cost)>>(iter: T) -> Self {
-        let mut cost_by_kind = [
-            Cost::max_value(),
-            Cost::max_value(),
-            Cost::max_value(),
-            Cost::max_value(),
-        ];
+        let mut cost_by_kind = [None, None, None, None];
 
-        let mut count = 0;
         for (ts_kind, cost) in iter {
             assert!(
-                cost_by_kind[ts_kind.index()] == Cost::max_value(),
+                cost_by_kind[ts_kind.index()].is_none(),
                 "Duplicate TsKind {ts_kind} in iterator",
             );
-            cost_by_kind[ts_kind.index()] = cost;
-            count += 1;
+            cost_by_kind[ts_kind.index()] = Some(cost);
         }
-        assert_eq!(
-            count, 4,
-            "Iterator must contain exactly 4 entries, one for each TsKind",
-        );
 
-        Self::new(cost_by_kind)
+        Self::new(cost_by_kind.map(|cost| cost.expect("Missing TsKind")))
     }
 }
 
