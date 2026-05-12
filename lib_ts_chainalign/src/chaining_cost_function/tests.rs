@@ -28,7 +28,7 @@ fn create_lower_bounds(max_match_run: u32) -> ChainingLowerBounds<U32Cost> {
         AlignmentCosts::new(
             GapAffineCosts::new(2u8.into(), 3u8.into(), 1u8.into()),
             GapAffineCosts::new(4u8.into(), 6u8.into(), 2u8.into()),
-            2u8.into(),
+            U32Cost::from(2u8).into(),
             TsLimits::new_unlimited(),
         ),
     )

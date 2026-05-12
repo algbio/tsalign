@@ -7,7 +7,10 @@ use lib_tsalign::{
     config::TemplateSwitchConfig, costs::gap_affine::GapAffineAlignmentCostTable,
 };
 
-use crate::costs::{AlignmentCosts, GapAffineCosts, TsLimits};
+use crate::{
+    alignment::ts_kind::TsKind,
+    costs::{AlignmentCosts, GapAffineCosts, TsBaseCost, TsLimits},
+};
 
 impl<AlphabetType: Alphabet, Cost: AStarCost> From<TemplateSwitchConfig<AlphabetType, Cost>>
     for AlignmentCosts<Cost>
@@ -16,10 +19,12 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> From<TemplateSwitchConfig<Alphabet
         let value = &value;
         assert!(value.left_flank_length == 0 && value.right_flank_length == 0);
 
-        let ts_base_cost = value.base_cost.qqr;
-        assert_eq!(ts_base_cost, value.base_cost.qrr);
-        assert_eq!(ts_base_cost, value.base_cost.rqr);
-        assert_eq!(ts_base_cost, value.base_cost.rrr);
+        let ts_base_cost = TsBaseCost::from_iter([
+            (TsKind::TS11, value.base_cost.rrr),
+            (TsKind::TS12, value.base_cost.qrr), // Note that the ancestor is the secondary and the descendant is the primary, hence these are flipped.
+            (TsKind::TS21, value.base_cost.rqr),
+            (TsKind::TS22, value.base_cost.qqr),
+        ]);
 
         Self {
             primary_costs: (&value.primary_edit_costs).into(),

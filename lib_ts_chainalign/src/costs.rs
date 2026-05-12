@@ -1,7 +1,9 @@
 use std::ops::Range;
 
-use num_traits::Zero;
+use num_traits::{Zero, bounds::UpperBounded};
 use serde::{Deserialize, Serialize};
+
+use crate::alignment::ts_kind::TsKind;
 
 mod compat;
 
@@ -30,6 +32,13 @@ pub struct TsLimits {
     pub ancestor_gap: Range<isize>,
 }
 
+/// The base cost of a template switch.
+/// This is applied whenever a template switch is started.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct TsBaseCost<Cost> {
+    cost_by_kind: [Cost; 4],
+}
+
 /// The cost function for alignments.
 ///
 /// For convenience, it implements [`TryFrom<TemplateSwitchConfig<Alphabet, Cost>>`](std::convert::TryFrom).
@@ -41,8 +50,8 @@ pub struct AlignmentCosts<Cost> {
     /// Costs for secondary alignment, i.e. for the 23-alignment of a template switch.
     pub secondary_costs: GapAffineCosts<Cost>,
     /// The base cost of a template switch.
-    /// This is applied whenevera template switch is started.
-    pub ts_base_cost: Cost,
+    /// This is applied whenever a template switch is started.
+    pub ts_base_cost: TsBaseCost<Cost>,
     /// Limits on the geometry of a template switch.
     pub ts_limits: TsLimits,
 }
@@ -75,11 +84,60 @@ impl TsLimits {
     }
 }
 
+impl<Cost> TsBaseCost<Cost> {
+    pub fn new(cost_by_kind: [Cost; 4]) -> Self {
+        Self { cost_by_kind }
+    }
+
+    pub fn has_zero_cost(&self) -> bool
+    where
+        Cost: Zero,
+    {
+        self.cost_by_kind.iter().any(|cost| cost.is_zero())
+    }
+
+    pub fn min(&self) -> Cost
+    where
+        Cost: Copy + Ord,
+    {
+        *self.cost_by_kind.iter().min().unwrap()
+    }
+
+    pub fn get(&self, ts_kind: TsKind) -> Cost
+    where
+        Cost: Copy,
+    {
+        self.cost_by_kind[ts_kind.index()]
+    }
+}
+
+impl<Cost: UpperBounded + Eq> FromIterator<(TsKind, Cost)> for TsBaseCost<Cost> {
+    fn from_iter<T: IntoIterator<Item = (TsKind, Cost)>>(iter: T) -> Self {
+        let mut cost_by_kind = [None, None, None, None];
+
+        for (ts_kind, cost) in iter {
+            assert!(
+                cost_by_kind[ts_kind.index()].is_none(),
+                "Duplicate TsKind {ts_kind} in iterator",
+            );
+            cost_by_kind[ts_kind.index()] = Some(cost);
+        }
+
+        Self::new(cost_by_kind.map(|cost| cost.expect("Missing TsKind")))
+    }
+}
+
+impl<Cost: Copy> From<Cost> for TsBaseCost<Cost> {
+    fn from(value: Cost) -> Self {
+        Self::new([value; 4])
+    }
+}
+
 impl<Cost> AlignmentCosts<Cost> {
     pub fn new(
         primary_costs: GapAffineCosts<Cost>,
         secondary_costs: GapAffineCosts<Cost>,
-        ts_base_cost: Cost,
+        ts_base_cost: TsBaseCost<Cost>,
         ts_limits: TsLimits,
     ) -> Self {
         Self {
@@ -95,6 +153,6 @@ impl<Cost: Zero> AlignmentCosts<Cost> {
     pub fn has_zero_cost(&self) -> bool {
         self.primary_costs.has_zero_cost()
             || self.secondary_costs.has_zero_cost()
-            || self.ts_base_cost.is_zero()
+            || self.ts_base_cost.has_zero_cost()
     }
 }

@@ -88,7 +88,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             },
             predecessor: None,
             predecessor_alignment_type: None,
-            cost: self.costs.ts_base_cost,
+            cost: self.costs.ts_base_cost.get(self.end.ts_kind().unwrap()),
             match_run: 0,
         }
     }

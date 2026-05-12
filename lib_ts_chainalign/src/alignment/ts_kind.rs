@@ -23,18 +23,22 @@ pub enum TsDescendant {
 }
 
 impl TsKind {
+    /// Ancestor is Seq1, descendant is Seq1.
     pub const TS11: Self = TsKind {
         ancestor: TsAncestor::Seq1,
         descendant: TsDescendant::Seq1,
     };
+    /// Ancestor is Seq1, descendant is Seq2.
     pub const TS12: Self = TsKind {
         ancestor: TsAncestor::Seq1,
         descendant: TsDescendant::Seq2,
     };
+    /// Ancestor is Seq2, descendant is Seq1.
     pub const TS21: Self = TsKind {
         ancestor: TsAncestor::Seq2,
         descendant: TsDescendant::Seq1,
     };
+    /// Ancestor is Seq2, descendant is Seq2.
     pub const TS22: Self = TsKind {
         ancestor: TsAncestor::Seq2,
         descendant: TsDescendant::Seq2,

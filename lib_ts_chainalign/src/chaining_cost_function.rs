@@ -286,12 +286,18 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
                         jump_12[[from_index, to_index]] = lower_bound.max(
                             max_exact_cost_function_cost
-                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                                + chaining_lower_bounds
+                                    .alignment_costs()
+                                    .ts_base_cost
+                                    .get(ts_kind)
                                 + Cost::from_usize(1),
                         );
                         if lower_bound
                             <= max_exact_cost_function_cost
-                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                                + chaining_lower_bounds
+                                    .alignment_costs()
+                                    .ts_base_cost
+                                    .get(ts_kind)
                         {
                             eligible_anchors.push(to_anchor);
                         }
@@ -330,7 +336,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                             align_end,
                             ts_kind,
                             max_exact_cost_function_cost
-                                + chaining_lower_bounds.alignment_costs().ts_base_cost,
+                                + chaining_lower_bounds
+                                    .alignment_costs()
+                                    .ts_base_cost
+                                    .get(ts_kind),
                             &mut additional_secondary_targets_output,
                         );
                     let after_align = Instant::now();
@@ -344,7 +353,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                         jump_12[[from_index, to_index]] = jump_12[[from_index, to_index]].min(cost);
                         if cost
                             <= max_exact_cost_function_cost
-                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                                + chaining_lower_bounds
+                                    .alignment_costs()
+                                    .ts_base_cost
+                                    .get(ts_kind)
                         {
                             jump_12.set_exact(from_index, to_index);
                         }
@@ -442,7 +454,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 start,
                 sequences.secondary_end(ts_kind),
                 ts_kind,
-                max_exact_cost_function_cost + chaining_lower_bounds.alignment_costs().ts_base_cost,
+                max_exact_cost_function_cost
+                    + chaining_lower_bounds
+                        .alignment_costs()
+                        .ts_base_cost
+                        .get(ts_kind),
                 &mut additional_secondary_targets_output,
             );
             additional_secondary_targets_output.sort_unstable();
@@ -453,7 +469,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 jump_12[[primary_start_anchor_index, to_index]] = cost;
                 if cost
                     <= max_exact_cost_function_cost
-                        + chaining_lower_bounds.alignment_costs().ts_base_cost
+                        + chaining_lower_bounds
+                            .alignment_costs()
+                            .ts_base_cost
+                            .get(ts_kind)
                 {
                     jump_12.set_exact(primary_start_anchor_index, to_index);
                 }
@@ -466,7 +485,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     .jump_12_lower_bound(gap)
                     .max(
                         max_exact_cost_function_cost
-                            + chaining_lower_bounds.alignment_costs().ts_base_cost
+                            + chaining_lower_bounds
+                                .alignment_costs()
+                                .ts_base_cost
+                                .get(ts_kind)
                             + Cost::from_usize(1),
                     )
                     .min(jump_12[[primary_start_anchor_index, index]]);
