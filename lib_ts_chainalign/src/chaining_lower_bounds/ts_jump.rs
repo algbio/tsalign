@@ -36,7 +36,7 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
             for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
                 let lower_bound = primary_lower_bounds
                     .variable_gap2_lower_bound(primary_descendant_gap)
-                    + cost_table.ts_base_cost
+                    + cost_table.ts_base_cost.min()
                     + secondary_lower_bounds.variable_gap2_lower_bound(secondary_descendant_gap);
                 lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
                     lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]

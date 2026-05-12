@@ -35,7 +35,7 @@ fn test_start_end() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -79,7 +79,7 @@ fn test_partial_alignment() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -122,7 +122,7 @@ fn test_gap_directions() {
             U32Cost::from(1u8),
             U32Cost::from(1u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -172,7 +172,7 @@ fn test_max_match_run_0() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -213,7 +213,7 @@ fn test_max_match_run_1() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -262,7 +262,7 @@ fn test_max_match_run_2() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -312,7 +312,7 @@ fn test_only_jump() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -350,7 +350,7 @@ fn test_only_jump_start() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
@@ -388,7 +388,7 @@ fn test_only_jump_end() {
             U32Cost::from(6u8),
             U32Cost::from(2u8),
         ),
-        ts_base_cost: U32Cost::from(2u8),
+        ts_base_cost: U32Cost::from(2u8).into(),
         ts_limits: TsLimits {
             inter_jump_12: -100..100,
             intra_jump_12: -100..100,
