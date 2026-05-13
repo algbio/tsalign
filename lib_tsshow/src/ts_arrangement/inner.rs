@@ -330,15 +330,19 @@ impl TsInnerArrangement {
                         .iter()
                         .take_while(|(_, c)| c.is_blank())
                         .last()
-                        .unwrap()
-                        .0;
+                        .map(|(i, _)| i);
                     let first_final_blank = inner
                         .iter()
                         .rev()
                         .take_while(|(_, c)| c.is_blank())
                         .last()
-                        .unwrap()
-                        .0;
+                        .map(|(i, _)| i)
+                        .unwrap_or(inner.len().into());
+                    let first_non_blank = inner
+                        .iter()
+                        .find(|(_, c)| !c.is_blank())
+                        .map(|(i, _)| i)
+                        .unwrap();
                     let first_source_column = inner
                         .iter_values()
                         .filter(|c| c.is_source_char())
@@ -355,7 +359,8 @@ impl TsInnerArrangement {
                     assert!(first_source_column >= last_source_column);
 
                     // Add prefix to extend to max_end.
-                    let mut arrangement_column = last_initial_blank + 1usize;
+                    let mut arrangement_column =
+                        last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
                     #[allow(clippy::explicit_counter_loop)]
                     for _ in 0..ts.equal_cost_range.max_end {
@@ -384,15 +389,14 @@ impl TsInnerArrangement {
                     }
 
                     // Convert prefix to extend to min_end.
-                    let mut arrangement_column = last_initial_blank;
+                    let mut arrangement_column = first_non_blank;
                     for _ in 0..-ts.equal_cost_range.min_end {
-                        arrangement_column += 1;
-
                         while !inner[arrangement_column].is_source_char() {
                             arrangement_column += 1;
                         }
 
                         inner[arrangement_column].to_optional();
+                        arrangement_column += 1;
                     }
 
                     // Convert suffix to extend to max_start.
