@@ -147,7 +147,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
                 gap_type,
             } => write!(
                 f,
-                "Secondary({}R, {}Q, {}L, {}P, {}S, {}, {}, {}, {})",
+                "Secondary({}R, {}Q, {}L, {}D, {}S, {}, {}, {}, {})",
                 entrance_reference_index,
                 entrance_query_index,
                 length,
