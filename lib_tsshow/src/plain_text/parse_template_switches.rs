@@ -5,7 +5,7 @@ use lib_tsalign::a_star_aligner::{
         stream::{AlignmentStream, AlignmentStreamCoordinates},
     },
     template_switch_distance::{
-        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
     },
 };
 use log::{debug, trace};
@@ -20,11 +20,11 @@ pub struct TSShow<AlignmentType> {
     pub upstream_offset: AlignmentStreamCoordinates,
     pub downstream_limit: AlignmentStreamCoordinates,
     pub sp1_offset: AlignmentStreamCoordinates,
-    pub sp2_secondary_offset: usize,
-    pub sp3_secondary_offset: usize,
+    pub sp2_ancestor_offset: usize,
+    pub sp3_ancestor_offset: usize,
     pub sp4_offset: AlignmentStreamCoordinates,
-    pub primary: TemplateSwitchPrimary,
-    pub secondary: TemplateSwitchSecondary,
+    pub descendant: TemplateSwitchDescendant,
+    pub ancestor: TemplateSwitchAncestor,
     pub upstream: Alignment<AlignmentType>,
     pub template_switch: Alignment<AlignmentType>,
     pub downstream: Alignment<AlignmentType>,
@@ -60,8 +60,8 @@ fn parse_template_switch(
     let (
         multiplicity,
         alignment_type @ AlignmentType::TemplateSwitchEntrance {
-            primary,
-            secondary,
+            descendant,
+            ancestor,
             direction,
             first_offset,
             ..
@@ -79,15 +79,15 @@ fn parse_template_switch(
     stream.push(multiplicity, alignment_type);
     alignment.next().unwrap();
 
-    let sp2_secondary_offset: usize = match secondary {
-        TemplateSwitchSecondary::Reference => (sp1_offset.reference() as isize + first_offset)
+    let sp2_ancestor_offset: usize = match ancestor {
+        TemplateSwitchAncestor::Reference => (sp1_offset.reference() as isize + first_offset)
             .try_into()
             .unwrap(),
-        TemplateSwitchSecondary::Query => (sp1_offset.query() as isize + first_offset)
+        TemplateSwitchAncestor::Query => (sp1_offset.query() as isize + first_offset)
             .try_into()
             .unwrap(),
     };
-    let mut sp3_secondary_offset = sp2_secondary_offset;
+    let mut sp3_ancestor_offset = sp2_ancestor_offset;
 
     while let Some((multiplicity, alignment_type)) = alignment.next() {
         debug!("alignment type: {alignment_type}");
@@ -105,7 +105,7 @@ fn parse_template_switch(
                     sp1_offset
                         .reference()
                         .max(sp1_offset.query())
-                        .saturating_sub(sp2_secondary_offset.min(sp3_secondary_offset))
+                        .saturating_sub(sp2_ancestor_offset.min(sp3_ancestor_offset))
                         + STREAM_PADDING,
                 ),
             );
@@ -121,11 +121,9 @@ fn parse_template_switch(
                 alignment,
                 stream,
                 STREAM_DEFAULT_LENGTH.max(
-                    sp3_secondary_offset
-                        .max(sp2_secondary_offset)
-                        .saturating_sub(
-                            sp4_offset.reference().min(sp4_offset.query()) + STREAM_PADDING,
-                        ),
+                    sp3_ancestor_offset.max(sp2_ancestor_offset).saturating_sub(
+                        sp4_offset.reference().min(sp4_offset.query()) + STREAM_PADDING,
+                    ),
                 ),
             );
             let downstream_limit = stream.head_coordinates();
@@ -135,11 +133,11 @@ fn parse_template_switch(
                 upstream_offset,
                 downstream_limit,
                 sp1_offset,
-                sp2_secondary_offset,
-                sp3_secondary_offset,
+                sp2_ancestor_offset,
+                sp3_ancestor_offset,
                 sp4_offset,
-                primary,
-                secondary,
+                descendant,
+                ancestor,
                 upstream,
                 template_switch,
                 downstream,
@@ -156,12 +154,12 @@ fn parse_template_switch(
             ) {
                 match direction {
                     TemplateSwitchDirection::Forward => {
-                        sp3_secondary_offset += multiplicity;
-                        assert!(sp3_secondary_offset > sp2_secondary_offset);
+                        sp3_ancestor_offset += multiplicity;
+                        assert!(sp3_ancestor_offset > sp2_ancestor_offset);
                     }
                     TemplateSwitchDirection::Reverse => {
-                        sp3_secondary_offset -= multiplicity;
-                        assert!(sp3_secondary_offset < sp2_secondary_offset);
+                        sp3_ancestor_offset -= multiplicity;
+                        assert!(sp3_ancestor_offset < sp2_ancestor_offset);
                     }
                 }
             }

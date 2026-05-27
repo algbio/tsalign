@@ -12,7 +12,7 @@ use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirect
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
 use crate::config::TemplateSwitchConfig;
 
-use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
+use super::identifier::{GapType, TemplateSwitchAncestor, TemplateSwitchDescendant};
 use super::strategies::chaining::ChainingStrategy;
 use super::strategies::primary_match::PrimaryMatchStrategy;
 use super::strategies::secondary_deletion::SecondaryDeletionStrategy;
@@ -377,8 +377,8 @@ impl<
             Identifier::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 template_switch_first_offset,
                 ..
@@ -389,33 +389,33 @@ impl<
                         .can_start_another_template_switch(self)
                 );
 
-                let (secondary_entrance_index, secondary_length) = match template_switch_secondary {
-                    TemplateSwitchSecondary::Reference => {
+                let (ancestor_entrance_index, ancestor_length) = match template_switch_ancestor {
+                    TemplateSwitchAncestor::Reference => {
                         (entrance_reference_index, self.reference.len())
                     }
-                    TemplateSwitchSecondary::Query => (entrance_query_index, self.query.len()),
+                    TemplateSwitchAncestor::Query => (entrance_query_index, self.query.len()),
                 };
-                let secondary_index =
-                    secondary_entrance_index as isize + template_switch_first_offset;
+                let ancestor_index =
+                    ancestor_entrance_index as isize + template_switch_first_offset;
 
                 if template_switch_first_offset >= 0
                     && match template_switch_direction {
                         TemplateSwitchDirection::Forward => {
-                            (secondary_index + self.config.template_switch_min_length as isize)
-                                < secondary_length as isize
+                            (ancestor_index + self.config.template_switch_min_length as isize)
+                                < ancestor_length as isize
                         }
                         TemplateSwitchDirection::Reverse => {
-                            secondary_index < secondary_length as isize
+                            ancestor_index < ancestor_length as isize
                         }
                     }
                 {
                     let new_cost = config
-                        .offset_costs(template_switch_primary, template_switch_secondary)
+                        .offset_costs(template_switch_descendant, template_switch_ancestor)
                         .evaluate(&(&template_switch_first_offset + 1));
 
                     if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config
-                            .offset_costs(template_switch_primary, template_switch_secondary)
+                            .offset_costs(template_switch_descendant, template_switch_ancestor)
                             .evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -433,19 +433,19 @@ impl<
 
                 if template_switch_first_offset <= 0
                     && match template_switch_direction {
-                        TemplateSwitchDirection::Forward => secondary_index > 0,
+                        TemplateSwitchDirection::Forward => ancestor_index > 0,
                         TemplateSwitchDirection::Reverse => {
-                            secondary_index > self.config.template_switch_min_length as isize
+                            ancestor_index > self.config.template_switch_min_length as isize
                         }
                     }
                 {
                     let new_cost = config
-                        .offset_costs(template_switch_primary, template_switch_secondary)
+                        .offset_costs(template_switch_descendant, template_switch_ancestor)
                         .evaluate(&(&template_switch_first_offset - 1));
 
                     if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config
-                            .offset_costs(template_switch_primary, template_switch_secondary)
+                            .offset_costs(template_switch_descendant, template_switch_ancestor)
                             .evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -463,13 +463,13 @@ impl<
 
                 if match template_switch_direction {
                     TemplateSwitchDirection::Forward => {
-                        secondary_index >= 0
-                            && (secondary_index + self.config.template_switch_min_length as isize)
-                                <= secondary_length as isize
+                        ancestor_index >= 0
+                            && (ancestor_index + self.config.template_switch_min_length as isize)
+                                <= ancestor_length as isize
                     }
                     TemplateSwitchDirection::Reverse => {
-                        secondary_index >= self.config.template_switch_min_length as isize
-                            && secondary_index <= secondary_length as isize
+                        ancestor_index >= self.config.template_switch_min_length as isize
+                            && ancestor_index <= ancestor_length as isize
                     }
                 } {
                     // Temporarily unpack opened_nodes_output because it borrows self,
@@ -489,18 +489,18 @@ impl<
             }
 
             Identifier::Secondary {
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 gap_type,
                 ..
             } => {
                 // TODO Some of the nodes generated here are unable to reach the target:
-                // TODO * nodes who get closer than `right_flank_length` to the end of the primary sequence
-                // TODO * nodes who get closer than `right_flank_length` to the end of the not-primary sequence,
+                // TODO * nodes who get closer than `right_flank_length` to the end of the descendant sequence
+                // TODO * nodes who get closer than `right_flank_length` to the end of the anti-descendant sequence,
                 // TODO   assuming a `length_difference` of zero
 
                 let output = false;
@@ -509,34 +509,34 @@ impl<
                     println!("Generating successors for node {node}");
                 }
 
-                let primary_sequence = match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => self.reference,
-                    TemplateSwitchPrimary::Query => self.query,
+                let descendant_sequence = match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => self.reference,
+                    TemplateSwitchDescendant::Query => self.query,
                 };
-                let secondary_sequence = match template_switch_secondary {
-                    TemplateSwitchSecondary::Reference => self.reference,
-                    TemplateSwitchSecondary::Query => self.query,
+                let ancestor_sequence = match template_switch_ancestor {
+                    TemplateSwitchAncestor::Reference => self.reference,
+                    TemplateSwitchAncestor::Query => self.query,
                 };
 
                 // Only generate secondary successors if they can ever exit the template switch based on their length.
                 let min_length_cost = config.length_costs.min(length..).unwrap();
                 if min_length_cost != Strategies::Cost::max_value() {
-                    if primary_index < primary_sequence.len()
+                    if descendant_index < descendant_sequence.len()
                         && match template_switch_direction {
                             TemplateSwitchDirection::Forward => {
-                                secondary_index < secondary_sequence.len()
+                                ancestor_index < ancestor_sequence.len()
                             }
-                            TemplateSwitchDirection::Reverse => secondary_index > 0,
+                            TemplateSwitchDirection::Reverse => ancestor_index > 0,
                         }
                     {
                         // Diagonal characters
-                        let p = primary_sequence[primary_index].clone();
+                        let p = descendant_sequence[descendant_index].clone();
                         let s = match template_switch_direction {
                             TemplateSwitchDirection::Forward => {
-                                secondary_sequence[secondary_index].clone()
+                                ancestor_sequence[ancestor_index].clone()
                             }
                             TemplateSwitchDirection::Reverse => {
-                                secondary_sequence[secondary_index - 1].complement()
+                                ancestor_sequence[ancestor_index - 1].complement()
                             }
                         };
 
@@ -566,17 +566,17 @@ impl<
 
                     if match template_switch_direction {
                         TemplateSwitchDirection::Forward => {
-                            secondary_index < secondary_sequence.len()
+                            ancestor_index < ancestor_sequence.len()
                         }
-                        TemplateSwitchDirection::Reverse => secondary_index > 0,
+                        TemplateSwitchDirection::Reverse => ancestor_index > 0,
                     } && Strategies::SecondaryDeletion::allow_secondary_deletions()
                     {
                         if match template_switch_direction {
                             TemplateSwitchDirection::Forward => {
-                                secondary_index >= secondary_sequence.len()
+                                ancestor_index >= ancestor_sequence.len()
                             }
                             TemplateSwitchDirection::Reverse => {
-                                secondary_index > secondary_sequence.len()
+                                ancestor_index > ancestor_sequence.len()
                             }
                         } {
                             panic!("Secondary index out of bounds for node {node}");
@@ -585,10 +585,10 @@ impl<
                         // Deleted character
                         let s = match template_switch_direction {
                             TemplateSwitchDirection::Forward => {
-                                secondary_sequence[secondary_index].clone()
+                                ancestor_sequence[ancestor_index].clone()
                             }
                             TemplateSwitchDirection::Reverse => {
-                                secondary_sequence[secondary_index - 1].complement()
+                                ancestor_sequence[ancestor_index - 1].complement()
                             }
                         };
 
@@ -603,9 +603,9 @@ impl<
                         );
                     }
 
-                    if primary_index < primary_sequence.len() {
+                    if descendant_index < descendant_sequence.len() {
                         // Inserted character
-                        let p = primary_sequence[primary_index].clone();
+                        let p = descendant_sequence[descendant_index].clone();
 
                         opened_nodes_output.extend(
                             node.generate_secondary_insertion_successor(
@@ -636,31 +636,32 @@ impl<
             Identifier::TemplateSwitchExit {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
+                template_switch_descendant,
                 template_switch_direction,
-                primary_index,
-                anti_primary_gap,
+                descendant_index,
+                anti_descendant_gap,
                 ..
             } => {
-                let anti_primary_range = match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => {
+                let anti_descendant_range = match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => {
                         <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
                     }
-                    TemplateSwitchPrimary::Query => {
+                    TemplateSwitchDescendant::Query => {
                         <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
                     }
                 };
-                let entrance_primary_index = match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => entrance_reference_index,
-                    TemplateSwitchPrimary::Query => entrance_query_index,
+                let entrance_descendant_index = match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => entrance_reference_index,
+                    TemplateSwitchDescendant::Query => entrance_query_index,
                 };
 
-                let primary_inner_length = primary_index - entrance_primary_index;
+                let descendant_inner_length = descendant_index - entrance_descendant_index;
                 let length_difference =
-                    anti_primary_gap - isize::try_from(primary_inner_length).unwrap();
+                    anti_descendant_gap - isize::try_from(descendant_inner_length).unwrap();
 
                 if length_difference >= 0
-                    && primary_index as isize + length_difference < anti_primary_range.end as isize
+                    && descendant_index as isize + length_difference
+                        < anti_descendant_range.end as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -674,7 +675,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_template_switch_exit_successor(
                                 cost_increment,
-                                anti_primary_gap + 1,
+                                anti_descendant_gap + 1,
                                 self,
                             )
                             .map(Into::into),
@@ -683,8 +684,8 @@ impl<
                 }
 
                 if length_difference <= 0
-                    && primary_index as isize + length_difference
-                        > anti_primary_range.start as isize
+                    && descendant_index as isize + length_difference
+                        > anti_descendant_range.start as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -698,7 +699,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_template_switch_exit_successor(
                                 cost_increment,
-                                anti_primary_gap - 1,
+                                anti_descendant_gap - 1,
                                 self,
                             )
                             .map(Into::into),
@@ -707,13 +708,13 @@ impl<
                 }
 
                 // Generate reentry successor.
-                // Evaluate anti-primary gap cost only here, because it may not be non-decreasing.
-                let anti_primary_gap_cost = config
-                    .anti_primary_gap_costs(template_switch_direction)
-                    .evaluate(&anti_primary_gap);
+                // Evaluate anti-descendant gap cost only here, because it may not be non-decreasing.
+                let anti_descendant_gap_cost = config
+                    .anti_descendant_gap_costs(template_switch_direction)
+                    .evaluate(&anti_descendant_gap);
 
                 opened_nodes_output.extend(
-                    node.generate_primary_reentry_successor(self, anti_primary_gap_cost)
+                    node.generate_primary_reentry_successor(self, anti_descendant_gap_cost)
                         .map(|mut node| {
                             node.strategies.template_switch_count.increment_count();
                             node.into()

@@ -1,14 +1,14 @@
 use compact_genome::interface::sequence::GenomeSequence;
 
 use crate::a_star_aligner::template_switch_distance::{
-    AlignmentType, Context, Identifier, TemplateSwitchPrimary,
+    AlignmentType, Context, Identifier, TemplateSwitchDescendant,
 };
 
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait TemplateSwitchDescendantStrategy: AlignmentStrategy {
     /// True if a TSM with this descendant can be started.
-    fn is_descendant_allowed(&self, descendant: TemplateSwitchPrimary) -> bool;
+    fn is_descendant_allowed(&self, descendant: TemplateSwitchDescendant) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -16,17 +16,17 @@ pub struct AnyTemplateSwitchDescendantStrategy;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct OnlyEqualTemplateSwitchDescendantStrategy {
-    allowed_descendant: Option<TemplateSwitchPrimary>,
+    allowed_descendant: Option<TemplateSwitchDescendant>,
 }
 
 impl TemplateSwitchDescendantStrategy for AnyTemplateSwitchDescendantStrategy {
-    fn is_descendant_allowed(&self, _descendant: TemplateSwitchPrimary) -> bool {
+    fn is_descendant_allowed(&self, _descendant: TemplateSwitchDescendant) -> bool {
         true
     }
 }
 
 impl TemplateSwitchDescendantStrategy for OnlyEqualTemplateSwitchDescendantStrategy {
-    fn is_descendant_allowed(&self, descendant: TemplateSwitchPrimary) -> bool {
+    fn is_descendant_allowed(&self, descendant: TemplateSwitchDescendant) -> bool {
         if let Some(allowed_descendant) = self.allowed_descendant {
             allowed_descendant == descendant
         } else {
@@ -89,7 +89,7 @@ impl AlignmentStrategy for OnlyEqualTemplateSwitchDescendantStrategy {
     ) -> Self {
         let mut successor = *self;
         if let Identifier::TemplateSwitchEntrance {
-            template_switch_primary: descendant,
+            template_switch_descendant: descendant,
             ..
         } = identifier
         {

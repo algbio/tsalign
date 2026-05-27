@@ -6,7 +6,9 @@ use indexed_str::IndexedStr;
 use lib_tsalign::{
     a_star_aligner::{
         alignment_result::AlignmentResult,
-        template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+        template_switch_distance::{
+            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
+        },
     },
     costs::U64Cost,
 };
@@ -174,19 +176,19 @@ pub fn create_ts_svg(
         inner_identifier,
         TemplateSwitch {
             index: ts_index,
-            primary,
-            secondary,
+            descendant,
+            ancestor,
             sp1_reference,
             sp1_query,
-            sp2_secondary,
-            sp3_secondary,
+            sp2_ancestor,
+            sp3_ancestor,
             sp4_reference,
             sp4_query,
             ..
         },
     ) in ts_arrangement.template_switches()
     {
-        /*let anti_primary_sp4_minus_one = match primary {
+        /*let anti_descendant_sp4_minus_one = match descendant {
             TemplateSwitchPrimary::Reference => sp4_query.checked_sub(1).map(|column| {
                 ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
             }),
@@ -195,7 +197,7 @@ pub fn create_ts_svg(
             }),
         };
 
-        let (anti_primary_sp4, anti_primary_row) = match primary {
+        let (anti_descendant_sp4, anti_descendant_row) = match descendant {
             TemplateSwitchPrimary::Reference => (
                 ts_arrangement
                     .query()
@@ -205,7 +207,7 @@ pub fn create_ts_svg(
                             ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
                         ) + 1usize,
                     )
-                    .skip(anti_primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .skip(anti_descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .unwrap()
                     .0,
@@ -221,7 +223,7 @@ pub fn create_ts_svg(
                                 .reference_arrangement_char_to_arrangement_column(*sp4_reference),
                         ) + 1usize,
                     )
-                    .skip(anti_primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .skip(anti_descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .unwrap()
                     .0,
@@ -229,27 +231,27 @@ pub fn create_ts_svg(
             ),
         };
 
-        if let Some(anti_primary_sp4_minus_one) = anti_primary_sp4_minus_one {
-            if (anti_primary_sp4 - anti_primary_sp4_minus_one) > ArrangementColumn::ZERO {
+        if let Some(anti_descendant_sp4_minus_one) = anti_descendant_sp4_minus_one {
+            if (anti_descendant_sp4 - anti_descendant_sp4_minus_one) > ArrangementColumn::ZERO {
                 arrows.push(Arrow::new_skip(
-                    anti_primary_sp4_minus_one,
-                    anti_primary_sp4,
-                    anti_primary_row,
+                    anti_descendant_sp4_minus_one,
+                    anti_descendant_sp4,
+                    anti_descendant_row,
                 ));
             }
         }*/
 
-        let primary_sp4_minus_one = match primary {
-            TemplateSwitchPrimary::Reference => sp4_reference.checked_sub(1).map(|column| {
+        let descendant_sp4_minus_one = match descendant {
+            TemplateSwitchDescendant::Reference => sp4_reference.checked_sub(1).map(|column| {
                 ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
             }),
-            TemplateSwitchPrimary::Query => sp4_query.checked_sub(1).map(|column| {
+            TemplateSwitchDescendant::Query => sp4_query.checked_sub(1).map(|column| {
                 ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
             }),
         };
 
-        let (primary_sp1, primary_sp4, primary_row) = match primary {
-            TemplateSwitchPrimary::Reference => (
+        let (descendant_sp1, descendant_sp4, descendant_row) = match descendant {
+            TemplateSwitchDescendant::Reference => (
                 ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp1_reference),
                 ts_arrangement
                     .reference()
@@ -260,13 +262,13 @@ pub fn create_ts_svg(
                                 .reference_arrangement_char_to_arrangement_column(*sp4_reference),
                         ) + 1usize,
                     )
-                    .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .unwrap()
                     .0,
                 TsArrangementRow::Reference,
             ),
-            TemplateSwitchPrimary::Query => (
+            TemplateSwitchDescendant::Query => (
                 ts_arrangement.query_arrangement_char_to_arrangement_column(*sp1_query),
                 ts_arrangement
                     .query()
@@ -276,7 +278,7 @@ pub fn create_ts_svg(
                             ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
                         ) + 1usize,
                     )
-                    .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .map(|(column, _)| column)
                     .unwrap_or(ts_arrangement.query().len().into()),
@@ -284,16 +286,16 @@ pub fn create_ts_svg(
             ),
         };
 
-        let forward = sp2_secondary < sp3_secondary;
-        let (secondary_limit, secondary_offset, inner_row) = match secondary {
-            TemplateSwitchSecondary::Reference => (
+        let forward = sp2_ancestor < sp3_ancestor;
+        let (ancestor_limit, ancestor_offset, inner_row) = match ancestor {
+            TemplateSwitchAncestor::Reference => (
                 ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
                 ts_arrangement.inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::Inner {
                     index: inner_identifier,
                 },
             ),
-            TemplateSwitchSecondary::Query => (
+            TemplateSwitchAncestor::Query => (
                 ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
                 ts_arrangement.inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::Inner {
@@ -305,17 +307,17 @@ pub fn create_ts_svg(
         let running_number = TS_RUNNING_NUMBER.chars().nth(*ts_index).unwrap();
         let number1 = Number::new(
             format!("{running_number}1"),
-            primary_sp1,
-            primary_row,
+            descendant_sp1,
+            descendant_row,
             NumberAlignment::Left,
             0.5,
         );
         let number2 = Number::new(
             format!("{running_number}2"),
             if forward {
-                secondary_offset
+                ancestor_offset
             } else {
-                secondary_limit
+                ancestor_limit
             },
             inner_row,
             if forward {
@@ -328,9 +330,9 @@ pub fn create_ts_svg(
         let number3 = Number::new(
             format!("{running_number}3"),
             if forward {
-                secondary_limit
+                ancestor_limit
             } else {
-                secondary_offset
+                ancestor_offset
             },
             inner_row,
             if forward {
@@ -342,22 +344,22 @@ pub fn create_ts_svg(
         );
         let number4 = Number::new(
             format!("{running_number}4"),
-            primary_sp4,
-            primary_row,
+            descendant_sp4,
+            descendant_row,
             NumberAlignment::Right,
             0.5,
         );
 
         if config.render_arrows {
             arrows.push(Arrow::new_curved(
-                primary_sp1,
+                descendant_sp1,
                 number1.width(),
-                primary_row,
+                descendant_row,
                 ArrowEndpointDirection::Forward,
                 if forward {
-                    secondary_offset
+                    ancestor_offset
                 } else {
-                    secondary_limit
+                    ancestor_limit
                 },
                 number2.width(),
                 inner_row,
@@ -370,9 +372,9 @@ pub fn create_ts_svg(
 
             arrows.push(Arrow::new_curved(
                 if forward {
-                    secondary_limit
+                    ancestor_limit
                 } else {
-                    secondary_offset
+                    ancestor_offset
                 },
                 number3.width(),
                 inner_row,
@@ -381,9 +383,9 @@ pub fn create_ts_svg(
                 } else {
                     ArrowEndpointDirection::Backward
                 },
-                primary_sp4,
+                descendant_sp4,
                 number4.width(),
-                primary_row,
+                descendant_row,
                 ArrowEndpointDirection::Backward,
             ));
         }
@@ -411,9 +413,9 @@ pub fn create_ts_svg(
                 .sequence()
                 .iter_values()
                 .map(render_inner_char(
-                    match reference_inner.template_switch().primary {
-                        TemplateSwitchPrimary::Reference => &reference,
-                        TemplateSwitchPrimary::Query => &query,
+                    match reference_inner.template_switch().descendant {
+                        TemplateSwitchDescendant::Reference => &reference,
+                        TemplateSwitchDescendant::Query => &query,
                     },
                 )),
             &SvgLocation { x: 0.0, y },
@@ -468,9 +470,9 @@ pub fn create_ts_svg(
                 .sequence()
                 .iter_values()
                 .map(render_inner_char(
-                    match reference_inner.template_switch().primary {
-                        TemplateSwitchPrimary::Reference => &reference,
-                        TemplateSwitchPrimary::Query => &query,
+                    match reference_inner.template_switch().descendant {
+                        TemplateSwitchDescendant::Reference => &reference,
+                        TemplateSwitchDescendant::Query => &query,
                     },
                 )),
             &SvgLocation { x: 0.0, y },
@@ -544,9 +546,9 @@ pub fn create_ts_svg(
     for (identifier, query_inner) in ts_arrangement.query_inners() {
         ts_group = ts_group.add(svg_string(
             query_inner.sequence().iter_values().map(render_inner_char(
-                match query_inner.template_switch().primary {
-                    TemplateSwitchPrimary::Reference => &reference,
-                    TemplateSwitchPrimary::Query => &query,
+                match query_inner.template_switch().descendant {
+                    TemplateSwitchDescendant::Reference => &reference,
+                    TemplateSwitchDescendant::Query => &query,
                 },
             )),
             &SvgLocation { x: 0.0, y },
@@ -598,9 +600,9 @@ pub fn create_ts_svg(
     for (identifier, query_inner) in ts_arrangement.query_complement_inners() {
         ts_group = ts_group.add(svg_string(
             query_inner.sequence().iter_values().map(render_inner_char(
-                match query_inner.template_switch().primary {
-                    TemplateSwitchPrimary::Reference => &reference,
-                    TemplateSwitchPrimary::Query => &query,
+                match query_inner.template_switch().descendant {
+                    TemplateSwitchDescendant::Reference => &reference,
+                    TemplateSwitchDescendant::Query => &query,
                 },
             )),
             &SvgLocation { x: 0.0, y },

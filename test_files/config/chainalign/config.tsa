@@ -32,11 +32,11 @@ LengthDifference
  -inf -100 -20 -10 11 21 101
   inf    0   0   0  0  0 inf
 
-ForwardAntiPrimaryGap
+ForwardAntiDescendantGap
  -inf   1
     0 inf
 
-ReverseAntiPrimaryGap
+ReverseAntiDescendantGap
  -inf
     0
 

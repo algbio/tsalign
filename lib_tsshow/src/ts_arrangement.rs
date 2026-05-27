@@ -8,7 +8,7 @@ use complement::{ComplementChar, TsComplementArrangement};
 use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
 use inner::{TsInner, TsInnerArrangement};
 use lib_tsalign::a_star_aligner::template_switch_distance::{
-    AlignmentType, TemplateSwitchSecondary,
+    AlignmentType, TemplateSwitchAncestor,
 };
 use log::debug;
 use source::{SourceChar, TsSourceArrangement};
@@ -279,18 +279,16 @@ impl TsArrangement {
         self.source.try_query_arrangement_to_source_column(column)
     }
 
-    pub fn secondary_source_to_arrangement_column(
+    pub fn ancestor_source_to_arrangement_column(
         &self,
         column: SourceColumn,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
     ) -> ArrangementColumn {
-        match secondary {
-            TemplateSwitchSecondary::Reference => {
+        match ancestor {
+            TemplateSwitchAncestor::Reference => {
                 self.source.reference_source_to_arrangement_column(column)
             }
-            TemplateSwitchSecondary::Query => {
-                self.source.query_source_to_arrangement_column(column)
-            }
+            TemplateSwitchAncestor::Query => self.source.query_source_to_arrangement_column(column),
         }
     }
 
@@ -333,8 +331,8 @@ impl TsArrangement {
                         inner.template_switch().sp1_reference,
                     ),
                     self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query),
-                    inner.template_switch().sp2_secondary,
-                    inner.template_switch().sp3_secondary,
+                    inner.template_switch().sp2_ancestor,
+                    inner.template_switch().sp3_ancestor,
                     self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp4_reference,
                     ),
@@ -372,8 +370,8 @@ impl TsArrangement {
                     .saturating_sub(1),
                     self.query_arrangement_char_to_source_column(inner.template_switch().sp1_query)
                         .saturating_sub(1),
-                    inner.template_switch().sp2_secondary.saturating_sub(1),
-                    inner.template_switch().sp3_secondary.saturating_sub(1),
+                    inner.template_switch().sp2_ancestor.saturating_sub(1),
+                    inner.template_switch().sp3_ancestor.saturating_sub(1),
                     self.reference_arrangement_char_to_source_column(
                         inner.template_switch().sp4_reference,
                     )

@@ -95,9 +95,9 @@ from tsalign import align, TemplateSwitchEntranceOp, TemplateSwitchExitOp
 result = align(reference, query)
 for count, op in result.alignments():
     if isinstance(op, TemplateSwitchEntranceOp):
-        print(f"Template switch: {op.direction}, primary={op.primary}, offset={op.first_offset}")
+        print(f"Template switch: {op.direction}, descendant={op.descendant}, offset={op.first_offset}")
     elif isinstance(op, TemplateSwitchExitOp):
-        print(f"Exit, anti-primary gap: {op.anti_primary_gap}")
+        print(f"Exit, anti-descendant gap: {op.anti_descendant_gap}")
     else:
         # SimpleAlignmentOp — a basic edit in the primary or secondary track
         print(f"{count}x {op.kind}")

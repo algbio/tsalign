@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result};
 
 use super::{
-    AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    AlignmentType, GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant,
     alignment_type::equal_cost_range::EqualCostRange, identifier::TemplateSwitchDirection,
 };
 
@@ -19,16 +19,18 @@ impl Display for AlignmentType {
             | Self::SecondarySubstitution => write!(f, "X"),
             Self::PrimaryMatch | Self::PrimaryFlankMatch | Self::SecondaryMatch => write!(f, "="),
             Self::TemplateSwitchEntrance {
-                primary,
-                secondary,
+                descendant,
+                ancestor,
                 direction,
                 equal_cost_range,
                 first_offset,
             } => write!(
                 f,
-                "[TS{primary}{secondary}{direction}:{equal_cost_range}:{first_offset}:"
+                "[TS{descendant}{ancestor}{direction}:{equal_cost_range}:{first_offset}:"
             ),
-            Self::TemplateSwitchExit { anti_primary_gap } => write!(f, ":{anti_primary_gap}]"),
+            Self::TemplateSwitchExit {
+                anti_descendant_gap,
+            } => write!(f, ":{anti_descendant_gap}]"),
             Self::Root => Ok(()),
             Self::SecondaryRoot => Ok(()),
             Self::PrimaryReentry => Ok(()),
@@ -50,7 +52,7 @@ impl Display for GapType {
     }
 }
 
-impl Display for TemplateSwitchPrimary {
+impl Display for TemplateSwitchDescendant {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Reference => write!(f, "R"),
@@ -59,7 +61,7 @@ impl Display for TemplateSwitchPrimary {
     }
 }
 
-impl Display for TemplateSwitchSecondary {
+impl Display for TemplateSwitchAncestor {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Reference => write!(f, "R"),
@@ -121,14 +123,14 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             Self::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 template_switch_first_offset,
             } => {
                 write!(
                     f,
-                    "TemplateSwitchEntrance({entrance_reference_index}R, {entrance_query_index}Q, {template_switch_primary}P, {template_switch_secondary}S, {template_switch_direction}D, {template_switch_first_offset}O)",
+                    "TemplateSwitchEntrance(Ref={entrance_reference_index}, Query={entrance_query_index}, Desc={template_switch_descendant}, Anc={template_switch_ancestor}, Dir={template_switch_direction}, Offset={template_switch_first_offset})",
                 )
             }
 
@@ -136,23 +138,23 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 gap_type,
             } => write!(
                 f,
-                "Secondary({}R, {}Q, {}L, {}P, {}S, {}, {}, {}, {})",
+                "Secondary({}R, {}Q, {}L, {}D, {}S, {}, {}, {}, {})",
                 entrance_reference_index,
                 entrance_query_index,
                 length,
-                primary_index,
-                secondary_index,
-                template_switch_primary,
-                template_switch_secondary,
+                descendant_index,
+                ancestor_index,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 gap_type,
             ),
@@ -161,20 +163,20 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             Self::TemplateSwitchExit {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
-                primary_index,
-                anti_primary_gap,
+                descendant_index,
+                anti_descendant_gap,
             } => write!(
                 f,
-                "TemplateSwitchExit({}R, {}Q, {}P, {}G, {}, {}, {})",
+                "TemplateSwitchExit({}R, {}Q, {}D, {}G, {}, {}, {})",
                 entrance_reference_index,
                 entrance_query_index,
-                primary_index,
-                anti_primary_gap,
-                template_switch_primary,
-                template_switch_secondary,
+                descendant_index,
+                anti_descendant_gap,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
             ),
         }

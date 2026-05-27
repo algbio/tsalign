@@ -198,24 +198,24 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                                     == string_length_isize - 1
                         }
                         Identifier::Secondary {
-                            primary_index,
-                            secondary_index,
+                            descendant_index,
+                            ancestor_index,
                             ..
                         } => {
-                            primary_index == 0
-                                || primary_index == genome_length - 1
-                                || secondary_index == 0
-                                || secondary_index == genome_length - 1
+                            descendant_index == 0
+                                || descendant_index == genome_length - 1
+                                || ancestor_index == 0
+                                || ancestor_index == genome_length - 1
                         }
                         Identifier::TemplateSwitchExit {
                             template_switch_direction,
-                            anti_primary_gap,
+                            anti_descendant_gap,
                             ..
                         } => {
                             let cost_increment = context
                                 .config
-                                .anti_primary_gap_costs(template_switch_direction)
-                                .evaluate(&anti_primary_gap);
+                                .anti_descendant_gap_costs(template_switch_direction)
+                                .evaluate(&anti_descendant_gap);
                             node.generate_primary_reentry_successor(context, cost_increment)
                                 .is_none()
                         }
@@ -357,8 +357,8 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
         .unwrap(),
         length_costs: config.length_costs.clone(),
         length_difference_costs: config.length_difference_costs.clone(),
-        forward_anti_primary_gap_costs: config.forward_anti_primary_gap_costs.clone(),
-        reverse_anti_primary_gap_costs: config.reverse_anti_primary_gap_costs.clone(),
+        forward_anti_descendant_gap_costs: config.forward_anti_descendant_gap_costs.clone(),
+        reverse_anti_descendant_gap_costs: config.reverse_anti_descendant_gap_costs.clone(),
     }
 }
 

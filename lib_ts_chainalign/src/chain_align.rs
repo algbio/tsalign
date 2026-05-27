@@ -409,8 +409,8 @@ fn actually_align<
                         TsAlignAlignmentType::TemplateSwitchEntrance {
                             first_offset: jump,
                             equal_cost_range: EqualCostRange::new_invalid(),
-                            primary: ts_kind.descendant.into_tsalign_primary(),
-                            secondary: ts_kind.ancestor.into_tsalign_secondary(),
+                            descendant: ts_kind.descendant.into_tsalign_primary(),
+                            ancestor: ts_kind.ancestor.into_tsalign_secondary(),
                             direction: TemplateSwitchDirection::Reverse,
                         },
                     );
@@ -423,7 +423,7 @@ fn actually_align<
                     tsalign_alignment.push_n(
                         multiplicity,
                         TsAlignAlignmentType::TemplateSwitchExit {
-                            anti_primary_gap: anti_primary_gap + jump,
+                            anti_descendant_gap: anti_primary_gap + jump,
                         },
                     )
                 }

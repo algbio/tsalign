@@ -5,21 +5,21 @@ use super::{
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, EqualCostRange, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
     },
 };
 
 #[derive(Debug, Clone)]
 pub struct TemplateSwitch {
     pub index: usize,
-    pub primary: TemplateSwitchPrimary,
-    pub secondary: TemplateSwitchSecondary,
+    pub descendant: TemplateSwitchDescendant,
+    pub ancestor: TemplateSwitchAncestor,
     pub sp1_reference: ArrangementCharColumn,
     pub sp1_query: ArrangementCharColumn,
     pub sp4_reference: ArrangementCharColumn,
     pub sp4_query: ArrangementCharColumn,
-    pub sp2_secondary: SourceColumn,
-    pub sp3_secondary: SourceColumn,
+    pub sp2_ancestor: SourceColumn,
+    pub sp3_ancestor: SourceColumn,
     pub inner: Vec<SourceChar>,
     pub inner_alignment: Alignment<AlignmentType>,
     pub equal_cost_range: EqualCostRange,

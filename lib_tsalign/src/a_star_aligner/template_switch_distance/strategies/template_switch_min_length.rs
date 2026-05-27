@@ -13,7 +13,7 @@ use template_switch_error_free_inners::MatchTable;
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
 use crate::a_star_aligner::template_switch_distance::{
     Context, Identifier, Node,
-    identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+    identifier::{GapType, TemplateSwitchAncestor, TemplateSwitchDescendant},
 };
 use crate::config::TemplateSwitchConfig;
 
@@ -111,11 +111,11 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct LookaheadMemoryKey {
-    template_switch_primary: TemplateSwitchPrimary,
-    template_switch_secondary: TemplateSwitchSecondary,
+    template_switch_descendant: TemplateSwitchDescendant,
+    template_switch_ancestor: TemplateSwitchAncestor,
     template_switch_direction: TemplateSwitchDirection,
-    primary_index: usize,
-    secondary_index: usize,
+    descendant_index: usize,
+    ancestor_index: usize,
 }
 
 impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
@@ -143,12 +143,12 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         context: &mut Context<SubsequenceType, Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
         let Identifier::Secondary {
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
             length: 0,
-            primary_index,
-            secondary_index,
+            descendant_index,
+            ancestor_index,
             gap_type: GapType::None,
             ..
         } = secondary_root_node.node_data.identifier
@@ -159,21 +159,21 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         let output = false;
 
         let memory_key = LookaheadMemoryKey {
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
-            primary_index,
-            secondary_index,
+            descendant_index,
+            ancestor_index,
         };
 
         if output {
             println!(
                 "Lookahead {}{}{} at {}/{} with cost {}",
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 secondary_root_node.cost(),
             );
         }
@@ -264,12 +264,12 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
         context: &mut Context<SubsequenceType, Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
         let Identifier::Secondary {
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
             length: 0,
-            primary_index,
-            secondary_index,
+            descendant_index,
+            ancestor_index,
             gap_type: GapType::None,
             ..
         } = *secondary_root_node.identifier()
@@ -287,44 +287,42 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
                 );
             }
             return Some(secondary_root_node);
-        } else if secondary_index < context.config.template_switch_min_length
-            || primary_index
-                > match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => {
+        } else if ancestor_index < context.config.template_switch_min_length
+            || descendant_index
+                > match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => {
                         context.reference.len() - context.config.template_switch_min_length
                     }
-                    TemplateSwitchPrimary::Query => {
+                    TemplateSwitchDescendant::Query => {
                         context.query.len() - context.config.template_switch_min_length
                     }
                 }
         {
-            // There are not enough characters in the primary or secondary sequence for a match of minimum length.
+            // There are not enough characters in the descendant or ancestor sequence for a match of minimum length.
             false
         } else {
-            let secondary_rc_index = match template_switch_secondary {
-                TemplateSwitchSecondary::Reference => context
-                    .reference
-                    .len()
-                    .checked_sub(secondary_index)
-                    .unwrap(),
-                TemplateSwitchSecondary::Query => {
-                    context.query.len().checked_sub(secondary_index).unwrap()
+            let ancestor_rc_index = match template_switch_ancestor {
+                TemplateSwitchAncestor::Reference => {
+                    context.reference.len().checked_sub(ancestor_index).unwrap()
+                }
+                TemplateSwitchAncestor::Query => {
+                    context.query.len().checked_sub(ancestor_index).unwrap()
                 }
             };
             let match_table = context.memory.template_switch_min_length.as_ref().unwrap();
 
-            match (template_switch_primary, template_switch_secondary) {
-                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                    match_table.has_reference_reference_match(primary_index, secondary_rc_index)
+            match (template_switch_descendant, template_switch_ancestor) {
+                (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Reference) => {
+                    match_table.has_reference_reference_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-                    match_table.has_reference_query_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Query) => {
+                    match_table.has_reference_query_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-                    match_table.has_query_reference_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Reference) => {
+                    match_table.has_query_reference_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
-                    match_table.has_query_query_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Query) => {
+                    match_table.has_query_query_match(descendant_index, ancestor_rc_index)
                 }
             }
         };
@@ -379,12 +377,12 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         context: &mut Context<SubsequenceType, Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
         let Identifier::Secondary {
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
             length: 0,
-            primary_index,
-            secondary_index,
+            descendant_index,
+            ancestor_index,
             gap_type: GapType::None,
             ..
         } = *secondary_root_node.identifier()
@@ -402,28 +400,26 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
                 );
             }
             return Some(secondary_root_node);
-        } else if secondary_index < context.config.template_switch_min_length
-            || primary_index
-                > match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => {
+        } else if ancestor_index < context.config.template_switch_min_length
+            || descendant_index
+                > match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => {
                         context.reference.len() - context.config.template_switch_min_length
                     }
-                    TemplateSwitchPrimary::Query => {
+                    TemplateSwitchDescendant::Query => {
                         context.query.len() - context.config.template_switch_min_length
                     }
                 }
         {
-            // There are not enough characters in the primary or secondary sequence for a match of minimum length.
+            // There are not enough characters in the descendant or ancestor sequence for a match of minimum length.
             false
         } else {
-            let secondary_rc_index = match template_switch_secondary {
-                TemplateSwitchSecondary::Reference => context
-                    .reference
-                    .len()
-                    .checked_sub(secondary_index)
-                    .unwrap(),
-                TemplateSwitchSecondary::Query => {
-                    context.query.len().checked_sub(secondary_index).unwrap()
+            let ancestor_rc_index = match template_switch_ancestor {
+                TemplateSwitchAncestor::Reference => {
+                    context.reference.len().checked_sub(ancestor_index).unwrap()
+                }
+                TemplateSwitchAncestor::Query => {
+                    context.query.len().checked_sub(ancestor_index).unwrap()
                 }
             };
             let match_table = context
@@ -433,18 +429,18 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
                 .as_ref()
                 .unwrap();
 
-            match (template_switch_primary, template_switch_secondary) {
-                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                    match_table.has_reference_reference_match(primary_index, secondary_rc_index)
+            match (template_switch_descendant, template_switch_ancestor) {
+                (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Reference) => {
+                    match_table.has_reference_reference_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-                    match_table.has_reference_query_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Query) => {
+                    match_table.has_reference_query_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-                    match_table.has_query_reference_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Reference) => {
+                    match_table.has_query_reference_match(descendant_index, ancestor_rc_index)
                 }
-                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
-                    match_table.has_query_query_match(primary_index, secondary_rc_index)
+                (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Query) => {
+                    match_table.has_query_query_match(descendant_index, ancestor_rc_index)
                 }
             }
         };
@@ -454,11 +450,11 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         } else {
             // Use lookahead strategy as a fallback.
             let memory_key = LookaheadMemoryKey {
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
             };
 
             let secondary_root_node = if let Some(a_star_lower_bound) =

@@ -54,10 +54,10 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
         let (input, length_costs) = parse_named_cost_function("Length")(input)?;
         let (input, length_difference_costs) =
             parse_named_cost_function("LengthDifference")(input)?;
-        let (input, forward_anti_primary_gap_costs) =
-            parse_named_cost_function("ForwardAntiPrimaryGap")(input)?;
-        let (input, reverse_anti_primary_gap_costs) =
-            parse_named_cost_function("ReverseAntiPrimaryGap")(input)?;
+        let (input, forward_anti_descendant_gap_costs) =
+            parse_named_cost_function("ForwardAntiDescendantGap")(input)?;
+        let (input, reverse_anti_descendant_gap_costs) =
+            parse_named_cost_function("ReverseAntiDescendantGap")(input)?;
 
         trace!("Parsing primary edit costs");
         let (input, primary_edit_costs) = parse_named_cost_table("Primary Edit Costs")(input)?;
@@ -104,8 +104,8 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 rr_qq_offset_costs,
                 length_costs,
                 length_difference_costs,
-                forward_anti_primary_gap_costs,
-                reverse_anti_primary_gap_costs,
+                forward_anti_descendant_gap_costs,
+                reverse_anti_descendant_gap_costs,
             },
         ))
     }
@@ -247,10 +247,10 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
         writeln!(f, "{}", self.length_costs)?;
         writeln!(f, "LengthDifference")?;
         writeln!(f, "{}", self.length_difference_costs)?;
-        writeln!(f, "ForwardAntiPrimaryGap")?;
-        writeln!(f, "{}", self.forward_anti_primary_gap_costs)?;
-        writeln!(f, "ReverseAntiPrimaryGap")?;
-        writeln!(f, "{}", self.reverse_anti_primary_gap_costs)?;
+        writeln!(f, "ForwardAntiDescendantGap")?;
+        writeln!(f, "{}", self.forward_anti_descendant_gap_costs)?;
+        writeln!(f, "ReverseAntiDescendantGap")?;
+        writeln!(f, "{}", self.reverse_anti_descendant_gap_costs)?;
 
         writeln!(f, "{}", self.primary_edit_costs)?;
         writeln!(f, "{}", self.secondary_forward_edit_costs)?;
