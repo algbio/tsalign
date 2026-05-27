@@ -9,7 +9,8 @@ use crate::{
     a_star_aligner::{
         alignment_result::{IAlignmentType, alignment::stream::AlignmentStream},
         template_switch_distance::{
-            AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
+            TemplateSwitchDirection,
         },
     },
     config::TemplateSwitchConfig,
@@ -42,8 +43,8 @@ impl Alignment<AlignmentType> {
             _,
             AlignmentType::TemplateSwitchEntrance {
                 first_offset,
-                primary,
-                secondary,
+                descendant,
+                ancestor,
                 direction,
                 ..
             },
@@ -67,31 +68,31 @@ impl Alignment<AlignmentType> {
             // Compute TS inner first indices.
             let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(*compact_index));
-            let ts_inner_primary_index = match primary {
-                TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
-                TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
+            let ts_inner_descendant_index = match descendant {
+                TemplateSwitchDescendant::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchDescendant::Query => stream.head_coordinates().query(),
             };
-            if ts_inner_primary_index == 0 {
+            if ts_inner_descendant_index == 0 {
                 // We cannot extend more backwards.
                 return false;
             }
-            let Some(ts_inner_secondary_index) = isize::try_from(match secondary {
-                TemplateSwitchSecondary::Reference => stream.head_coordinates().reference(),
-                TemplateSwitchSecondary::Query => stream.head_coordinates().query(),
+            let Some(ts_inner_ancestor_index) = isize::try_from(match ancestor {
+                TemplateSwitchAncestor::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchAncestor::Query => stream.head_coordinates().query(),
             })
             .ok()
             .and_then(|i| usize::try_from(i.checked_add(first_offset)?).ok()) else {
                 error!(
-                    "(Programming) Error: finding inner secondary index -- integer math does not check out"
+                    "(Programming) Error: finding inner ancestor index -- integer math does not check out"
                 );
                 return false;
             };
 
             // Check if indices can be moved while staying in bounds.
             match direction {
-                TemplateSwitchDirection::Forward if ts_inner_secondary_index == 0 => return false,
+                TemplateSwitchDirection::Forward if ts_inner_ancestor_index == 0 => return false,
                 TemplateSwitchDirection::Reverse
-                    if ts_inner_secondary_index >= secondary.get(reference, query).len() =>
+                    if ts_inner_ancestor_index >= ancestor.get(reference, query).len() =>
                 {
                     return false;
                 }
@@ -113,18 +114,19 @@ impl Alignment<AlignmentType> {
             }
 
             // Check if the new inner pair is a match or a substitution.
-            // ts_inner_primary_index > 0, otherwise we would've returned false earlier
-            let primary_char = primary.get(reference, query)[ts_inner_primary_index - 1].clone();
-            let secondary_char = match direction {
+            // ts_inner_descendant_index > 0, otherwise we would've returned false earlier
+            let descendant_char =
+                descendant.get(reference, query)[ts_inner_descendant_index - 1].clone();
+            let ancestor_char = match direction {
                 TemplateSwitchDirection::Forward => {
-                    // ts_inner_secondary_index > 0, otherwise we would've returned false earlier
-                    secondary.get(reference, query)[ts_inner_secondary_index - 1].clone()
+                    // ts_inner_ancestor_index > 0, otherwise we would've returned false earlier
+                    ancestor.get(reference, query)[ts_inner_ancestor_index - 1].clone()
                 }
                 TemplateSwitchDirection::Reverse => {
-                    secondary.get(reference, query)[ts_inner_secondary_index].complement()
+                    ancestor.get(reference, query)[ts_inner_ancestor_index].complement()
                 }
             };
-            let inner_alignment_type = if primary_char == secondary_char {
+            let inner_alignment_type = if descendant_char == ancestor_char {
                 AlignmentType::SecondaryMatch
             } else {
                 AlignmentType::SecondarySubstitution
@@ -153,15 +155,19 @@ impl Alignment<AlignmentType> {
                 *first_offset += 2;
             }
 
-            // Fix anti-primary gap.
-            let Some((_, AlignmentType::TemplateSwitchExit { anti_primary_gap })) = self.alignment
-                [*compact_index..]
+            // Fix anti-descendant gap.
+            let Some((
+                _,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap,
+                },
+            )) = self.alignment[*compact_index..]
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
                 unreachable!("There should be a TS exit..");
             };
-            *anti_primary_gap += 1;
+            *anti_descendant_gap += 1;
 
             true
         } else {
@@ -277,15 +283,19 @@ impl Alignment<AlignmentType> {
                 *first_offset -= 2;
             }
 
-            // Fix anti-primary gap.
-            let Some((_, AlignmentType::TemplateSwitchExit { anti_primary_gap })) = self.alignment
-                [*compact_index..]
+            // Fix anti-descendant gap.
+            let Some((
+                _,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap,
+                },
+            )) = self.alignment[*compact_index..]
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
                 unreachable!();
             };
-            *anti_primary_gap -= 1;
+            *anti_descendant_gap -= 1;
 
             true
         } else {
@@ -315,8 +325,8 @@ impl Alignment<AlignmentType> {
     ) -> bool {
         let AlignmentType::TemplateSwitchEntrance {
             first_offset,
-            primary,
-            secondary,
+            descendant,
+            ancestor,
             direction,
             ..
         } = self.alignment[compact_index].1
@@ -337,18 +347,18 @@ impl Alignment<AlignmentType> {
             return false;
         };
         let mut exit_index = compact_index + exit_index_offset;
-        let inner_secondary_length = self
+        let inner_ancestor_length = self
             .alignment
             .iter()
             .take(exit_index)
             .skip(compact_index + 1)
             .fold(
                 0,
-                |secondary_length, (multiplicity, alignment_type)| match alignment_type {
-                    AlignmentType::SecondaryInsertion => secondary_length,
+                |ancestor_length, (multiplicity, alignment_type)| match alignment_type {
+                    AlignmentType::SecondaryInsertion => ancestor_length,
                     AlignmentType::SecondaryDeletion
                     | AlignmentType::SecondarySubstitution
-                    | AlignmentType::SecondaryMatch => secondary_length + *multiplicity,
+                    | AlignmentType::SecondaryMatch => ancestor_length + *multiplicity,
                     _ => unreachable!(),
                 },
             );
@@ -365,50 +375,50 @@ impl Alignment<AlignmentType> {
                     .take(exit_index + 1)
                     .skip(compact_index),
             );
-            let ts_inner_primary_index = match primary {
-                TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
-                TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
+            let ts_inner_descendant_index = match descendant {
+                TemplateSwitchDescendant::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchDescendant::Query => stream.head_coordinates().query(),
             };
 
-            let Some(ts_inner_secondary_index) = isize::try_from(match secondary {
-                TemplateSwitchSecondary::Reference => stream.tail_coordinates().reference(),
-                TemplateSwitchSecondary::Query => stream.tail_coordinates().query(),
+            let Some(ts_inner_ancestor_index) = isize::try_from(match ancestor {
+                TemplateSwitchAncestor::Reference => stream.tail_coordinates().reference(),
+                TemplateSwitchAncestor::Query => stream.tail_coordinates().query(),
             })
             .ok()
             .and_then(|i| usize::try_from(i.checked_add(first_offset)?).ok()) else {
-                error!("Error finding inner secondary index -- integer math does not check out");
+                error!("Error finding inner ancestor index -- integer math does not check out");
                 return false;
             };
-            let ts_inner_secondary_index = match direction {
+            let ts_inner_ancestor_index = match direction {
                 TemplateSwitchDirection::Forward => {
-                    let Some(ts_inner_secondary_index) =
-                        ts_inner_secondary_index.checked_add(inner_secondary_length)
+                    let Some(ts_inner_ancestor_index) =
+                        ts_inner_ancestor_index.checked_add(inner_ancestor_length)
                     else {
                         error!(
-                            "ts_inner_secondary_index {ts_inner_secondary_index} should be at least {inner_secondary_length} away from any boundary"
+                            "ts_inner_ancestor_index {ts_inner_ancestor_index} should be at least {inner_ancestor_length} away from any boundary"
                         );
                         return false;
                     };
                     // Check if indices can be moved while staying in bounds.
-                    if ts_inner_secondary_index >= secondary.get(reference, query).len() {
+                    if ts_inner_ancestor_index >= ancestor.get(reference, query).len() {
                         return false;
                     }
-                    ts_inner_secondary_index
+                    ts_inner_ancestor_index
                 }
                 TemplateSwitchDirection::Reverse => {
-                    let Some(ts_inner_secondary_index) =
-                        ts_inner_secondary_index.checked_sub(inner_secondary_length)
+                    let Some(ts_inner_ancestor_index) =
+                        ts_inner_ancestor_index.checked_sub(inner_ancestor_length)
                     else {
                         error!(
-                            "ts_inner_secondary_index {ts_inner_secondary_index} should be at least {inner_secondary_length} away from any boundary"
+                            "ts_inner_ancestor_index {ts_inner_ancestor_index} should be at least {inner_ancestor_length} away from any boundary"
                         );
                         return false;
                     };
                     // Check if indices can be moved while staying in bounds.
-                    if ts_inner_secondary_index == 0 {
+                    if ts_inner_ancestor_index == 0 {
                         return false;
                     }
-                    ts_inner_secondary_index
+                    ts_inner_ancestor_index
                 }
             };
 
@@ -426,17 +436,18 @@ impl Alignment<AlignmentType> {
             }
 
             // Check if the new inner pair is a match or a substitution.
-            let primary_char = primary.get(reference, query)[ts_inner_primary_index].clone();
-            let secondary_char = match direction {
+            let descendant_char =
+                descendant.get(reference, query)[ts_inner_descendant_index].clone();
+            let ancestor_char = match direction {
                 TemplateSwitchDirection::Forward => {
-                    secondary.get(reference, query)[ts_inner_secondary_index].clone()
+                    ancestor.get(reference, query)[ts_inner_ancestor_index].clone()
                 }
                 TemplateSwitchDirection::Reverse => {
-                    // ts_inner_secondary_index > 0 since we checked that earlier and would have returned otherwise.
-                    secondary.get(reference, query)[ts_inner_secondary_index - 1].complement()
+                    // ts_inner_ancestor_index > 0 since we checked that earlier and would have returned otherwise.
+                    ancestor.get(reference, query)[ts_inner_ancestor_index - 1].complement()
                 }
             };
-            let inner_alignment_type = if primary_char == secondary_char {
+            let inner_alignment_type = if descendant_char == ancestor_char {
                 AlignmentType::SecondaryMatch
             } else {
                 AlignmentType::SecondarySubstitution
@@ -450,13 +461,14 @@ impl Alignment<AlignmentType> {
                 exit_index += 1;
             }
 
-            // Fix anti-primary gap.
-            let AlignmentType::TemplateSwitchExit { anti_primary_gap } =
-                &mut self.alignment[exit_index].1
+            // Fix anti-descendant gap.
+            let AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap,
+            } = &mut self.alignment[exit_index].1
             else {
                 unreachable!("Merely a reborrow");
             };
-            *anti_primary_gap += 1;
+            *anti_descendant_gap += 1;
 
             true
         } else {
@@ -569,15 +581,19 @@ impl Alignment<AlignmentType> {
                     .insert(exit_index + 1, (1, outer_alignment_type));
             }
 
-            // Fix anti-primary gap.
-            let Some((_, AlignmentType::TemplateSwitchExit { anti_primary_gap })) = self.alignment
-                [compact_index..]
+            // Fix anti-descendant gap.
+            let Some((
+                _,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap,
+                },
+            )) = self.alignment[compact_index..]
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
                 unreachable!("Just a reborrow");
             };
-            *anti_primary_gap -= 1;
+            *anti_descendant_gap -= 1;
 
             true
         } else {
@@ -605,10 +621,10 @@ impl Alignment<AlignmentType> {
         let mut last_alignment_type = None;
         let mut reference_index = reference_offset;
         let mut query_index = query_offset;
-        let mut primary_index = 0;
-        let mut secondary_index = 0;
-        let mut primary = TemplateSwitchPrimary::Reference;
-        let mut secondary = TemplateSwitchSecondary::Reference;
+        let mut descendant_index = 0;
+        let mut ancestor_index = 0;
+        let mut descendant = TemplateSwitchDescendant::Reference;
+        let mut ancestor = TemplateSwitchAncestor::Reference;
         let mut direction = TemplateSwitchDirection::Forward;
         for alignment_type in self.iter_flat_cloned() {
             let cost_increment = match alignment_type {
@@ -654,85 +670,85 @@ impl Alignment<AlignmentType> {
                     todo!("Flanks are not yet supported")
                 }
                 AlignmentType::SecondaryInsertion => {
-                    let primary_character = match primary {
-                        TemplateSwitchPrimary::Reference => reference[primary_index].clone(),
-                        TemplateSwitchPrimary::Query => query[primary_index].clone(),
+                    let descendant_character = match descendant {
+                        TemplateSwitchDescendant::Reference => reference[descendant_index].clone(),
+                        TemplateSwitchDescendant::Query => query[descendant_index].clone(),
                     };
                     let cost_increment = if Some(alignment_type) == last_alignment_type {
                         config
                             .secondary_edit_costs(direction)
-                            .gap_extend_cost(primary_character)
+                            .gap_extend_cost(descendant_character)
                     } else {
                         config
                             .secondary_edit_costs(direction)
-                            .gap_open_cost(primary_character)
+                            .gap_open_cost(descendant_character)
                     };
-                    primary_index += 1;
+                    descendant_index += 1;
                     cost_increment
                 }
                 AlignmentType::SecondaryDeletion => {
-                    let secondary_character = match (secondary, direction) {
-                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Forward) => {
-                            reference[secondary_index].clone()
+                    let ancestor_character = match (ancestor, direction) {
+                        (TemplateSwitchAncestor::Reference, TemplateSwitchDirection::Forward) => {
+                            reference[ancestor_index].clone()
                         }
-                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Reverse) => {
-                            reference[secondary_index - 1].complement()
+                        (TemplateSwitchAncestor::Reference, TemplateSwitchDirection::Reverse) => {
+                            reference[ancestor_index - 1].complement()
                         }
-                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Forward) => {
-                            query[secondary_index].clone()
+                        (TemplateSwitchAncestor::Query, TemplateSwitchDirection::Forward) => {
+                            query[ancestor_index].clone()
                         }
-                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Reverse) => {
-                            query[secondary_index - 1].complement()
+                        (TemplateSwitchAncestor::Query, TemplateSwitchDirection::Reverse) => {
+                            query[ancestor_index - 1].complement()
                         }
                     };
                     let cost_increment = if Some(alignment_type) == last_alignment_type {
                         config
                             .secondary_edit_costs(direction)
-                            .gap_extend_cost(secondary_character)
+                            .gap_extend_cost(ancestor_character)
                     } else {
                         config
                             .secondary_edit_costs(direction)
-                            .gap_open_cost(secondary_character)
+                            .gap_open_cost(ancestor_character)
                     };
                     match direction {
-                        TemplateSwitchDirection::Forward => secondary_index += 1,
-                        TemplateSwitchDirection::Reverse => secondary_index -= 1,
+                        TemplateSwitchDirection::Forward => ancestor_index += 1,
+                        TemplateSwitchDirection::Reverse => ancestor_index -= 1,
                     }
                     cost_increment
                 }
                 AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
-                    let primary_character = match primary {
-                        TemplateSwitchPrimary::Reference => reference[primary_index].clone(),
-                        TemplateSwitchPrimary::Query => query[primary_index].clone(),
+                    let descendant_character = match descendant {
+                        TemplateSwitchDescendant::Reference => reference[descendant_index].clone(),
+                        TemplateSwitchDescendant::Query => query[descendant_index].clone(),
                     };
-                    let secondary_character = match (secondary, direction) {
-                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Forward) => {
-                            reference[secondary_index].clone()
+                    let ancestor_character = match (ancestor, direction) {
+                        (TemplateSwitchAncestor::Reference, TemplateSwitchDirection::Forward) => {
+                            reference[ancestor_index].clone()
                         }
-                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Reverse) => {
-                            reference[secondary_index - 1].complement()
+                        (TemplateSwitchAncestor::Reference, TemplateSwitchDirection::Reverse) => {
+                            reference[ancestor_index - 1].complement()
                         }
-                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Forward) => {
-                            query[secondary_index].clone()
+                        (TemplateSwitchAncestor::Query, TemplateSwitchDirection::Forward) => {
+                            query[ancestor_index].clone()
                         }
-                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Reverse) => {
-                            query[secondary_index - 1].complement()
+                        (TemplateSwitchAncestor::Query, TemplateSwitchDirection::Reverse) => {
+                            query[ancestor_index - 1].complement()
                         }
                     };
                     let cost_increment = config
                         .secondary_edit_costs(direction)
-                        .match_or_substitution_cost(primary_character, secondary_character);
-                    primary_index += 1;
+                        .match_or_substitution_cost(descendant_character, ancestor_character);
+                    descendant_index += 1;
                     match direction {
-                        TemplateSwitchDirection::Forward => secondary_index += 1,
-                        TemplateSwitchDirection::Reverse => secondary_index -= 1,
+                        TemplateSwitchDirection::Forward => ancestor_index += 1,
+                        TemplateSwitchDirection::Reverse => ancestor_index -= 1,
                     }
                     cost_increment
                 }
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset,
-                    primary: ts_primary,
-                    secondary: ts_secondary,
+                    descendant: ts_descendant,
+                    ancestor: ts_ancestor,
                     direction: ts_direction,
                     ..
                 } => {
@@ -740,25 +756,25 @@ impl Alignment<AlignmentType> {
                         last_alignment_type,
                         Some(AlignmentType::TemplateSwitchEntrance { .. })
                     ));
-                    primary = ts_primary;
-                    secondary = ts_secondary;
+                    descendant = ts_descendant;
+                    ancestor = ts_ancestor;
                     direction = ts_direction;
-                    let cost_increment = config.base_cost.get(primary, secondary, direction);
+                    let cost_increment = config.base_cost.get(descendant, ancestor, direction);
                     let Some(cost_increment) = cost_increment.checked_add(
                         &config
-                            .offset_costs(primary, secondary)
+                            .offset_costs(descendant, ancestor)
                             .evaluate(&first_offset),
                     ) else {
                         return Cost::max_value();
                     };
-                    primary_index = match primary {
-                        TemplateSwitchPrimary::Reference => reference_index,
-                        TemplateSwitchPrimary::Query => query_index,
+                    descendant_index = match descendant {
+                        TemplateSwitchDescendant::Reference => reference_index,
+                        TemplateSwitchDescendant::Query => query_index,
                     };
-                    secondary_index = usize::try_from(
-                        isize::try_from(match secondary {
-                            TemplateSwitchSecondary::Reference => reference_index,
-                            TemplateSwitchSecondary::Query => query_index,
+                    ancestor_index = usize::try_from(
+                        isize::try_from(match ancestor {
+                            TemplateSwitchAncestor::Reference => reference_index,
+                            TemplateSwitchAncestor::Query => query_index,
                         })
                         .unwrap()
                         .checked_add(first_offset)
@@ -767,41 +783,43 @@ impl Alignment<AlignmentType> {
                     .unwrap();
                     cost_increment
                 }
-                AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap,
+                } => {
                     assert!(!matches!(
                         last_alignment_type,
                         Some(AlignmentType::TemplateSwitchExit { .. })
                     ));
-                    let length = match primary {
-                        TemplateSwitchPrimary::Reference => {
-                            let length = primary_index - reference_index;
-                            reference_index = primary_index;
+                    let length = match descendant {
+                        TemplateSwitchDescendant::Reference => {
+                            let length = descendant_index - reference_index;
+                            reference_index = descendant_index;
                             query_index = usize::try_from(
                                 isize::try_from(query_index)
                                     .unwrap()
-                                    .checked_add(anti_primary_gap)
+                                    .checked_add(anti_descendant_gap)
                                     .unwrap(),
                             )
                             .unwrap();
                             length
                         }
-                        TemplateSwitchPrimary::Query => {
-                            let length = primary_index - query_index;
-                            query_index = primary_index;
+                        TemplateSwitchDescendant::Query => {
+                            let length = descendant_index - query_index;
+                            query_index = descendant_index;
                             reference_index = usize::try_from(
                                 isize::try_from(reference_index)
                                     .unwrap()
-                                    .checked_add(anti_primary_gap)
+                                    .checked_add(anti_descendant_gap)
                                     .unwrap(),
                             )
                             .unwrap();
                             length
                         }
                     };
-                    let length_difference = anti_primary_gap - isize::try_from(length).unwrap();
+                    let length_difference = anti_descendant_gap - isize::try_from(length).unwrap();
                     let cost_increment = config
-                        .anti_primary_gap_costs(direction)
-                        .evaluate(&anti_primary_gap);
+                        .anti_descendant_gap_costs(direction)
+                        .evaluate(&anti_descendant_gap);
                     let Some(cost_increment) =
                         cost_increment.checked_add(&config.length_costs.evaluate(&length))
                     else {
@@ -852,8 +870,8 @@ mod tests {
         a_star_aligner::{
             alignment_result::alignment::Alignment,
             template_switch_distance::{
-                AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
-                TemplateSwitchSecondary,
+                AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
+                TemplateSwitchDirection,
             },
         },
         config::{BaseCost, TemplateSwitchConfig},
@@ -866,17 +884,17 @@ mod tests {
         [
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&-6)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&2)
                 + CONFIG.length_costs.evaluate(&2)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&-4)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&3)
                 + CONFIG.length_costs.evaluate(&3)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&-2)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&4)
                 + CONFIG.length_costs.evaluate(&4)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
@@ -885,7 +903,7 @@ mod tests {
                     DnaAlphabet::ascii_to_character(b'G').unwrap(),
                     DnaAlphabet::ascii_to_character(b'T').unwrap(),
                 )
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&5)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&5)
                 + CONFIG.length_costs.evaluate(&5)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
@@ -898,7 +916,7 @@ mod tests {
                     DnaAlphabet::ascii_to_character(b'A').unwrap(),
                     DnaAlphabet::ascii_to_character(b'C').unwrap(),
                 )
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&6)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&6)
                 + CONFIG.length_costs.evaluate(&6)
                 + CONFIG.length_difference_costs.evaluate(&0),
         ]
@@ -912,8 +930,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -6,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -921,7 +939,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 2,
+                    anti_descendant_gap: 2,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -933,8 +951,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -4,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -942,7 +960,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 3,
+                    anti_descendant_gap: 3,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -954,8 +972,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -2,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -963,7 +981,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 4,
+                    anti_descendant_gap: 4,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -975,8 +993,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 0,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -985,7 +1003,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 5,
+                    anti_descendant_gap: 5,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -997,8 +1015,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 2,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1007,7 +1025,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 6,
+                    anti_descendant_gap: 6,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -1020,17 +1038,17 @@ mod tests {
         [
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&10)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&2)
                 + CONFIG.length_costs.evaluate(&2)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&10)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&3)
                 + CONFIG.length_costs.evaluate(&3)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
                 + CONFIG.rq_qr_offset_costs.evaluate(&10)
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&4)
                 + CONFIG.length_costs.evaluate(&4)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
@@ -1039,7 +1057,7 @@ mod tests {
                     DnaAlphabet::ascii_to_character(b'A').unwrap(),
                     DnaAlphabet::ascii_to_character(b'C').unwrap(),
                 )
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&5)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&5)
                 + CONFIG.length_costs.evaluate(&5)
                 + CONFIG.length_difference_costs.evaluate(&0),
             CONFIG.base_cost.rqr
@@ -1052,7 +1070,7 @@ mod tests {
                     DnaAlphabet::ascii_to_character(b'G').unwrap(),
                     DnaAlphabet::ascii_to_character(b'T').unwrap(),
                 )
-                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&6)
+                + CONFIG.reverse_anti_descendant_gap_costs.evaluate(&6)
                 + CONFIG.length_costs.evaluate(&6)
                 + CONFIG.length_difference_costs.evaluate(&0),
         ]
@@ -1066,8 +1084,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1075,7 +1093,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 2,
+                    anti_descendant_gap: 2,
                 },
             ),
             (6, AlignmentType::PrimaryMatch),
@@ -1087,8 +1105,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1096,7 +1114,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 3,
+                    anti_descendant_gap: 3,
                 },
             ),
             (5, AlignmentType::PrimaryMatch),
@@ -1108,8 +1126,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1117,7 +1135,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 4,
+                    anti_descendant_gap: 4,
                 },
             ),
             (4, AlignmentType::PrimaryMatch),
@@ -1129,8 +1147,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1139,7 +1157,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 5,
+                    anti_descendant_gap: 5,
                 },
             ),
             (3, AlignmentType::PrimaryMatch),
@@ -1151,8 +1169,8 @@ mod tests {
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
                     equal_cost_range: EqualCostRange::new_invalid(),
-                    primary: TemplateSwitchPrimary::Reference,
-                    secondary: TemplateSwitchSecondary::Query,
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
                 },
             ),
@@ -1161,7 +1179,7 @@ mod tests {
             (
                 1,
                 AlignmentType::TemplateSwitchExit {
-                    anti_primary_gap: 6,
+                    anti_descendant_gap: 6,
                 },
             ),
             (2, AlignmentType::PrimaryMatch),
@@ -1233,13 +1251,13 @@ mod tests {
                     .collect::<Vec<_>>(),
             )
             .unwrap(),
-            forward_anti_primary_gap_costs: CostFunction::try_from(
+            forward_anti_descendant_gap_costs: CostFunction::try_from(
                 (-20..=20)
                     .map(|i| (i, U64Cost::from(29 * u64::try_from(i + 21).unwrap())))
                     .collect::<Vec<_>>(),
             )
             .unwrap(),
-            reverse_anti_primary_gap_costs: CostFunction::try_from(
+            reverse_anti_descendant_gap_costs: CostFunction::try_from(
                 (-20..=20)
                     .map(|i| (i, U64Cost::from(31 * u64::try_from(i + 21).unwrap())))
                     .collect::<Vec<_>>(),

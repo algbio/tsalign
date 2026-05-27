@@ -3,8 +3,8 @@ use std::{cmp::Ordering, iter};
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
-        TemplateSwitchSecondary,
+        AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
+        TemplateSwitchDirection,
     },
 };
 use log::{debug, trace};
@@ -141,8 +141,8 @@ impl TsSourceArrangement {
                     current_query_index += 1;
                 }
                 AlignmentType::TemplateSwitchEntrance {
-                    primary,
-                    secondary,
+                    descendant,
+                    ancestor,
                     direction,
                     first_offset,
                     equal_cost_range,
@@ -150,8 +150,8 @@ impl TsSourceArrangement {
                 } => {
                     template_switches_out.extend([result.align_ts(
                         ts_index,
-                        primary,
-                        secondary,
+                        descendant,
+                        ancestor,
                         direction,
                         first_offset,
                         equal_cost_range,
@@ -218,8 +218,8 @@ impl TsSourceArrangement {
     fn align_ts(
         &mut self,
         ts_index: usize,
-        ts_primary: TemplateSwitchPrimary,
-        ts_secondary: TemplateSwitchSecondary,
+        ts_descendant: TemplateSwitchDescendant,
+        ts_ancestor: TemplateSwitchAncestor,
         ts_direction: TemplateSwitchDirection,
         first_offset: isize,
         equal_cost_range: EqualCostRange,
@@ -231,8 +231,8 @@ impl TsSourceArrangement {
         let sp1_reference =
             self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
         let sp1_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
-        let sp2_secondary = match ts_secondary {
-            TemplateSwitchSecondary::Reference => {
+        let sp2_ancestor = match ts_ancestor {
+            TemplateSwitchAncestor::Reference => {
                 let source_current_reference_index =
                     self.reference_arrangement_to_source_column(*current_reference_index);
                 let adjusted_source_current_reference_index =
@@ -246,7 +246,7 @@ impl TsSourceArrangement {
                 );
                 adjusted_source_current_reference_index
             }
-            TemplateSwitchSecondary::Query => {
+            TemplateSwitchAncestor::Query => {
                 let source_current_query_index =
                     self.query_arrangement_to_source_column(*current_query_index);
                 let adjusted_source_current_query_index = source_current_query_index
@@ -261,56 +261,58 @@ impl TsSourceArrangement {
             }
         } + first_offset;
         trace!("first_offset: {first_offset}");
-        trace!("sp2_secondary: {sp2_secondary}");
+        trace!("sp2_ancestor: {sp2_ancestor}");
 
-        let mut sp3_secondary = sp2_secondary;
-        let mut primary_inner_length = 0;
+        let mut sp3_ancestor = sp2_ancestor;
+        let mut descendant_inner_length = 0;
         let mut inner_alignment = Alignment::new();
 
-        let anti_primary_gap = loop {
+        let anti_descendant_gap = loop {
             let alignment_type = alignment.next().unwrap_or_else(|| unreachable!());
             trace!("Secondary alignment type: {alignment_type}");
 
             match alignment_type {
-                AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
-                    break anti_primary_gap;
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap,
+                } => {
+                    break anti_descendant_gap;
                 }
                 AlignmentType::SecondaryDeletion => {
                     match ts_direction {
-                        TemplateSwitchDirection::Forward => sp3_secondary += 1,
-                        TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
+                        TemplateSwitchDirection::Forward => sp3_ancestor += 1,
+                        TemplateSwitchDirection::Reverse => sp3_ancestor -= 1,
                     }
                     inner_alignment.push(alignment_type);
                 }
 
                 AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
                     match ts_direction {
-                        TemplateSwitchDirection::Forward => sp3_secondary += 1,
-                        TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
+                        TemplateSwitchDirection::Forward => sp3_ancestor += 1,
+                        TemplateSwitchDirection::Reverse => sp3_ancestor -= 1,
                     }
-                    primary_inner_length += 1;
+                    descendant_inner_length += 1;
                     inner_alignment.push(alignment_type);
                 }
                 AlignmentType::SecondaryInsertion => {
-                    primary_inner_length += 1;
+                    descendant_inner_length += 1;
                     inner_alignment.push(alignment_type);
                 }
                 AlignmentType::SecondaryRoot => { /* Do nothing */ }
                 _ => unreachable!(),
             }
         };
-        let sp3_secondary = sp3_secondary;
-        let primary_inner_length = primary_inner_length;
+        let sp3_ancestor = sp3_ancestor;
+        let descendant_inner_length = descendant_inner_length;
 
-        let (primary, anti_primary, current_primary_index, current_anti_primary_index) =
-            match ts_primary {
-                TemplateSwitchPrimary::Reference => (
+        let (descendant, anti_descendant, current_descendant_index, current_anti_descendant_index) =
+            match ts_descendant {
+                TemplateSwitchDescendant::Reference => (
                     &mut self.reference,
                     &mut self.query,
                     current_reference_index,
                     current_query_index,
                 ),
-                TemplateSwitchPrimary::Query => (
+                TemplateSwitchDescendant::Query => (
                     &mut self.query,
                     &mut self.reference,
                     current_query_index,
@@ -320,10 +322,10 @@ impl TsSourceArrangement {
 
         // Mark the TS inner in the source arrangement as hidden.
         // Take a copy of the unhidden characters at the same time.
-        let inner = primary
+        let inner = descendant
             .iter_values_mut()
-            .skip(current_primary_index.primitive())
-            .take(primary_inner_length)
+            .skip(current_descendant_index.primitive())
+            .take(descendant_inner_length)
             .map(|c| {
                 let result = *c;
                 c.hide();
@@ -331,13 +333,13 @@ impl TsSourceArrangement {
             })
             .collect();
 
-        *current_primary_index += primary_inner_length;
+        *current_descendant_index += descendant_inner_length;
 
-        let anti_primary_inner_length = if anti_primary_gap < 0 {
+        let anti_descendant_inner_length = if anti_descendant_gap < 0 {
             // Insert copies.
-            let duplicate_rev: Vec<_> = anti_primary
+            let duplicate_rev: Vec<_> = anti_descendant
                 .iter_values()
-                .take(current_anti_primary_index.primitive())
+                .take(current_anti_descendant_index.primitive())
                 .rev()
                 .filter_map(|c| {
                     if c.is_char() {
@@ -346,63 +348,67 @@ impl TsSourceArrangement {
                         None
                     }
                 })
-                .take(usize::try_from(-anti_primary_gap).unwrap())
+                .take(usize::try_from(-anti_descendant_gap).unwrap())
                 .collect();
 
-            anti_primary.splice(
-                *current_anti_primary_index..*current_anti_primary_index,
+            anti_descendant.splice(
+                *current_anti_descendant_index..*current_anti_descendant_index,
                 duplicate_rev.into_iter().rev(),
             );
             0
         } else {
-            *current_anti_primary_index += usize::try_from(anti_primary_gap).unwrap();
-            usize::try_from(anti_primary_gap).unwrap()
+            *current_anti_descendant_index += usize::try_from(anti_descendant_gap).unwrap();
+            usize::try_from(anti_descendant_gap).unwrap()
         };
 
         // Insert spacers.
-        let mut required_spacer_count = 4usize.saturating_sub(anti_primary_inner_length);
+        let mut required_spacer_count = 4usize.saturating_sub(anti_descendant_inner_length);
 
-        match primary_inner_length.cmp(&anti_primary_inner_length) {
+        match descendant_inner_length.cmp(&anti_descendant_inner_length) {
             Ordering::Less => {
-                let delta = anti_primary_inner_length
-                    .checked_sub(primary_inner_length)
+                let delta = anti_descendant_inner_length
+                    .checked_sub(descendant_inner_length)
                     .unwrap();
-                primary.splice(
-                    *current_primary_index..*current_primary_index,
+                descendant.splice(
+                    *current_descendant_index..*current_descendant_index,
                     iter::repeat_n(SourceChar::Blank, delta),
                 );
-                *current_primary_index += delta;
+                *current_descendant_index += delta;
             }
             Ordering::Equal => { /* Do nothing */ }
             Ordering::Greater => {
-                let delta = primary_inner_length
-                    .checked_sub(anti_primary_inner_length)
+                let delta = descendant_inner_length
+                    .checked_sub(anti_descendant_inner_length)
                     .unwrap();
-                anti_primary.splice(
-                    *current_anti_primary_index..*current_anti_primary_index,
+                anti_descendant.splice(
+                    *current_anti_descendant_index..*current_anti_descendant_index,
                     iter::repeat_n(SourceChar::Spacer, required_spacer_count)
                         .chain(iter::repeat(SourceChar::Blank))
                         .take(delta),
                 );
                 required_spacer_count = required_spacer_count.saturating_sub(delta);
-                *current_anti_primary_index += delta;
+                *current_anti_descendant_index += delta;
             }
         }
 
-        primary.splice(
-            *current_primary_index..*current_primary_index,
+        descendant.splice(
+            *current_descendant_index..*current_descendant_index,
             iter::repeat_n(SourceChar::Blank, required_spacer_count),
         );
-        anti_primary.splice(
-            *current_anti_primary_index..*current_anti_primary_index,
+        anti_descendant.splice(
+            *current_anti_descendant_index..*current_anti_descendant_index,
             iter::repeat_n(SourceChar::Spacer, required_spacer_count),
         );
-        *current_primary_index += required_spacer_count;
-        *current_anti_primary_index += required_spacer_count;
+        *current_descendant_index += required_spacer_count;
+        *current_anti_descendant_index += required_spacer_count;
 
-        let (current_reference_index, current_query_index) = match ts_primary {
-            TemplateSwitchPrimary::Reference => (current_primary_index, current_anti_primary_index),
-            TemplateSwitchPrimary::Query => (current_anti_primary_index, current_primary_index),
+        let (current_reference_index, current_query_index) = match ts_descendant {
+            TemplateSwitchDescendant::Reference => {
+                (current_descendant_index, current_anti_descendant_index)
+            }
+            TemplateSwitchDescendant::Query => {
+                (current_anti_descendant_index, current_descendant_index)
+            }
         };
 
         let sp4_reference =
@@ -411,27 +417,27 @@ impl TsSourceArrangement {
 
         TemplateSwitch {
             index: ts_index,
-            primary: ts_primary,
-            secondary: ts_secondary,
+            descendant: ts_descendant,
+            ancestor: ts_ancestor,
             sp1_reference,
             sp1_query,
             sp4_reference,
             sp4_query,
-            sp2_secondary,
-            sp3_secondary,
+            sp2_ancestor,
+            sp3_ancestor,
             inner,
             inner_alignment,
             equal_cost_range,
         }
     }
 
-    pub fn secondary(
+    pub fn ancestor(
         &self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
     ) -> &TaggedVec<ArrangementColumn, SourceChar> {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.reference(),
-            TemplateSwitchSecondary::Query => self.query(),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.reference(),
+            TemplateSwitchAncestor::Query => self.query(),
         }
     }
 
@@ -448,30 +454,30 @@ impl TsSourceArrangement {
         self.reference.len()
     }
 
-    pub fn secondary_to_lower_case(
+    pub fn ancestor_to_lower_case(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.reference[column].to_lower_case(),
-            TemplateSwitchSecondary::Query => self.query[column].to_lower_case(),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.reference[column].to_lower_case(),
+            TemplateSwitchAncestor::Query => self.query[column].to_lower_case(),
         }
     }
 
-    pub fn insert_secondary_gap_with_minimum_copy_depth(
+    pub fn insert_ancestor_gap_with_minimum_copy_depth(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        let secondary_sequence = self.secondary(secondary);
+        let ancestor_sequence = self.ancestor(ancestor);
         let copy_depth = if column == ArrangementColumn::ZERO {
-            secondary_sequence[column].copy_depth()
-        } else if column == ArrangementColumn::from(secondary_sequence.len()) {
-            secondary_sequence[column - 1usize].copy_depth()
+            ancestor_sequence[column].copy_depth()
+        } else if column == ArrangementColumn::from(ancestor_sequence.len()) {
+            ancestor_sequence[column - 1usize].copy_depth()
         } else {
-            let copy_depth_1 = secondary_sequence[column - 1usize].copy_depth();
-            let copy_depth_2 = secondary_sequence[column].copy_depth();
+            let copy_depth_1 = ancestor_sequence[column - 1usize].copy_depth();
+            let copy_depth_2 = ancestor_sequence[column].copy_depth();
 
             if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
                 Some(copy_depth_1.min(copy_depth_2))
@@ -480,18 +486,18 @@ impl TsSourceArrangement {
             }
         };
 
-        self.insert_secondary_gap(secondary, column, copy_depth);
+        self.insert_ancestor_gap(ancestor, column, copy_depth);
     }
 
-    pub fn insert_secondary_gap(
+    pub fn insert_ancestor_gap(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
         copy_depth: Option<usize>,
     ) {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.insert_reference_gap(column, copy_depth),
-            TemplateSwitchSecondary::Query => self.insert_query_gap(column, copy_depth),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.insert_reference_gap(column, copy_depth),
+            TemplateSwitchAncestor::Query => self.insert_query_gap(column, copy_depth),
         }
     }
 

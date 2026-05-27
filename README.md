@@ -156,7 +156,7 @@ The costs are a piecewise constant function, where the first row is the first in
 `RQQROffset` is applied to TSMs where ancestor and descendant are different, while `RRQQOffset` is applied to TSMs where ancestor and descendant are the same.
 `Length` is the cost based on the length of the 2-3-alignment of the TSM.
 `LengthDifference` is the cost based on the difference between the length of the 2-3-alignment and the difference between points 1 and 4.
-`ForwardAntiPrimaryGap` is the cost based on the difference between points 1 and 4, specifically `SP4 - SP1`.
+`ForwardAntiDescendantGap` is the cost based on the difference between points 1 and 4, specifically `SP4 - SP1`.
 
 ```txt
 # Jump Costs
@@ -177,11 +177,11 @@ LengthDifference
  -inf -100 101
   inf    0 inf
 
-ForwardAntiPrimaryGap
+ForwardAntiDescendantGap
  -inf   1
     0 inf
 
-ReverseAntiPrimaryGap
+ReverseAntiDescendantGap
  -inf
     0
 ```
@@ -248,6 +248,7 @@ Then, create the visualisation in SVG format as follows:
 ```bash
 tsalign show -i alignment.toml -n alignment-no-ts.toml -s alignment.svg
 ```
+
 Since SVGs are not always well supported, you can also use the switch `-p` to render the visualisation also as PNG.
 Note that the `-p` switch requires setting the `-s` parameter.
 

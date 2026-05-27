@@ -13,8 +13,8 @@ pub enum Error {
     #[error("No-TS alignment is incomplete, and hence cannot be rendered.")]
     NoTsAlignmentHasNoTarget,
 
-    #[error("A negative anti-primary gap is not supported for SVG generation.")]
-    SvgNegativeAntiPrimaryGap,
+    #[error("A negative anti-descendant gap is not supported for SVG generation.")]
+    SvgNegativeAntiDescendantGap,
 
     #[error("Forward TSes are not yet supported.")]
     ForwardTsNotSupported,

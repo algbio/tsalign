@@ -2,7 +2,9 @@ use equal_cost_range::EqualCostRange;
 
 use crate::a_star_aligner::alignment_result::IAlignmentType;
 
-use super::identifier::{TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary};
+use super::identifier::{
+    TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
+};
 
 pub mod equal_cost_range;
 
@@ -33,31 +35,31 @@ pub enum AlignmentType {
     ///
     /// This happens inside a TS flank.
     PrimaryFlankMatch,
-    /// The TS secondary is missing a base present in the TS primary.
+    /// The TS ancestor is missing a base present in the TS descendant.
     SecondaryInsertion,
-    /// The TS secondary contains a base that is missing from the TS primary.
+    /// The TS ancestor contains a base that is missing from the TS descendant.
     SecondaryDeletion,
-    /// The TS secondary contains a different base than the TS primary.
+    /// The TS ancestor contains a different base than the TS descendant.
     SecondarySubstitution,
-    /// The TS secondary contains the same base as the TS primary.
+    /// The TS ancestor contains the same base as the TS descendant.
     SecondaryMatch,
     /// A template switch entrance.
     TemplateSwitchEntrance {
         first_offset: isize,
         equal_cost_range: EqualCostRange,
-        primary: TemplateSwitchPrimary,
-        secondary: TemplateSwitchSecondary,
+        descendant: TemplateSwitchDescendant,
+        ancestor: TemplateSwitchAncestor,
         direction: TemplateSwitchDirection,
     },
     /// A template switch exit.
     TemplateSwitchExit {
-        /// The number of characters that are skipped on the anti-primary sequence.
-        /// If negative, it is the number of characters that are repeated on the anti-primary sequence.
+        /// The number of characters that are skipped on the anti-descendant sequence.
+        /// If negative, it is the number of characters that are repeated on the anti-descendant sequence.
         ///
         /// In terms of switchpoints, this is the difference `SP4 - SP1`.
         ///
-        /// Note that the anti-primary sequence is not necessarily equal to the secondary sequence.
-        anti_primary_gap: isize,
+        /// Note that the anti-descendant sequence is not necessarily equal to the ancestor sequence.
+        anti_descendant_gap: isize,
     },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
@@ -122,16 +124,16 @@ impl IAlignmentType for AlignmentType {
         match (self, previous) {
             (
                 Self::TemplateSwitchEntrance {
-                    primary: primary_a,
-                    secondary: secondary_a,
+                    descendant: descendant_a,
+                    ancestor: ancestor_a,
                     ..
                 },
                 Self::TemplateSwitchEntrance {
-                    primary: primary_b,
-                    secondary: secondary_b,
+                    descendant: descendant_b,
+                    ancestor: ancestor_b,
                     ..
                 },
-            ) => primary_a == primary_b && secondary_a == secondary_b,
+            ) => descendant_a == descendant_b && ancestor_a == ancestor_b,
             (Self::TemplateSwitchExit { .. }, Self::TemplateSwitchExit { .. }) => true,
             (Self::PrimaryShortcut { .. }, Self::PrimaryShortcut { .. }) => false,
             (a, b) => a == b,
@@ -164,14 +166,14 @@ impl AlignmentType {
             Self::SecondaryInsertion => Self::SecondaryDeletion,
             Self::SecondaryDeletion => Self::SecondaryInsertion,
             Self::TemplateSwitchEntrance {
-                primary,
-                secondary,
+                descendant,
+                ancestor,
                 direction,
                 equal_cost_range,
                 first_offset,
             } => Self::TemplateSwitchEntrance {
-                primary: primary.inverted(),
-                secondary: secondary.inverted(),
+                descendant: descendant.inverted(),
+                ancestor: ancestor.inverted(),
                 direction: direction.inverted(),
                 equal_cost_range: *equal_cost_range,
                 first_offset: *first_offset,

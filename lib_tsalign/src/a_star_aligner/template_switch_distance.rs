@@ -20,7 +20,7 @@ pub mod strategies;
 pub use alignment_type::{AlignmentType, equal_cost_range::EqualCostRange};
 pub use context::Context;
 pub use identifier::{
-    GapType, Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
 };
 
 use crate::{
@@ -244,8 +244,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             .generate_initial_template_switch_entrance_successors()
             .filter_map(move |identifier| {
                 let Identifier::TemplateSwitchEntrance {
-                    template_switch_primary,
-                    template_switch_secondary,
+                    template_switch_descendant,
+                    template_switch_ancestor,
                     template_switch_direction,
                     template_switch_first_offset,
                     ..
@@ -258,23 +258,24 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 if !self
                     .strategies
                     .descendant_strategy
-                    .is_descendant_allowed(*template_switch_primary)
+                    .is_descendant_allowed(*template_switch_descendant)
                 {
                     return None;
                 }
 
                 let base_cost = base_cost.get(
-                    *template_switch_primary,
-                    *template_switch_secondary,
+                    *template_switch_descendant,
+                    *template_switch_ancestor,
                     *template_switch_direction,
                 );
-                let cost_increment = match (*template_switch_primary, *template_switch_secondary) {
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query)
-                    | (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                let cost_increment = match (*template_switch_descendant, *template_switch_ancestor)
+                {
+                    (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Query)
+                    | (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Reference) => {
                         rq_qr_cost_increment
                     }
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference)
-                    | (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+                    (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Reference)
+                    | (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Query) => {
                         rr_qq_cost_increment
                     }
                 };
@@ -286,8 +287,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                         identifier,
                         base_cost + cost_increment,
                         AlignmentType::TemplateSwitchEntrance {
-                            primary: *template_switch_primary,
-                            secondary: *template_switch_secondary,
+                            descendant: *template_switch_descendant,
+                            ancestor: *template_switch_ancestor,
                             direction: *template_switch_direction,
                             equal_cost_range: EqualCostRange::new_invalid(),
                             first_offset: *template_switch_first_offset,
@@ -313,8 +314,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
             ..
         } = self.node_data.identifier
@@ -326,15 +327,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             Identifier::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 template_switch_first_offset: successor_template_switch_first_offset,
             },
             cost_increment,
             AlignmentType::TemplateSwitchEntrance {
-                primary: template_switch_primary,
-                secondary: template_switch_secondary,
+                descendant: template_switch_descendant,
+                ancestor: template_switch_ancestor,
                 direction: template_switch_direction,
                 equal_cost_range: EqualCostRange::new_invalid(),
                 first_offset: successor_template_switch_first_offset,
@@ -360,8 +361,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
             template_switch_first_offset,
         } = self.node_data.identifier
@@ -369,23 +370,23 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on template switch entrance nodes.")
         };
 
-        let primary_index = match template_switch_primary {
-            TemplateSwitchPrimary::Reference => entrance_reference_index,
-            TemplateSwitchPrimary::Query => entrance_query_index,
+        let descendant_index = match template_switch_descendant {
+            TemplateSwitchDescendant::Reference => entrance_reference_index,
+            TemplateSwitchDescendant::Query => entrance_query_index,
         };
 
-        let secondary_index = (match template_switch_secondary {
-            TemplateSwitchSecondary::Reference => entrance_reference_index,
-            TemplateSwitchSecondary::Query => entrance_query_index,
+        let ancestor_index = (match template_switch_ancestor {
+            TemplateSwitchAncestor::Reference => entrance_reference_index,
+            TemplateSwitchAncestor::Query => entrance_query_index,
         } as isize
             + template_switch_first_offset) as usize;
 
-        match template_switch_secondary {
-            TemplateSwitchSecondary::Reference => {
-                debug_assert!(secondary_index <= context.reference.len(), "{self}")
+        match template_switch_ancestor {
+            TemplateSwitchAncestor::Reference => {
+                debug_assert!(ancestor_index <= context.reference.len(), "{self}")
             }
-            TemplateSwitchSecondary::Query => {
-                debug_assert!(secondary_index <= context.query.len(), "{self}")
+            TemplateSwitchAncestor::Query => {
+                debug_assert!(ancestor_index <= context.query.len(), "{self}")
             }
         }
 
@@ -393,12 +394,12 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             Identifier::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length: 0,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 gap_type: GapType::None,
             },
             Strategies::Cost::zero(),
@@ -440,7 +441,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    /// The secondary contains a base missing in the primary.
+    /// The ancestor contains a base missing in the descendant.
     fn generate_secondary_deletion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
@@ -465,7 +466,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    /// The secondary contains a base missing in the primary.
+    /// The descendant contains a base missing in the ancestor.
     fn generate_secondary_insertion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
@@ -504,10 +505,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let Identifier::Secondary {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
-            primary_index,
+            descendant_index,
             length,
             ..
         } = self.node_data.identifier
@@ -519,15 +520,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             Identifier::TemplateSwitchExit {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
-                primary_index,
-                anti_primary_gap: length.try_into().unwrap(),
+                descendant_index,
+                anti_descendant_gap: length.try_into().unwrap(),
             },
             cost_increment,
             AlignmentType::TemplateSwitchExit {
-                anti_primary_gap: length.try_into().unwrap(),
+                anti_descendant_gap: length.try_into().unwrap(),
             },
             context,
         ))
@@ -538,7 +539,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         cost_increment: Strategies::Cost,
-        successor_anti_primary_gap: isize,
+        successor_anti_descendant_gap: isize,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
         if cost_increment == Strategies::Cost::max_value() {
@@ -548,10 +549,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary,
-            template_switch_secondary,
+            template_switch_descendant,
+            template_switch_ancestor,
             template_switch_direction,
-            primary_index,
+            descendant_index,
             ..
         } = self.node_data.identifier
         else {
@@ -562,15 +563,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             Identifier::TemplateSwitchExit {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
-                primary_index,
-                anti_primary_gap: successor_anti_primary_gap,
+                descendant_index,
+                anti_descendant_gap: successor_anti_descendant_gap,
             },
             cost_increment,
             AlignmentType::TemplateSwitchExit {
-                anti_primary_gap: successor_anti_primary_gap,
+                anti_descendant_gap: successor_anti_descendant_gap,
             },
             context,
         ))
@@ -590,35 +591,35 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let identifier @ Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary,
-            primary_index,
-            anti_primary_gap,
+            template_switch_descendant,
+            descendant_index,
+            anti_descendant_gap,
             ..
         } = self.node_data.identifier
         else {
             unreachable!("This method is only called on template switch exit nodes.")
         };
 
-        let (reference_index, query_index) = match template_switch_primary {
-            TemplateSwitchPrimary::Reference => {
-                let query_index = entrance_query_index as isize + anti_primary_gap;
+        let (reference_index, query_index) = match template_switch_descendant {
+            TemplateSwitchDescendant::Reference => {
+                let query_index = entrance_query_index as isize + anti_descendant_gap;
 
                 // TODO the latter condition should never be true if we generate TS exit nodes correctly.
                 if query_index < 0 || query_index as usize >= context.query.len() {
                     return None;
                 }
 
-                (primary_index, query_index as usize)
+                (descendant_index, query_index as usize)
             }
-            TemplateSwitchPrimary::Query => {
-                let reference_index = entrance_reference_index as isize + anti_primary_gap;
+            TemplateSwitchDescendant::Query => {
+                let reference_index = entrance_reference_index as isize + anti_descendant_gap;
 
                 // TODO the latter condition should never be true if we generate TS exit nodes correctly.
                 if reference_index < 0 || reference_index as usize >= context.reference.len() {
                     return None;
                 }
 
-                (reference_index as usize, primary_index)
+                (reference_index as usize, descendant_index)
             }
         };
 

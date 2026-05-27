@@ -2,7 +2,7 @@ use std::{collections::VecDeque, iter};
 
 use crate::a_star_aligner::{
     alignment_result::alignment::Alignment,
-    template_switch_distance::{AlignmentType, TemplateSwitchPrimary},
+    template_switch_distance::{AlignmentType, TemplateSwitchDescendant},
 };
 
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct AlignmentStream {
 pub struct AlignmentStreamCoordinates {
     reference: usize,
     query: usize,
-    template_switch_primary: Option<TemplateSwitchPrimary>,
+    template_switch_descendant: Option<TemplateSwitchDescendant>,
 }
 
 impl AlignmentStream {
@@ -190,7 +190,7 @@ impl AlignmentStreamCoordinates {
         Self {
             reference: reference_offset,
             query: query_offset,
-            template_switch_primary: None,
+            template_switch_descendant: None,
         }
     }
 
@@ -210,34 +210,37 @@ impl AlignmentStreamCoordinates {
             | AlignmentType::PrimaryMatch
             | AlignmentType::PrimaryFlankSubstitution
             | AlignmentType::PrimaryFlankMatch => (1, 1),
-            AlignmentType::TemplateSwitchEntrance { primary, .. } => {
+            AlignmentType::TemplateSwitchEntrance { descendant, .. } => {
                 assert!(
-                    self.template_switch_primary.is_none(),
+                    self.template_switch_descendant.is_none(),
                     "Encountered template switch entrance within template switch"
                 );
-                self.template_switch_primary = Some(primary);
+                self.template_switch_descendant = Some(descendant);
                 (0, 0)
             }
             AlignmentType::SecondaryInsertion
             | AlignmentType::SecondarySubstitution
-            | AlignmentType::SecondaryMatch => match self.template_switch_primary.unwrap() {
-                TemplateSwitchPrimary::Reference => (1, 0),
-                TemplateSwitchPrimary::Query => (0, 1),
+            | AlignmentType::SecondaryMatch => match self.template_switch_descendant.unwrap() {
+                TemplateSwitchDescendant::Reference => (1, 0),
+                TemplateSwitchDescendant::Query => (0, 1),
             },
-            AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
-                let Some(template_switch_primary) = self.template_switch_primary.take() else {
+            AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap,
+            } => {
+                let Some(template_switch_descendant) = self.template_switch_descendant.take()
+                else {
                     panic!(
                         "Encountered template switch exit without first encountering a template switch entrance"
                     )
                 };
-                match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => {
+                match template_switch_descendant {
+                    TemplateSwitchDescendant::Reference => {
                         self.query =
-                            usize::try_from(self.query as isize + anti_primary_gap).unwrap()
+                            usize::try_from(self.query as isize + anti_descendant_gap).unwrap()
                     }
-                    TemplateSwitchPrimary::Query => {
+                    TemplateSwitchDescendant::Query => {
                         self.reference =
-                            usize::try_from(self.reference as isize + anti_primary_gap).unwrap()
+                            usize::try_from(self.reference as isize + anti_descendant_gap).unwrap()
                     }
                 }
                 (0, 0)

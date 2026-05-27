@@ -1,4 +1,4 @@
-use lib_tsalign::a_star_aligner::template_switch_distance::TemplateSwitchSecondary;
+use lib_tsalign::a_star_aligner::template_switch_distance::TemplateSwitchAncestor;
 use tagged_vec::TaggedVec;
 
 use super::{
@@ -81,13 +81,13 @@ impl TsComplementArrangement {
         self.reference_c.len()
     }
 
-    pub fn secondary_complement(
+    pub fn ancestor_complement(
         &self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
     ) -> &TaggedVec<ArrangementColumn, ComplementChar> {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.reference_complement(),
-            TemplateSwitchSecondary::Query => self.query_complement(),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.reference_complement(),
+            TemplateSwitchAncestor::Query => self.query_complement(),
         }
     }
 
@@ -109,14 +109,14 @@ impl TsComplementArrangement {
         &mut self.query_c
     }
 
-    pub fn show_secondary_character(
+    pub fn show_ancestor_character(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.show_reference_character(column),
-            TemplateSwitchSecondary::Query => self.show_query_character(column),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.show_reference_character(column),
+            TemplateSwitchAncestor::Query => self.show_query_character(column),
         }
     }
 
@@ -128,14 +128,14 @@ impl TsComplementArrangement {
         self.query_c[column].show();
     }
 
-    pub fn secondary_to_lower_case(
+    pub fn ancestor_to_lower_case(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.reference_complement_to_lower_case(column),
-            TemplateSwitchSecondary::Query => self.query_complement_to_lower_case(column),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.reference_complement_to_lower_case(column),
+            TemplateSwitchAncestor::Query => self.query_complement_to_lower_case(column),
         }
     }
 
@@ -147,14 +147,14 @@ impl TsComplementArrangement {
         self.query_c[column].to_lower_case();
     }
 
-    pub fn insert_secondary_complement_gap(
+    pub fn insert_ancestor_complement_gap(
         &mut self,
-        secondary: TemplateSwitchSecondary,
+        ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match secondary {
-            TemplateSwitchSecondary::Reference => self.insert_reference_complement_gap(column),
-            TemplateSwitchSecondary::Query => self.insert_query_complement_gap(column),
+        match ancestor {
+            TemplateSwitchAncestor::Reference => self.insert_reference_complement_gap(column),
+            TemplateSwitchAncestor::Query => self.insert_query_complement_gap(column),
         }
     }
 

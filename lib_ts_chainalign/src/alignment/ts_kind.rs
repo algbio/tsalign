@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use lib_tsalign::a_star_aligner::template_switch_distance::{
-    TemplateSwitchPrimary, TemplateSwitchSecondary,
+    TemplateSwitchAncestor, TemplateSwitchDescendant,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -77,19 +77,19 @@ impl TsKind {
 }
 
 impl TsAncestor {
-    pub fn into_tsalign_secondary(self) -> TemplateSwitchSecondary {
+    pub fn into_tsalign_secondary(self) -> TemplateSwitchAncestor {
         match self {
-            TsAncestor::Seq1 => TemplateSwitchSecondary::Reference,
-            TsAncestor::Seq2 => TemplateSwitchSecondary::Query,
+            TsAncestor::Seq1 => TemplateSwitchAncestor::Reference,
+            TsAncestor::Seq2 => TemplateSwitchAncestor::Query,
         }
     }
 }
 
 impl TsDescendant {
-    pub fn into_tsalign_primary(self) -> TemplateSwitchPrimary {
+    pub fn into_tsalign_primary(self) -> TemplateSwitchDescendant {
         match self {
-            TsDescendant::Seq1 => TemplateSwitchPrimary::Reference,
-            TsDescendant::Seq2 => TemplateSwitchPrimary::Query,
+            TsDescendant::Seq1 => TemplateSwitchDescendant::Reference,
+            TsDescendant::Seq2 => TemplateSwitchDescendant::Query,
         }
     }
 }

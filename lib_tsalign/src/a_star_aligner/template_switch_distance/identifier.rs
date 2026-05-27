@@ -29,33 +29,33 @@ pub enum Identifier<PrimaryExtraData> {
     TemplateSwitchEntrance {
         entrance_reference_index: usize,
         entrance_query_index: usize,
-        template_switch_primary: TemplateSwitchPrimary,
-        template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_descendant: TemplateSwitchDescendant,
+        template_switch_ancestor: TemplateSwitchAncestor,
         template_switch_direction: TemplateSwitchDirection,
         template_switch_first_offset: isize,
     },
     Secondary {
         entrance_reference_index: usize,
         entrance_query_index: usize,
-        template_switch_primary: TemplateSwitchPrimary,
-        template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_descendant: TemplateSwitchDescendant,
+        template_switch_ancestor: TemplateSwitchAncestor,
         template_switch_direction: TemplateSwitchDirection,
         length: usize,
         /// The index that does not jump.
-        primary_index: usize,
+        descendant_index: usize,
         /// The index that jumps.
-        secondary_index: usize,
+        ancestor_index: usize,
         gap_type: GapType,
     },
     TemplateSwitchExit {
         entrance_reference_index: usize,
         entrance_query_index: usize,
-        template_switch_primary: TemplateSwitchPrimary,
-        template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_descendant: TemplateSwitchDescendant,
+        template_switch_ancestor: TemplateSwitchAncestor,
         template_switch_direction: TemplateSwitchDirection,
         /// The index that does not jump.
-        primary_index: usize,
-        anti_primary_gap: isize,
+        descendant_index: usize,
+        anti_descendant_gap: isize,
     },
 }
 
@@ -66,23 +66,23 @@ pub enum GapType {
     None,
 }
 
-/// The primary sequence is the sequence for which the template switch does not jump.
+/// The descendant sequence is the sequence for which the template switch does not jump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TemplateSwitchPrimary {
+pub enum TemplateSwitchDescendant {
     Reference,
     Query,
 }
 
-/// The secondary sequence is the sequence for which the template switch jumps.
+/// The ancestor sequence is the sequence for which the template switch jumps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TemplateSwitchSecondary {
+pub enum TemplateSwitchAncestor {
     Reference,
     Query,
 }
 
-/// The secondary sequence is the sequence for which the template switch jumps.
+/// A reverse TSM is a TSM, while a forward TSM is a repeat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchDirection {
@@ -252,25 +252,25 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 query_index: entrance_query_index,
                 ..
             } => [
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchPrimary::Query,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchDescendant::Query,
             ]
             .into_iter()
             .zip([
-                TemplateSwitchSecondary::Reference,
-                TemplateSwitchSecondary::Query,
-                TemplateSwitchSecondary::Reference,
-                TemplateSwitchSecondary::Query,
-                TemplateSwitchSecondary::Reference,
-                TemplateSwitchSecondary::Query,
-                TemplateSwitchSecondary::Reference,
-                TemplateSwitchSecondary::Query,
+                TemplateSwitchAncestor::Reference,
+                TemplateSwitchAncestor::Query,
+                TemplateSwitchAncestor::Reference,
+                TemplateSwitchAncestor::Query,
+                TemplateSwitchAncestor::Reference,
+                TemplateSwitchAncestor::Query,
+                TemplateSwitchAncestor::Reference,
+                TemplateSwitchAncestor::Query,
             ])
             .zip([
                 TemplateSwitchDirection::Forward,
@@ -284,7 +284,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
             ])
             .flat_map(
                 move |(
-                    (template_switch_primary, template_switch_secondary),
+                    (template_switch_descendant, template_switch_ancestor),
                     template_switch_direction,
                 )| {
                     match template_switch_direction {
@@ -292,16 +292,16 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                             Identifier::TemplateSwitchEntrance {
                                 entrance_reference_index,
                                 entrance_query_index,
-                                template_switch_primary,
-                                template_switch_secondary,
+                                template_switch_descendant,
+                                template_switch_ancestor,
                                 template_switch_direction,
                                 template_switch_first_offset: -1,
                             },
                             Identifier::TemplateSwitchEntrance {
                                 entrance_reference_index,
                                 entrance_query_index,
-                                template_switch_primary,
-                                template_switch_secondary,
+                                template_switch_descendant,
+                                template_switch_ancestor,
                                 template_switch_direction,
                                 template_switch_first_offset: 1,
                             },
@@ -310,8 +310,8 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                             vec![Identifier::TemplateSwitchEntrance {
                                 entrance_reference_index,
                                 entrance_query_index,
-                                template_switch_primary,
-                                template_switch_secondary,
+                                template_switch_descendant,
+                                template_switch_ancestor,
                                 template_switch_direction,
                                 template_switch_first_offset: 0,
                             }]
@@ -331,24 +331,24 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
             Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 ..
             } => Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length: length + 1,
-                primary_index: primary_index + 1,
-                secondary_index: match template_switch_direction {
-                    TemplateSwitchDirection::Forward => secondary_index + 1,
-                    TemplateSwitchDirection::Reverse => secondary_index - 1,
+                descendant_index: descendant_index + 1,
+                ancestor_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => ancestor_index + 1,
+                    TemplateSwitchDirection::Reverse => ancestor_index - 1,
                 },
                 gap_type: GapType::None,
             },
@@ -358,30 +358,30 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 
-    /// The secondary contains a base missing in the primary.
+    /// The ancestor contains a base missing in the descendant.
     pub fn generate_secondary_deletion_successor(self) -> Self {
         match self {
             Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 ..
             } => Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index: match template_switch_direction {
-                    TemplateSwitchDirection::Forward => secondary_index + 1,
-                    TemplateSwitchDirection::Reverse => secondary_index - 1,
+                descendant_index,
+                ancestor_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => ancestor_index + 1,
+                    TemplateSwitchDirection::Reverse => ancestor_index - 1,
                 },
                 gap_type: GapType::Deletion,
             },
@@ -391,28 +391,28 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 
-    /// The secondary misses a base present in the primary.
+    /// The ancestor misses a base present in the descendant.
     pub fn generate_secondary_insertion_successor(self) -> Self {
         match self {
             Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length,
-                primary_index,
-                secondary_index,
+                descendant_index,
+                ancestor_index,
                 ..
             } => Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_primary,
-                template_switch_secondary,
+                template_switch_descendant,
+                template_switch_ancestor,
                 template_switch_direction,
                 length: length + 1,
-                primary_index: primary_index + 1,
-                secondary_index,
+                descendant_index: descendant_index + 1,
+                ancestor_index,
                 gap_type: GapType::Insertion,
             },
             other => unreachable!(
@@ -441,7 +441,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     }
 }
 
-impl TemplateSwitchPrimary {
+impl TemplateSwitchDescendant {
     pub fn inverted(&self) -> Self {
         match self {
             Self::Reference => Self::Query,
@@ -461,13 +461,13 @@ impl TemplateSwitchPrimary {
         query: &'query SubsequenceType,
     ) -> &'result SubsequenceType {
         match self {
-            TemplateSwitchPrimary::Reference => reference,
-            TemplateSwitchPrimary::Query => query,
+            TemplateSwitchDescendant::Reference => reference,
+            TemplateSwitchDescendant::Query => query,
         }
     }
 }
 
-impl TemplateSwitchSecondary {
+impl TemplateSwitchAncestor {
     pub fn inverted(&self) -> Self {
         match self {
             Self::Reference => Self::Query,
@@ -487,8 +487,8 @@ impl TemplateSwitchSecondary {
         query: &'query SubsequenceType,
     ) -> &'result SubsequenceType {
         match self {
-            TemplateSwitchSecondary::Reference => reference,
-            TemplateSwitchSecondary::Query => query,
+            TemplateSwitchAncestor::Reference => reference,
+            TemplateSwitchAncestor::Query => query,
         }
     }
 }

@@ -38,7 +38,10 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> From<TemplateSwitchConfig<Alphabet
                 // tsalign costs do not support limiting this.
                 jump_34: isize::MIN..isize::MAX,
                 length_23: value.length_costs.zero_range().unwrap(),
-                ancestor_gap: value.reverse_anti_primary_gap_costs.zero_range().unwrap(),
+                ancestor_gap: value
+                    .reverse_anti_descendant_gap_costs
+                    .zero_range()
+                    .unwrap(),
             },
         }
     }

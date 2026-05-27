@@ -4,7 +4,7 @@ use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
     a_star_aligner::template_switch_distance::{
-        TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
     },
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     error::{Error, Result},
@@ -44,28 +44,28 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub rr_qq_offset_costs: CostFunction<isize, Cost>,
     pub length_costs: CostFunction<usize, Cost>,
     pub length_difference_costs: CostFunction<isize, Cost>,
-    pub forward_anti_primary_gap_costs: CostFunction<isize, Cost>,
-    pub reverse_anti_primary_gap_costs: CostFunction<isize, Cost>,
+    pub forward_anti_descendant_gap_costs: CostFunction<isize, Cost>,
+    pub reverse_anti_descendant_gap_costs: CostFunction<isize, Cost>,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BaseCost<Cost> {
-    /// Primary: reference; secondary: reference; direction: forward.
+    /// Descendant: reference; ancestor: reference; direction: forward.
     pub rrf: Cost,
-    /// Primary: reference; secondary: query; direction: forward.
+    /// Descendant: reference; ancestor: query; direction: forward.
     pub rqf: Cost,
-    /// Primary: query; secondary: reference; direction: forward.
+    /// Descendant: query; ancestor: reference; direction: forward.
     pub qrf: Cost,
-    /// Primary: query; secondary: query; direction: forward.
+    /// Descendant: query; ancestor: query; direction: forward.
     pub qqf: Cost,
-    /// Primary: reference; secondary: reference; direction: reverse.
+    /// Descendant: reference; ancestor: reference; direction: reverse.
     pub rrr: Cost,
-    /// Primary: reference; secondary: query; direction: reverse.
+    /// Descendant: reference; ancestor: query; direction: reverse.
     pub rqr: Cost,
-    /// Primary: query; secondary: reference; direction: reverse.
+    /// Descendant: query; ancestor: reference; direction: reverse.
     pub qrr: Cost,
-    /// Primary: query; secondary: query; direction: reverse.
+    /// Descendant: query; ancestor: query; direction: reverse.
     pub qqr: Cost,
 }
 
@@ -95,32 +95,32 @@ impl<AlphabetType, Cost> TemplateSwitchConfig<AlphabetType, Cost> {
         }
     }
 
-    pub fn anti_primary_gap_costs(
+    pub fn anti_descendant_gap_costs(
         &self,
         direction: TemplateSwitchDirection,
     ) -> &CostFunction<isize, Cost> {
         match direction {
-            TemplateSwitchDirection::Forward => &self.forward_anti_primary_gap_costs,
-            TemplateSwitchDirection::Reverse => &self.reverse_anti_primary_gap_costs,
+            TemplateSwitchDirection::Forward => &self.forward_anti_descendant_gap_costs,
+            TemplateSwitchDirection::Reverse => &self.reverse_anti_descendant_gap_costs,
         }
     }
 
     pub fn offset_costs(
         &self,
-        primary: TemplateSwitchPrimary,
-        secondary: TemplateSwitchSecondary,
+        descendant: TemplateSwitchDescendant,
+        ancestor: TemplateSwitchAncestor,
     ) -> &CostFunction<isize, Cost> {
-        match (primary, secondary) {
-            (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
+        match (descendant, ancestor) {
+            (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Reference) => {
                 &self.rr_qq_offset_costs
             }
-            (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
+            (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Query) => {
                 &self.rq_qr_offset_costs
             }
-            (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+            (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Reference) => {
                 &self.rq_qr_offset_costs
             }
-            (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+            (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Query) => {
                 &self.rr_qq_offset_costs
             }
         }
@@ -145,49 +145,49 @@ impl<Cost: UpperBounded> BaseCost<Cost> {
 impl<Cost: Clone> BaseCost<Cost> {
     pub fn get(
         &self,
-        primary: TemplateSwitchPrimary,
-        secondary: TemplateSwitchSecondary,
+        descendant: TemplateSwitchDescendant,
+        ancestor: TemplateSwitchAncestor,
         direction: TemplateSwitchDirection,
     ) -> Cost {
-        match (primary, secondary, direction) {
+        match (descendant, ancestor, direction) {
             (
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchAncestor::Reference,
                 TemplateSwitchDirection::Forward,
             ) => self.rrf.clone(),
             (
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchAncestor::Reference,
                 TemplateSwitchDirection::Reverse,
             ) => self.rrr.clone(),
             (
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchSecondary::Query,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchAncestor::Query,
                 TemplateSwitchDirection::Forward,
             ) => self.rqf.clone(),
             (
-                TemplateSwitchPrimary::Reference,
-                TemplateSwitchSecondary::Query,
+                TemplateSwitchDescendant::Reference,
+                TemplateSwitchAncestor::Query,
                 TemplateSwitchDirection::Reverse,
             ) => self.rqr.clone(),
             (
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchAncestor::Reference,
                 TemplateSwitchDirection::Forward,
             ) => self.qrf.clone(),
             (
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchAncestor::Reference,
                 TemplateSwitchDirection::Reverse,
             ) => self.qrr.clone(),
             (
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchSecondary::Query,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchAncestor::Query,
                 TemplateSwitchDirection::Forward,
             ) => self.qqf.clone(),
             (
-                TemplateSwitchPrimary::Query,
-                TemplateSwitchSecondary::Query,
+                TemplateSwitchDescendant::Query,
+                TemplateSwitchAncestor::Query,
                 TemplateSwitchDirection::Reverse,
             ) => self.qqr.clone(),
         }
@@ -210,8 +210,8 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
             rr_qq_offset_costs: self.rr_qq_offset_costs.clone(),
             length_costs: self.length_costs.clone(),
             length_difference_costs: self.length_difference_costs.clone(),
-            forward_anti_primary_gap_costs: self.forward_anti_primary_gap_costs.clone(),
-            reverse_anti_primary_gap_costs: self.reverse_anti_primary_gap_costs.clone(),
+            forward_anti_descendant_gap_costs: self.forward_anti_descendant_gap_costs.clone(),
+            reverse_anti_descendant_gap_costs: self.reverse_anti_descendant_gap_costs.clone(),
         }
     }
 }
@@ -287,13 +287,13 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<A
                 (101, Cost::max_value()),
             ])
             .unwrap(),
-            forward_anti_primary_gap_costs: CostFunction::try_from(vec![
+            forward_anti_descendant_gap_costs: CostFunction::try_from(vec![
                 (isize::MIN, Cost::max_value()),
                 (-100, 0.into()),
                 (101, Cost::max_value()),
             ])
             .unwrap(),
-            reverse_anti_primary_gap_costs: CostFunction::try_from(vec![
+            reverse_anti_descendant_gap_costs: CostFunction::try_from(vec![
                 (isize::MIN, Cost::max_value()),
                 (-100, 0.into()),
                 (101, Cost::max_value()),

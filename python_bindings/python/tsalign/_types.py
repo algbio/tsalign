@@ -34,8 +34,8 @@ class TemplateSwitchEntranceOp:
 
     kind: str  # always "TemplateSwitchEntrance"
     first_offset: int
-    primary: str    # "Reference" or "Query"
-    secondary: str  # "Reference" or "Query"
+    descendant: str    # "Reference" or "Query"
+    ancestor: str  # "Reference" or "Query"
     direction: str  # "Forward" or "Reverse"
     equal_cost_range: dict  # {min_start, max_start, min_end, max_end}
 
@@ -45,7 +45,7 @@ class TemplateSwitchExitOp:
     """Exit from a template switch region."""
 
     kind: str  # always "TemplateSwitchExit"
-    anti_primary_gap: int
+    anti_descendant_gap: int
 
 
 AlignmentOp = Union[SimpleAlignmentOp, TemplateSwitchEntranceOp, TemplateSwitchExitOp]
@@ -60,14 +60,14 @@ def _parse_op(raw: object) -> AlignmentOp:
             return TemplateSwitchEntranceOp(
                 kind="TemplateSwitchEntrance",
                 first_offset=d["first_offset"],
-                primary=d["primary"],
-                secondary=d["secondary"],
+                descendant=d["descendant"],
+                ancestor=d["ancestor"],
                 direction=d["direction"],
                 equal_cost_range=d["equal_cost_range"],
             )
         if "TemplateSwitchExit" in raw:
             return TemplateSwitchExitOp(
                 kind="TemplateSwitchExit",
-                anti_primary_gap=raw["TemplateSwitchExit"]["anti_primary_gap"],
+                anti_descendant_gap=raw["TemplateSwitchExit"]["anti_descendant_gap"],
             )
     raise ValueError(f"Unknown alignment op: {raw!r}")

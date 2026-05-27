@@ -7,7 +7,9 @@ use lib_tsalign::{
             a_star_sequences::SequencePair,
             alignment::stream::{AlignmentStream, AlignmentStreamCoordinates},
         },
-        template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+        template_switch_distance::{
+            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
+        },
     },
     costs::U64Cost,
 };
@@ -76,7 +78,7 @@ fn show_template_switch(
 ) {
     trace!("Showing template switch\n{template_switch:?}");
 
-    let forward = template_switch.sp2_secondary_offset < template_switch.sp3_secondary_offset;
+    let forward = template_switch.sp2_ancestor_offset < template_switch.sp3_ancestor_offset;
     let reference = &sequences.reference;
     let reference_c: String = sequences.reference_rc.chars().rev().collect();
     let query = &sequences.query;
@@ -94,8 +96,8 @@ fn show_template_switch(
         anti_primary_c,
         anti_primary_coordinate_picker,
         invert_alignment,
-    ) = match template_switch.primary {
-        TemplateSwitchPrimary::Reference => (
+    ) = match template_switch.descendant {
+        TemplateSwitchDescendant::Reference => (
             "Parent".to_string(),
             &sequences.reference_name,
             reference,
@@ -112,7 +114,7 @@ fn show_template_switch(
             }) as Box<dyn Fn(&AlignmentStreamCoordinates) -> usize>,
             true,
         ),
-        TemplateSwitchPrimary::Query => (
+        TemplateSwitchDescendant::Query => (
             "Child".to_string(),
             &sequences.query_name,
             query,
@@ -130,10 +132,11 @@ fn show_template_switch(
             false,
         ),
     };
-    let primary_equals_secondary = (template_switch.primary == TemplateSwitchPrimary::Reference
-        && template_switch.secondary == TemplateSwitchSecondary::Reference)
-        || (template_switch.primary == TemplateSwitchPrimary::Query
-            && template_switch.secondary == TemplateSwitchSecondary::Query);
+    let primary_equals_secondary = (template_switch.descendant
+        == TemplateSwitchDescendant::Reference
+        && template_switch.ancestor == TemplateSwitchAncestor::Reference)
+        || (template_switch.descendant == TemplateSwitchDescendant::Query
+            && template_switch.ancestor == TemplateSwitchAncestor::Query);
 
     let primary_forward_label = format!("{primary_label}F");
     let primary_reverse_label = format!("{primary_label}R");
@@ -188,25 +191,25 @@ fn show_template_switch(
     debug!("Anti-primary len: {}", anti_primary.len());
     debug!(
         "SP2 secondary offset: {}",
-        template_switch.sp2_secondary_offset
+        template_switch.sp2_ancestor_offset
     );
     debug!(
         "SP3 secondary offset: {}",
-        template_switch.sp3_secondary_offset
+        template_switch.sp3_ancestor_offset
     );
 
     if primary_equals_secondary {
         let primary_extended_offset = primary_offset.min(
             template_switch
-                .sp3_secondary_offset
-                .min(template_switch.sp2_secondary_offset)
+                .sp3_ancestor_offset
+                .min(template_switch.sp2_ancestor_offset)
                 .saturating_sub(STREAM_PADDING),
         );
         let primary_extended_limit = primary_limit.max(
             primary.chars().count().min(
                 template_switch
-                    .sp2_secondary_offset
-                    .max(template_switch.sp3_secondary_offset)
+                    .sp2_ancestor_offset
+                    .max(template_switch.sp3_ancestor_offset)
                     + STREAM_PADDING,
             ),
         );
@@ -281,8 +284,8 @@ fn show_template_switch(
                 &primary_reverse_label
             },
             template_switch
-                .sp3_secondary_offset
-                .min(template_switch.sp2_secondary_offset)
+                .sp3_ancestor_offset
+                .min(template_switch.sp2_ancestor_offset)
                 - primary_extended_offset,
             f2_label.clone(),
             ts_inner.chars(),
@@ -321,15 +324,15 @@ fn show_template_switch(
     } else {
         let anti_primary_extended_offset = anti_primary_offset.min(
             template_switch
-                .sp3_secondary_offset
-                .min(template_switch.sp2_secondary_offset)
+                .sp3_ancestor_offset
+                .min(template_switch.sp2_ancestor_offset)
                 .saturating_sub(STREAM_PADDING),
         );
         let anti_primary_extended_limit = anti_primary_f3_limit.max(
             anti_primary.chars().count().min(
                 template_switch
-                    .sp2_secondary_offset
-                    .max(template_switch.sp3_secondary_offset)
+                    .sp2_ancestor_offset
+                    .max(template_switch.sp3_ancestor_offset)
                     + STREAM_PADDING,
             ),
         );
@@ -389,8 +392,8 @@ fn show_template_switch(
                 &anti_primary_reverse_label
             },
             template_switch
-                .sp3_secondary_offset
-                .min(template_switch.sp2_secondary_offset)
+                .sp3_ancestor_offset
+                .min(template_switch.sp2_ancestor_offset)
                 - anti_primary_extended_offset,
             f2_label.clone(),
             ts_inner.chars(),
