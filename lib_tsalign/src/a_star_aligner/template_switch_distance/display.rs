@@ -130,7 +130,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             } => {
                 write!(
                     f,
-                    "TemplateSwitchEntrance({entrance_reference_index}R, {entrance_query_index}Q, {template_switch_descendant}D, {template_switch_ancestor}A, {template_switch_direction}D, {template_switch_first_offset}O)",
+                    "TemplateSwitchEntrance(Ref={entrance_reference_index}, Query={entrance_query_index}, Desc={template_switch_descendant}, Anc={template_switch_ancestor}, Dir={template_switch_direction}, Offset={template_switch_first_offset})",
                 )
             }
 
