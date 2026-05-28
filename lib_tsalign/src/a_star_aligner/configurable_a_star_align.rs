@@ -423,7 +423,9 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             range,
             additional_tsm_starts_and_ends,
             &self.costs,
-            DynamicStrategies {},
+            DynamicStrategies {
+                ts_14_out_of_range: self.ts_14_out_of_range_strategy,
+            },
             cost_limit,
             data.memory_limit,
             false,

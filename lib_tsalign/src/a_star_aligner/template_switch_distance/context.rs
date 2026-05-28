@@ -7,7 +7,9 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds;
+use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::{
+    AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
+};
 use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
 use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirection};
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
@@ -63,7 +65,9 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 >>::Memory,
 }
 
-pub struct DynamicStrategies {}
+pub struct DynamicStrategies {
+    pub ts_14_out_of_range: Ts14OutOfRangeStrategy,
+}
 
 impl<
     'reference,

@@ -14,6 +14,7 @@ use crate::{
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
                 chaining::NoChainingStrategy,
                 descendant::AnyTemplateSwitchDescendantStrategy,
                 node_ord::AntiDiagonalNodeOrdStrategy,
@@ -74,7 +75,9 @@ fn test_tsnax_disc1_473() {
         range.clone(),
         Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -118,7 +121,9 @@ fn test_tsnax_disc1_473() {
         range.clone(),
         Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -152,7 +157,9 @@ fn test_tsnax_disc1_473() {
         range.clone(),
         Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -186,7 +193,9 @@ fn test_tsnax_disc1_473() {
         range.clone(),
         Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,

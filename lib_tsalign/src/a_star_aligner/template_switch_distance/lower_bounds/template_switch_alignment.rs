@@ -22,6 +22,7 @@ use crate::{
             context::{DynamicStrategies, Memory},
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
                 chaining::NoChainingStrategy,
                 descendant::AnyTemplateSwitchDescendantStrategy,
                 node_ord::CostOnlyNodeOrdStrategy,
@@ -116,7 +117,9 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                             .min_substitution_cost(),
                     },
                 },
-                DynamicStrategies {},
+                DynamicStrategies {
+                    ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+                },
                 None,
                 None,
                 false,

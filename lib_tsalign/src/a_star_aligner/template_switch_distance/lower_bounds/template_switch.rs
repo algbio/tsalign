@@ -21,9 +21,9 @@ use crate::{
             context::{DynamicStrategies, Memory},
             identifier::GapType,
             strategies::{
-                AlignmentStrategySelection, chaining::NoChainingStrategy,
-                descendant::AnyTemplateSwitchDescendantStrategy, node_ord::CostOnlyNodeOrdStrategy,
-                primary_match::AllowPrimaryMatchStrategy,
+                AlignmentStrategySelection, allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
+                chaining::NoChainingStrategy, descendant::AnyTemplateSwitchDescendantStrategy,
+                node_ord::CostOnlyNodeOrdStrategy, primary_match::AllowPrimaryMatchStrategy,
                 primary_range::NoPrunePrimaryRangeStrategy,
                 secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
@@ -109,7 +109,9 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     shortcut: (),
                     primary_match: (),
                 },
-                DynamicStrategies {},
+                DynamicStrategies {
+                    ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+                },
                 None,
                 None,
                 false,

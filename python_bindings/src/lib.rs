@@ -94,7 +94,7 @@ impl TSAligner {
     ///
     /// The function takes a reference and a query string, and performs a global alignment on both. The output alignment may contain (short-range) template switches.
     /// Optionally, settings can be specified on this aligner.
-    #[pyo3(signature = (reference, query, reference_name="reference", query_name="query", reference_start=None, reference_limit=None, query_start=None, query_limit=None, cost_limit=None, memory_limit=None))]
+    #[pyo3(signature = (reference, query, reference_name="reference", query_name="query", reference_start=None, reference_limit=None, query_start=None, query_limit=None, gap_characters="", cost_limit=None, memory_limit=None))]
     #[allow(clippy::too_many_arguments)]
     fn align(
         &self,
@@ -106,6 +106,7 @@ impl TSAligner {
         reference_limit: Option<usize>,
         query_start: Option<usize>,
         query_limit: Option<usize>,
+        gap_characters: &str,
         cost_limit: Option<u64>,
         memory_limit: Option<usize>,
     ) -> PyResult<Option<TSPairwiseAlignment>> {
@@ -120,6 +121,10 @@ impl TSAligner {
             AlignmentCoordinates::new(reference_start, query_start),
             AlignmentCoordinates::new(reference_limit, query_limit),
         );
+        let gap_characters: Vec<_> = gap_characters
+            .chars()
+            .map(|c| u8::try_from(c).unwrap())
+            .collect();
 
         let result = self.aligner.align(
             reference_name,
@@ -127,6 +132,7 @@ impl TSAligner {
             query_name,
             &query,
             Some(ranges),
+            &gap_characters,
             cost_limit,
             memory_limit,
             true,

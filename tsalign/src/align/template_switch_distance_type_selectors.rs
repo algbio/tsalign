@@ -356,6 +356,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -417,6 +418,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -481,6 +483,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -501,7 +504,9 @@ fn align_a_star_template_switch_distance_call<
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
     let costs = load_tsa_config(&cli.configuration_directory).unwrap();
-    let dynamic_strategies = DynamicStrategies {};
+    let dynamic_strategies = DynamicStrategies {
+        ts_14_out_of_range: cli.allow_ts_14_out_of_range,
+    };
 
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
