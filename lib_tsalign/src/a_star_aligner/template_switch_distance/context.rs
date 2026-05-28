@@ -7,6 +7,7 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
+use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
 use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::{
     AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
 };
@@ -694,13 +695,11 @@ impl<
                 anti_descendant_gap,
                 ..
             } => {
+                // Use complete ranges here because the initial exit node may be out of range, but its successors may not be.
+                // I didn't verify if this is true, but better be safe than sorry.
                 let anti_descendant_range = match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => {
-                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
-                    }
-                    TemplateSwitchDescendant::Query => {
-                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
-                    }
+                    TemplateSwitchDescendant::Reference => 0..self.query.len(),
+                    TemplateSwitchDescendant::Query => 0..self.reference.len(),
                 };
                 let entrance_descendant_index = match template_switch_descendant {
                     TemplateSwitchDescendant::Reference => entrance_reference_index,
@@ -787,14 +786,21 @@ impl<
                 reference_index,
                 query_index,
                 ..
+            } => {
+                reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit()
             }
-            | Identifier::PrimaryReentry {
+            Identifier::PrimaryReentry {
                 reference_index,
                 query_index,
                 ..
             } => {
-                reference_index == self.range.reference_limit()
-                    && query_index == self.range.query_limit()
+                (reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit())
+                    || self
+                        .additional_tsm_starts_and_ends
+                        .explicit_tsm_ends
+                        .contains(&AlignmentCoordinates::new(reference_index, query_index))
             }
             _ => false,
         }

@@ -20,7 +20,7 @@ use crate::{
                     AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
                     TemplateSwitchDescendantStrategy,
                 },
-                primary_range::NoPrunePrimaryRangeStrategy,
+                primary_range::RangePrunePrimaryRangeStrategy,
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::NoShortcutStrategy,
                 template_switch_min_length::{
@@ -410,7 +410,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
                 AllowSecondaryDeletionStrategy,
                 NoShortcutStrategy<U64Cost>,
                 AllowPrimaryMatchStrategy,
-                NoPrunePrimaryRangeStrategy,
+                RangePrunePrimaryRangeStrategy,
                 TL,
                 DS,
             >,
