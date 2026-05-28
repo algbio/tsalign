@@ -98,6 +98,7 @@ impl Display for EqualCostRange {
 impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
+            Self::Root => write!(f, "Root"),
             Self::Primary {
                 reference_index,
                 query_index,

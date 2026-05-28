@@ -10,6 +10,9 @@ use super::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Identifier<PrimaryExtraData> {
+    /// The root identifier, which has no position in the alignment matrix and is used as the starting point of the A* algorithm.
+    /// We use an explicit root node to facilitate having multiple alignment starts.
+    Root,
     Primary {
         reference_index: usize,
         query_index: usize,

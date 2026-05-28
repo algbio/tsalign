@@ -124,6 +124,14 @@ impl AlignmentCoordinates {
     pub fn new_zero() -> Self {
         Self::new(0, 0)
     }
+
+    pub fn reference(&self) -> usize {
+        self.reference
+    }
+
+    pub fn query(&self) -> usize {
+        self.query
+    }
 }
 
 impl Display for AlignmentRange {

@@ -120,7 +120,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Box::new(Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::Root,
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Strategies::Cost::zero(),
@@ -140,6 +140,50 @@ impl<
             ExtendMap::new(opened_nodes_output, generate_output_mapper_function(self));
 
         match node.node_data.identifier {
+            Identifier::Root => {
+                let alignment_type = AlignmentType::Root;
+
+                // Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self))
+                opened_nodes_output.extend([
+                    node.generate_successor(
+                        Identifier::new_primary(
+                            self.range.reference_offset(),
+                             self.range.query_offset(),
+                             0,
+                             GapType::None,
+                             <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, alignment_type, self),
+                        ),
+                        <Strategies as AlignmentStrategySelector>::Cost::zero(),
+                        alignment_type,
+                        self,
+                    )].map(Into::into));
+
+                if self.dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+                    opened_nodes_output.extend(
+                        self.additional_tsm_starts_and_ends.explicit_tsm_starts.iter().flat_map(|coordinates| {
+                            let node = node.generate_successor(
+                                Identifier::new_primary(
+                                    coordinates.reference(),
+                                    coordinates.query(),
+                                    self.config.left_flank_length,
+                                    GapType::None,
+                                    <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, alignment_type, self),
+                                ),
+                                <Strategies as AlignmentStrategySelector>::Cost::zero(),
+                                alignment_type,
+                                self,
+                            );
+                            node.generate_initial_template_switch_entrance_successors(
+                                config.rq_qr_offset_costs.evaluate(&0),
+                                config.rr_qq_offset_costs.evaluate(&0),
+                                &config.base_cost,
+                                self,
+                            ).collect::<Vec<_>>()
+                        })
+                            .map(Into::into),
+                    );
+                }
+            }
             Identifier::Primary {
                 reference_index,
                 query_index,
