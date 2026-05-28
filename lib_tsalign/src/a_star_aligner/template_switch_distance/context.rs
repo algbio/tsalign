@@ -7,6 +7,7 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
+use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds;
 use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
 use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirection};
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
@@ -35,6 +36,7 @@ pub struct Context<
     pub query_name: String,
 
     pub range: AlignmentRange,
+    pub additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
@@ -77,6 +79,7 @@ impl<
         reference_name: &str,
         query_name: &str,
         range: AlignmentRange,
+        additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         dynamic_strategies: DynamicStrategies,
@@ -90,6 +93,7 @@ impl<
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
             range,
+            additional_tsm_starts_and_ends,
             config,
             a_star_buffers: Default::default(),
             memory,

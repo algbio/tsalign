@@ -100,6 +100,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 "",
                 "",
                 AlignmentRange::new_complete(genome.len(), genome.len()),
+                Default::default(),
                 lower_bound_config.clone(),
                 Memory {
                     template_switch_min_length: (),

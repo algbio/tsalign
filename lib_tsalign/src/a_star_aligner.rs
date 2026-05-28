@@ -22,7 +22,10 @@ use traitsequence::interface::Sequence;
 use crate::{
     a_star_aligner::{
         alignment_result::alignment::Alignment,
-        template_switch_distance::context::DynamicStrategies,
+        template_switch_distance::{
+            context::DynamicStrategies,
+            strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
+        },
     },
     config,
 };
@@ -188,6 +191,7 @@ pub fn template_switch_distance_a_star_align<
     reference_name: &str,
     query_name: &str,
     mut range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     config: &config::TemplateSwitchConfig<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
@@ -226,6 +230,7 @@ where
             reference_name,
             query_name,
             range.clone(),
+            additional_tsm_starts_and_ends,
             config.clone(),
             memory,
             dynamic_strategies,

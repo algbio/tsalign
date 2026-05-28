@@ -2,9 +2,12 @@ use thiserror::Error;
 
 use crate::a_star_aligner::alignment_geometry::{AlignmentCoordinates, AlignmentRange};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Ts14OutOfRangeStrategy {
     /// TSMs are not allowed to start or end outside of the specified alignment ranges.
+    #[default]
     Disallow,
     /// TSMs are allowed to start or end outside of the specified alignment ranges.
     Allow,
@@ -30,7 +33,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
         original_reference: &str,
         original_query: &str,
         range: &AlignmentRange,
-        skip_characters: Vec<char>,
+        skip_characters: &[char],
         has_embedded_rq_ranges: bool,
     ) -> Result<Self, AdditionalExplicitTSMStartsAndEndsError> {
         let mut explicit_tsm_starts = Vec::new();
@@ -234,7 +237,7 @@ mod tests {
             original_reference,
             original_query,
             &range,
-            skip_characters,
+            &skip_characters,
             true,
         )
         .unwrap();

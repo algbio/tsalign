@@ -412,13 +412,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     };
 
     // If requested, compute the additional starts and ends of TSMs outside of the given ranges.
-    let _additional_tsm_starts_and_ends =
+    let additional_tsm_starts_and_ends =
         if cli.allow_ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
             AdditionalExplicitTSMStartsAndEnds::new(
                 &original_reference,
                 &original_query,
                 &range,
-                skip_characters,
+                &skip_characters,
                 cli.use_embedded_rq_ranges,
             )?
         } else {
@@ -455,6 +455,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             reference_sequence,
             query_sequence,
             range,
+            additional_tsm_starts_and_ends,
             &format!("{} {}", reference_record.id, reference_record.comment),
             &format!("{} {}", query_record.id, query_record.comment),
         ),
