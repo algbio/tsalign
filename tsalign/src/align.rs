@@ -6,7 +6,10 @@ use std::{
 };
 
 use anyhow::{Result, anyhow, ensure};
-use clap::{Args, Parser, ValueEnum};
+use clap::{
+    ArgAction, Args, Parser, ValueEnum,
+    builder::{BoolishValueParser, TypedValueParser},
+};
 use compact_genome::{
     implementation::{
         alphabets::{
@@ -31,6 +34,9 @@ use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
         gap_affine_edit_distance, gap_affine_edit_distance_a_star_align,
+        template_switch_distance::strategies::allow_ts_14_out_of_range::{
+            AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
+        },
     },
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
@@ -120,6 +126,22 @@ pub struct Cli {
     /// If set to allow-only-all-equal, then only solutions are considered where all descendants of all TSMs are equal.
     #[clap(long, default_value = "allow-any")]
     ts_descendant_strategy: TemplateSwitchDescendantStrategySelector,
+
+    /// If set, then TSMs can start or end outside of the specified alignment ranges.
+    /// In this case the alignment would start or end outside of the specified alignment ranges,
+    /// but no other alignment operations outside of the ranges are allowed.
+    ///
+    /// The TSMs that start or end outside of the specified alignment ranges can only start or end at coordinates that correspond to a indel-free alignment of the sequences outside of the specified ranges.
+    /// **Every skip character is treated as an indel.**
+    /// This feature is intended for sequences that stem from an existing alignment, where gaps are marked as skip characters.
+    ///
+    /// In case the alignment ranges are not set or set to the whole sequences, this option has no effect.
+    #[clap(
+        long,
+        action = ArgAction::SetTrue,
+        value_parser = BoolishValueParser::new().map(Ts14OutOfRangeStrategy::from),
+    )]
+    allow_ts_14_out_of_range: Ts14OutOfRangeStrategy,
 
     /// The maximum amount of successors to generate while processing a node during chaining.
     /// Can be tuned to optimise performance.
@@ -317,6 +339,10 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             return Err(anyhow!("No fasta input file given"));
         };
 
+    // Save a copy of the original sequences for the computation of additional TSM starts and ends, if requested.
+    let original_reference = reference_record.sequence_handle.clone();
+    let original_query = query_record.sequence_handle.clone();
+
     // Remove skip characters.
     let skip_characters = cli.skip_characters.chars().collect::<Vec<_>>();
     ensure!(
@@ -384,6 +410,20 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             query_record.sequence_handle.len(),
         )
     };
+
+    // If requested, compute the additional starts and ends of TSMs outside of the given ranges.
+    let _additional_tsm_starts_and_ends =
+        if cli.allow_ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+            AdditionalExplicitTSMStartsAndEnds::new(
+                &original_reference,
+                &original_query,
+                &range,
+                skip_characters,
+                cli.use_embedded_rq_ranges,
+            )?
+        } else {
+            AdditionalExplicitTSMStartsAndEnds::default()
+        };
 
     // Move sequences into sequence store.
     let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();

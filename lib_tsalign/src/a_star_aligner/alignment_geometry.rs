@@ -17,6 +17,18 @@ pub struct AlignmentCoordinates {
 }
 
 impl AlignmentRange {
+    pub fn new(
+        reference_offset: usize,
+        query_offset: usize,
+        reference_limit: usize,
+        query_limit: usize,
+    ) -> Self {
+        Self {
+            offset: AlignmentCoordinates::new(reference_offset, query_offset),
+            limit: AlignmentCoordinates::new(reference_limit, query_limit),
+        }
+    }
+
     pub fn new_complete(reference: usize, query: usize) -> Self {
         Self {
             offset: AlignmentCoordinates::new_zero(),
