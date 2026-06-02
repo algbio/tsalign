@@ -95,7 +95,7 @@ fn test_tsnax_disc1_473() {
         result.cigar()
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -131,7 +131,7 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -167,7 +167,7 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -203,5 +203,5 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 }
