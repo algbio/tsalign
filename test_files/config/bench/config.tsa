@@ -21,7 +21,7 @@ RQQROffset
   inf    0 inf
 
 RRQQOffset
- -inf -100 101
+ -inf -100   1
   inf    0 inf
 
 Length
@@ -63,10 +63,10 @@ GapExtendCostVector
 SubstitutionCostTable
   |  A  C  G  T
 --+------------
-A |  0  4  4  4
-C |  4  0  4  4
-G |  4  4  0  4
-T |  4  4  4  0
+A |  0  2  2  2
+C |  2  0  2  2
+G |  2  2  0  2
+T |  2  2  2  0
 
 GapOpenCostVector
  A C G T
@@ -74,17 +74,17 @@ GapOpenCostVector
 
 GapExtendCostVector
  A C G T
- 2 2 2 2
+ 1 1 1 1
 
 # Secondary Reverse Edit Costs
 
 SubstitutionCostTable
   |  A  C  G  T
 --+------------
-A |  0  4  4  4
-C |  4  0  4  4
-G |  4  4  0  4
-T |  4  4  4  0
+A |  0  2  2  2
+C |  2  0  2  2
+G |  2  2  0  2
+T |  2  2  2  0
 
 GapOpenCostVector
  A C G T
@@ -92,7 +92,7 @@ GapOpenCostVector
 
 GapExtendCostVector
  A C G T
- 2 2 2 2
+ 1 1 1 1
 
 # Left Flank Edit Costs
 
