@@ -159,7 +159,12 @@ impl<
                         self,
                     )].map(Into::into));
 
-                if self.dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+                if self.dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow
+                    && node
+                        .strategies
+                        .template_switch_count
+                        .can_start_another_template_switch(self)
+                {
                     opened_nodes_output.extend(
                         self.additional_tsm_starts_and_ends.explicit_tsm_starts.iter().flat_map(|coordinates| {
                             let node = node.generate_successor(
