@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+cargo build --release
+
+target/release/tsalign align -p test_files/chr11_39595337_39595347.fa -p '/wrk-vakka/users/sebschmi/tsalign/data/test_sequences/ari_email-l-0-seed-63.pair.fa' -o '/wrk-vakka/users/sebschmi/tsalign/data/alignments/tsalign/ari_email-l-0-seed-63/alignment_config-bench-alignment-method-a-star-template-switch-allow-n-no-ts_node_ord_strategy-anti-diagonal-ts-min-length-strategy-lookahead-ts-total-length-strategy-maximise-allow-ts-14-out-of-range-yes/window-ari-cost-limit-none-memory-limit-none-k-0-max-chaining-successors-0-max-exact-cost-function-cost-0-chaining-closed-list-special-chaining-open-list-linear-heap-bench-yes-no-ts-yes/statistics-raw.toml' --cache-directory '/wrk-vakka/users/sebschmi/tsalign/cache/alignment_config-bench-k-0-max_n-2048' --alignment-method a-star-template-switch --skip-characters 'N-' --alphabet dna -c 'test_files/config/bench' --ts-node-ord-strategy anti-diagonal --ts-min-length-strategy lookahead --allow-ts-14-out-of-range -k 0 --max-chaining-successors 0 --max-exact-cost-function-cost 0 --chaining-closed-list special --chaining-open-list linear-heap --no-ts --rq-ranges R490..527Q490..527
