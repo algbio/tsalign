@@ -60,10 +60,19 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .iter()
                 .copied()
                 .enumerate()
-                .filter(|(_, c)| do_skip(*c))
+                .filter(|(_, c)| !do_skip(*c))
                 .nth(range.reference_offset())
                 .map(|(i, _)| i)
-                .expect("reference alignment range must be inside of reference sequence")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Reference alignment range (from: {}, to: {}) must be inside of original reference sequence (len: {})\nOriginal reference: {}\nSkip characters: {:?}",
+                        range.reference_offset(),
+                        range.reference_range().end,
+                        original_reference.len(),
+                        String::from_iter(original_reference.iter().cloned()),
+                        skip_characters,
+                    )
+                })
         };
         let original_query_start = if has_embedded_rq_ranges {
             original_query
@@ -78,7 +87,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .iter()
                 .copied()
                 .enumerate()
-                .filter(|(_, c)| do_skip(*c))
+                .filter(|(_, c)| !do_skip(*c))
                 .nth(range.query_offset())
                 .map(|(i, _)| i)
                 .expect("query alignment range must be inside of query sequence")
@@ -141,7 +150,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .iter()
                 .copied()
                 .enumerate()
-                .filter(|(_, c)| do_skip(*c))
+                .filter(|(_, c)| !do_skip(*c))
                 .nth(range.reference_limit())
                 .map(|(i, _)| i)
                 .unwrap_or(original_reference.len())
@@ -160,7 +169,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .iter()
                 .copied()
                 .enumerate()
-                .filter(|(_, c)| do_skip(*c))
+                .filter(|(_, c)| !do_skip(*c))
                 .nth(range.query_limit())
                 .map(|(i, _)| i)
                 .unwrap_or(original_query.len())
