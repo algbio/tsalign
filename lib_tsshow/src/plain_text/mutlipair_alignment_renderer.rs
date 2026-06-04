@@ -348,9 +348,10 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     query_limit_column = Some(index);
                 }
                 AlignmentType::Root
-                | AlignmentType::PrimaryReentry
+                | AlignmentType::PrimaryReentry { .. }
                 | AlignmentType::TemplateSwitchEntrance { .. }
                 | AlignmentType::TemplateSwitchExit { .. }
+                | AlignmentType::AlternativeStart { .. }
                 | AlignmentType::SecondaryRoot
                 | AlignmentType::PrimaryShortcut { .. } => {
                     panic!("Not allowed in rendered alignment: {alignment_type:?}")

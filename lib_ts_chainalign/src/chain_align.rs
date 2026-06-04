@@ -16,6 +16,7 @@ use generic_a_star::{
 use indicatif::ProgressBar;
 use itertools::Itertools;
 use lib_tsalign::a_star_aligner::{
+    alignment_geometry::AlignmentRange,
     alignment_result::AlignmentResult,
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
 };
@@ -434,6 +435,13 @@ fn actually_align<
     let end_time = Instant::now();
     let duration_seconds = (end_time - start_time).as_secs_f64();
 
+    let alignment_range = AlignmentRange::new(
+        sequences.primary_start().primary_ordinate_a().unwrap(),
+        sequences.primary_start().primary_ordinate_b().unwrap(),
+        sequences.primary_end().primary_ordinate_a().unwrap(),
+        sequences.primary_end().primary_ordinate_b().unwrap(),
+    );
+
     AlignmentResult::new_with_target::<AlphabetType, _>(
         tsalign_alignment.into_inner(),
         VectorGenome::from_slice_u8(sequences.seq1())
@@ -444,8 +452,7 @@ fn actually_align<
             .as_genome_subsequence(),
         sequences.seq1_name(),
         sequences.seq2_name(),
-        sequences.primary_start().primary_ordinate_a().unwrap(),
-        sequences.primary_start().primary_ordinate_b().unwrap(),
+        alignment_range,
         result.without_node_identifier(),
         duration_seconds,
         0,

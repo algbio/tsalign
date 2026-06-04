@@ -92,6 +92,10 @@ impl<
         memory_limit: Option<usize>,
         force_label_correcting: bool,
     ) -> Self {
+        if dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+            panic!("Allowing out-of-range template switch entrances is not supported yet.")
+        }
+
         Self {
             reference,
             query,
@@ -166,30 +170,57 @@ impl<
                         .can_start_another_template_switch(self)
                 {
                     opened_nodes_output.extend(
-                        self.additional_tsm_starts_and_ends.explicit_tsm_starts.iter().flat_map(|coordinates| {
-                            let node = node.generate_successor(
-                                Identifier::new_primary(
-                                    coordinates.reference(),
-                                    coordinates.query(),
-                                    self.config.left_flank_length,
-                                    GapType::None,
-                                    <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, alignment_type, self),
-                                ),
-                                <Strategies as AlignmentStrategySelector>::Cost::zero(),
-                                alignment_type,
-                                self,
-                            );
-                            node.generate_initial_template_switch_entrance_successors(
-                                config.rq_qr_offset_costs.evaluate(&0),
-                                config.rr_qq_offset_costs.evaluate(&0),
-                                &config.base_cost,
-                                self,
-                            ).collect::<Vec<_>>()
-                        })
-                            .map(Into::into),
+                        self.additional_tsm_starts_and_ends
+                            .explicit_tsm_starts
+                            .iter()
+                            .map(|coordinates| {
+                                node.generate_successor(
+                                    Identifier::new_alternative_start(coordinates),
+                                    Strategies::Cost::zero(),
+                                    AlignmentType::AlternativeStart {
+                                        reference_index: coordinates.reference(),
+                                        query_index: coordinates.query(),
+                                    },
+                                    self,
+                                )
+                                .into()
+                            }),
                     );
                 }
             }
+
+            Identifier::AlternativeStart {
+                reference_index,
+                query_index,
+            } => {
+                let primary_node = node.generate_successor(
+                    Identifier::new_primary(
+                        reference_index,
+                        query_index,
+                        self.config.left_flank_length,
+                        GapType::None,
+                        <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, AlignmentType::AlternativeStart { reference_index, query_index }, self),
+                    ),
+                    <Strategies as AlignmentStrategySelector>::Cost::zero(),
+                    AlignmentType::AlternativeStart {reference_index, query_index},
+                    self,
+                );
+                opened_nodes_output.extend(
+                    primary_node
+                        .generate_initial_template_switch_entrance_successors(
+                            config.rq_qr_offset_costs.evaluate(&0),
+                            config.rr_qq_offset_costs.evaluate(&0),
+                            &config.base_cost,
+                            self,
+                        )
+                        .map(|mut tsm_entrance_node| {
+                            tsm_entrance_node.node_data.predecessor =
+                                primary_node.node_data.predecessor;
+                            Box::new(tsm_entrance_node)
+                        }),
+                );
+            }
+
             Identifier::Primary {
                 reference_index,
                 query_index,

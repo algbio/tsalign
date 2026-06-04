@@ -133,7 +133,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
 
                 let has_target = match a_star.search_until(|context, node| {
                     match *node.identifier() {
-                        Identifier::Root => false,
+                        Identifier::Root | Identifier::AlternativeStart { .. } => false,
                         Identifier::Primary {
                             reference_index,
                             query_index,

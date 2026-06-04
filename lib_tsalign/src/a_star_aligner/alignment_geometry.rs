@@ -114,6 +114,16 @@ impl AlignmentRange {
             ),
         ))
     }
+
+    #[must_use]
+    pub fn with_offset(&self, offset: AlignmentCoordinates) -> Self {
+        Self::new_offset_limit(offset, self.limit)
+    }
+
+    #[must_use]
+    pub fn with_limit(&self, limit: AlignmentCoordinates) -> Self {
+        Self::new_offset_limit(self.offset, limit)
+    }
 }
 
 impl AlignmentCoordinates {

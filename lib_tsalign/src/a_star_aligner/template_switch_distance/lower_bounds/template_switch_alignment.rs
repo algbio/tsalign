@@ -139,7 +139,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
             trace!("Searching for target ({target_reference_index}, {target_query_index})");
 
             match a_star.search_until(|_, node| match *node.identifier() {
-                Identifier::Root => false,
+                Identifier::Root | Identifier::AlternativeStart { .. } => false,
                 Identifier::Primary {
                     reference_index,
                     query_index,

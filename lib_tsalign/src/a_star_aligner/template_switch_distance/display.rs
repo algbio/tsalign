@@ -32,8 +32,9 @@ impl Display for AlignmentType {
                 anti_descendant_gap,
             } => write!(f, ":{anti_descendant_gap}]"),
             Self::Root => Ok(()),
+            Self::AlternativeStart { .. } => Ok(()),
             Self::SecondaryRoot => Ok(()),
-            Self::PrimaryReentry => Ok(()),
+            Self::PrimaryReentry { .. } => Ok(()),
             Self::PrimaryShortcut {
                 delta_reference,
                 delta_query,
@@ -99,6 +100,10 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Root => write!(f, "Root"),
+            Self::AlternativeStart {
+                reference_index,
+                query_index,
+            } => write!(f, "AlternativeStart({reference_index}R, {query_index}Q)"),
             Self::Primary {
                 reference_index,
                 query_index,

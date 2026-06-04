@@ -124,6 +124,22 @@ where
         alignment.reverse();
     }
 
+    let mut alignment_range = a_star.context().range().clone();
+    if let Some((_, alignment_type)) = alignment.first() {
+        if let Some(alternative_start) = alignment_type.alternative_start() {
+            assert!(alternative_start.reference() <= alignment_range.reference_offset());
+            assert!(alternative_start.query() <= alignment_range.query_offset());
+            alignment_range = alignment_range.with_offset(alternative_start);
+        }
+    }
+    if let Some((_, alignment_type)) = alignment.last() {
+        if let Some(alternative_end) = alignment_type.alternative_end() {
+            assert!(alternative_end.reference() >= alignment_range.reference_limit());
+            assert!(alternative_end.query() >= alignment_range.query_limit());
+            alignment_range = alignment_range.with_limit(alternative_end);
+        }
+    }
+
     let end_time = Instant::now();
     let duration = (end_time - start_time).as_secs_f64();
 
@@ -134,8 +150,7 @@ where
             a_star.context().query(),
             a_star.context().reference_name(),
             a_star.context().query_name(),
-            a_star.context().range().reference_offset(),
-            a_star.context().range().query_offset(),
+            alignment_range,
             result.without_node_identifier(),
             duration,
             a_star.performance_counters().opened_nodes,
@@ -151,8 +166,7 @@ where
             a_star.context().query(),
             a_star.context().reference_name(),
             a_star.context().query_name(),
-            a_star.context().range().reference_offset(),
-            a_star.context().range().query_offset(),
+            alignment_range,
             duration,
             a_star.performance_counters().opened_nodes,
             a_star.performance_counters().closed_nodes,
@@ -190,7 +204,7 @@ pub fn template_switch_distance_a_star_align<
     query: &SubsequenceType,
     reference_name: &str,
     query_name: &str,
-    mut range: AlignmentRange,
+    range: AlignmentRange,
     additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     config: &config::TemplateSwitchConfig<
         Strategies::Alphabet,
@@ -229,7 +243,7 @@ where
             query,
             reference_name,
             query_name,
-            range.clone(),
+            range,
             additional_tsm_starts_and_ends,
             config.clone(),
             memory,
@@ -241,6 +255,8 @@ where
         vec![],
     );
     info!("Main alignment finished");
+
+    let mut range = result.alignment_range();
 
     if extend_beyond_range {
         info!("Extending range");

@@ -3,6 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::AStarIdentifier;
 
+use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
+
 use super::{
     AlignmentType, Context,
     strategies::{AlignmentStrategySelector, primary_match::PrimaryMatchStrategy},
@@ -13,6 +15,11 @@ pub enum Identifier<PrimaryExtraData> {
     /// The root identifier, which has no position in the alignment matrix and is used as the starting point of the A* algorithm.
     /// We use an explicit root node to facilitate having multiple alignment starts.
     Root,
+    /// An identifier for starting template switches from a different position than given by the alignment ranges.
+    AlternativeStart {
+        reference_index: usize,
+        query_index: usize,
+    },
     Primary {
         reference_index: usize,
         query_index: usize,
@@ -112,6 +119,13 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
             flank_index,
             gap_type,
             data,
+        }
+    }
+
+    pub fn new_alternative_start(alignment_coordinates: &AlignmentCoordinates) -> Self {
+        Self::AlternativeStart {
+            reference_index: alignment_coordinates.reference(),
+            query_index: alignment_coordinates.query(),
         }
     }
 
