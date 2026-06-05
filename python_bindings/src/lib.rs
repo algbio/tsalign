@@ -123,8 +123,12 @@ impl TSAligner {
         );
         let gap_characters: Vec<_> = gap_characters
             .chars()
-            .map(|c| u8::try_from(c).unwrap())
-            .collect();
+            .map(|c| {
+                u8::try_from(c).map_err(|_| {
+                    PyRuntimeError::new_err("gap_characters must contain only ASCII characters")
+                })
+            })
+            .collect::<PyResult<_>>()?;
 
         let result = self.aligner.align(
             reference_name,
