@@ -11,16 +11,7 @@ use clap::{
     builder::{BoolishValueParser, TypedValueParser},
 };
 use compact_genome::{
-    implementation::{
-        alphabets::{
-            dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
-            dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
-            rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
-            rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
-        },
-        vec_sequence::VectorGenome,
-        vec_sequence_store::VectorSequenceStore,
-    },
+    implementation::{vec_sequence::VectorGenome, vec_sequence_store::VectorSequenceStore},
     interface::{
         alphabet::Alphabet,
         sequence::{GenomeSequence, OwnedGenomeSequence},
@@ -49,6 +40,19 @@ use template_switch_distance_type_selectors::{
     TemplateSwitchNodeOrdStrategySelector, TemplateSwitchTotalLengthStrategySelector,
     align_a_star_template_switch_distance,
 };
+
+#[cfg(feature = "alphabet_dna")]
+use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+#[cfg(feature = "alphabet_dna_n")]
+use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
+#[cfg(feature = "alphabet_dna_iupac")]
+use compact_genome::implementation::alphabets::dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet;
+#[cfg(feature = "alphabet_rna")]
+use compact_genome::implementation::alphabets::rna_alphabet::RnaAlphabet;
+#[cfg(feature = "alphabet_rna_n")]
+use compact_genome::implementation::alphabets::rna_alphabet_or_n::RnaAlphabetOrN;
+#[cfg(feature = "alphabet_rna_iupac")]
+use compact_genome::implementation::alphabets::rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet;
 
 use crate::align::{
     a_star_chain_ts::align_a_star_chain_ts,
@@ -282,11 +286,17 @@ enum AlignmentMethod {
 
 #[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
 enum InputAlphabet {
+    #[cfg(feature = "alphabet_dna")]
     Dna,
+    #[cfg(feature = "alphabet_dna_n")]
     DnaN,
+    #[cfg(feature = "alphabet_rna")]
     Rna,
+    #[cfg(feature = "alphabet_rna_n")]
     RnaN,
+    #[cfg(feature = "alphabet_dna_iupac")]
     DnaIupac,
+    #[cfg(feature = "alphabet_rna_iupac")]
     RnaIupac,
 }
 
@@ -308,11 +318,17 @@ pub fn cli(cli: Cli) -> Result<()> {
     }
 
     match cli.alphabet {
+        #[cfg(feature = "alphabet_dna")]
         InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli)?,
+        #[cfg(feature = "alphabet_dna_n")]
         InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli)?,
+        #[cfg(feature = "alphabet_rna")]
         InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli)?,
+        #[cfg(feature = "alphabet_rna_n")]
         InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli)?,
+        #[cfg(feature = "alphabet_dna_iupac")]
         InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli)?,
+        #[cfg(feature = "alphabet_rna_iupac")]
         InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli)?,
     }
 
