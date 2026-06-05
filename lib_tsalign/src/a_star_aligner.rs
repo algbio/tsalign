@@ -101,6 +101,8 @@ where
     }
 
     let mut alignment = Vec::new();
+    let mut first_alignment = None;
+    let mut last_alignment = None;
 
     if has_target {
         // Backtrack.
@@ -113,26 +115,31 @@ where
                     if alignment_type.is_repeated(previous_alignment_type) {
                         *count += 1;
                     } else {
-                        alignment.push((1, alignment_type));
+                        alignment.push((1, alignment_type.clone()));
                     }
                 } else {
-                    alignment.push((1, alignment_type));
+                    alignment.push((1, alignment_type.clone()));
                 }
             }
+
+            if last_alignment.is_none() {
+                last_alignment = Some(alignment_type.clone());
+            }
+            first_alignment = Some(alignment_type);
         }
 
         alignment.reverse();
     }
 
     let mut alignment_range = a_star.context().range().clone();
-    if let Some((_, alignment_type)) = alignment.first() {
+    if let Some(alignment_type) = first_alignment {
         if let Some(alternative_start) = alignment_type.alternative_start() {
             assert!(alternative_start.reference() <= alignment_range.reference_offset());
             assert!(alternative_start.query() <= alignment_range.query_offset());
             alignment_range = alignment_range.with_offset(alternative_start);
         }
     }
-    if let Some((_, alignment_type)) = alignment.last() {
+    if let Some(alignment_type) = last_alignment {
         if let Some(alternative_end) = alignment_type.alternative_end() {
             assert!(alternative_end.reference() >= alignment_range.reference_limit());
             assert!(alternative_end.query() >= alignment_range.query_limit());

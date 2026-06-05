@@ -20,7 +20,7 @@ use super::alignment_geometry::AlignmentRange;
 pub mod a_star_sequences;
 pub mod alignment;
 
-pub trait IAlignmentType {
+pub trait IAlignmentType: Clone {
     fn is_repeatable(&self) -> bool;
 
     fn is_repeated(&self, previous: &Self) -> bool;
