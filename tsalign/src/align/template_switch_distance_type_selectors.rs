@@ -29,10 +29,7 @@ use lib_tsalign::{
                     PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
                     PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
                 },
-                template_switch_total_length::{
-                    MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
-                    TemplateSwitchTotalLengthStrategy,
-                },
+                template_switch_total_length::TemplateSwitchTotalLengthStrategy,
             },
         },
         template_switch_distance_a_star_align,
@@ -40,6 +37,11 @@ use lib_tsalign::{
     costs::U64Cost,
 };
 use log::info;
+
+#[cfg(feature = "strategy_total_length_none")]
+use lib_tsalign::a_star_aligner::template_switch_distance::strategies::template_switch_total_length::NoTemplateSwitchTotalLengthStrategy;
+#[cfg(feature = "strategy_total_length_maximise")]
+use lib_tsalign::a_star_aligner::template_switch_distance::strategies::template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy;
 
 use super::Cli;
 use crate::util::load_tsa_config;
@@ -71,7 +73,9 @@ pub enum TemplateSwitchChainingStrategySelector {
 
 #[derive(Clone, ValueEnum)]
 pub enum TemplateSwitchTotalLengthStrategySelector {
+    #[cfg(feature = "strategy_total_length_none")]
     None,
+    #[cfg(feature = "strategy_total_length_maximise")]
     Maximise,
 }
 
@@ -375,6 +379,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
     match cli.ts_total_length_strategy {
+        #[cfg(feature = "strategy_total_length_none")]
         TemplateSwitchTotalLengthStrategySelector::None => {
             align_a_star_template_switch_select_template_switch_descendant_strategy::<
                 _,
@@ -395,6 +400,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
                 template_switch_count_memory,
             )
         }
+        #[cfg(feature = "strategy_total_length_maximise")]
         TemplateSwitchTotalLengthStrategySelector::Maximise => {
             align_a_star_template_switch_select_template_switch_descendant_strategy::<
                 _,
