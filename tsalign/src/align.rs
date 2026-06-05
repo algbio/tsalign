@@ -131,7 +131,7 @@ pub struct Cli {
     /// In this case the alignment would start or end outside of the specified alignment ranges,
     /// but no other alignment operations outside of the ranges are allowed.
     ///
-    /// The TSMs that start or end outside of the specified alignment ranges can only start or end at coordinates that correspond to a indel-free alignment of the sequences outside of the specified ranges.
+    /// The TSMs that start or end outside of the specified alignment ranges can only start or end at coordinates that correspond to an indel-free alignment of the sequences outside of the specified ranges.
     /// **Every skip character is treated as an indel.**
     /// This feature is intended for sequences that stem from an existing alignment, where gaps are marked as skip characters.
     ///
