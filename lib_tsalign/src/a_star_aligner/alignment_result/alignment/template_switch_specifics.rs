@@ -832,9 +832,23 @@ impl Alignment<AlignmentType> {
                     };
                     cost_increment
                 }
-                AlignmentType::Root
-                | AlignmentType::SecondaryRoot
-                | AlignmentType::PrimaryReentry => {
+                AlignmentType::AlternativeStart {
+                    reference_index: reference_start,
+                    query_index: query_start,
+                } => {
+                    assert_eq!(reference_index, reference_start);
+                    assert_eq!(query_index, query_start);
+                    Cost::zero()
+                }
+                AlignmentType::PrimaryReentry {
+                    reference_index: reference_reentry_index,
+                    query_index: query_reentry_index,
+                } => {
+                    assert_eq!(reference_index, reference_reentry_index);
+                    assert_eq!(query_index, query_reentry_index);
+                    Cost::zero()
+                }
+                AlignmentType::Root | AlignmentType::SecondaryRoot => {
                     // Do nothing
                     Cost::zero()
                 }

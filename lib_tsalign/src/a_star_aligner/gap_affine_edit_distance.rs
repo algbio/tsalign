@@ -385,6 +385,14 @@ impl IAlignmentType for AlignmentType {
     fn is_template_switch_exit(&self) -> bool {
         false
     }
+
+    fn alternative_start(&self) -> Option<super::alignment_geometry::AlignmentCoordinates> {
+        None
+    }
+
+    fn alternative_end(&self) -> Option<super::alignment_geometry::AlignmentCoordinates> {
+        None
+    }
 }
 
 impl AStarIdentifier for Identifier {}

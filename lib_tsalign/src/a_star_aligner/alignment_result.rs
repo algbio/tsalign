@@ -9,7 +9,10 @@ use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
 use crate::{
-    a_star_aligner::template_switch_distance::AlignmentType, config::TemplateSwitchConfig,
+    a_star_aligner::{
+        alignment_geometry::AlignmentCoordinates, template_switch_distance::AlignmentType,
+    },
+    config::TemplateSwitchConfig,
 };
 
 use super::alignment_geometry::AlignmentRange;
@@ -17,7 +20,7 @@ use super::alignment_geometry::AlignmentRange;
 pub mod a_star_sequences;
 pub mod alignment;
 
-pub trait IAlignmentType {
+pub trait IAlignmentType: Clone {
     fn is_repeatable(&self) -> bool;
 
     fn is_repeated(&self, previous: &Self) -> bool;
@@ -27,6 +30,10 @@ pub trait IAlignmentType {
     fn is_template_switch_entrance(&self) -> bool;
 
     fn is_template_switch_exit(&self) -> bool;
+
+    fn alternative_start(&self) -> Option<AlignmentCoordinates>;
+
+    fn alternative_end(&self) -> Option<AlignmentCoordinates>;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -57,6 +64,8 @@ pub struct AlignmentStatistics<Cost> {
     pub sequences: SequencePair,
     pub reference_offset: usize,
     pub query_offset: usize,
+    pub reference_limit: usize,
+    pub query_limit: usize,
 
     pub cost: R64,
     pub cost_per_base: R64,
@@ -106,8 +115,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
-        reference_offset: usize,
-        query_offset: usize,
+        alignment_range: AlignmentRange,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -122,8 +130,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             query,
             reference_name,
             query_name,
-            reference_offset,
-            query_offset,
+            alignment_range,
             result,
             duration_seconds,
             opened_nodes,
@@ -144,8 +151,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
-        reference_offset: usize,
-        query_offset: usize,
+        alignment_range: AlignmentRange,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -159,8 +165,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             query,
             reference_name,
             query_name,
-            reference_offset,
-            query_offset,
+            alignment_range,
             result,
             duration_seconds,
             opened_nodes,
@@ -181,8 +186,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
-        reference_offset: usize,
-        query_offset: usize,
+        alignment_range: AlignmentRange,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -195,8 +199,10 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         let statistics = AlignmentStatistics {
             result,
             sequences: SequencePair::new(reference, query, reference_name, query_name),
-            reference_offset,
-            query_offset,
+            reference_offset: alignment_range.reference_offset(),
+            query_offset: alignment_range.query_offset(),
+            reference_limit: alignment_range.reference_limit(),
+            query_limit: alignment_range.query_limit(),
 
             cost: (cost.as_f64()).try_into().unwrap(),
             cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
@@ -234,6 +240,18 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         } else {
             Self::WithoutTarget { statistics }
         }
+    }
+
+    pub fn alignment_range(&self) -> AlignmentRange {
+        let (reference_offset, query_offset, reference_limit, query_limit) = match self {
+            Self::WithTarget { statistics, .. } | Self::WithoutTarget { statistics } => (
+                statistics.reference_offset,
+                statistics.query_offset,
+                statistics.reference_limit,
+                statistics.query_limit,
+            ),
+        };
+        AlignmentRange::new(reference_offset, query_offset, reference_limit, query_limit)
     }
 }
 
@@ -783,6 +801,8 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
             sequences: Default::default(),
             reference_offset: Default::default(),
             query_offset: Default::default(),
+            reference_limit: usize::MAX,
+            query_limit: usize::MAX,
             cost: Default::default(),
             cost_per_base: Default::default(),
             duration_seconds: Default::default(),

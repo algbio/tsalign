@@ -7,6 +7,10 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
+use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
+use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::{
+    AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
+};
 use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
 use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirection};
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
@@ -35,6 +39,7 @@ pub struct Context<
     pub query_name: String,
 
     pub range: AlignmentRange,
+    pub additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
@@ -61,7 +66,9 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 >>::Memory,
 }
 
-pub struct DynamicStrategies {}
+pub struct DynamicStrategies {
+    pub ts_14_out_of_range: Ts14OutOfRangeStrategy,
+}
 
 impl<
     'reference,
@@ -77,6 +84,7 @@ impl<
         reference_name: &str,
         query_name: &str,
         range: AlignmentRange,
+        additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         dynamic_strategies: DynamicStrategies,
@@ -84,12 +92,17 @@ impl<
         memory_limit: Option<usize>,
         force_label_correcting: bool,
     ) -> Self {
+        if dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+            panic!("Allowing out-of-range template switch entrances is not supported yet.")
+        }
+
         Self {
             reference,
             query,
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
             range,
+            additional_tsm_starts_and_ends,
             config,
             a_star_buffers: Default::default(),
             memory,
@@ -112,7 +125,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Box::new(Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::Root,
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Strategies::Cost::zero(),
@@ -132,6 +145,82 @@ impl<
             ExtendMap::new(opened_nodes_output, generate_output_mapper_function(self));
 
         match node.node_data.identifier {
+            Identifier::Root => {
+                let alignment_type = AlignmentType::Root;
+
+                // Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self))
+                opened_nodes_output.extend([
+                    node.generate_successor(
+                        Identifier::new_primary(
+                            self.range.reference_offset(),
+                             self.range.query_offset(),
+                             0,
+                             GapType::None,
+                             <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, alignment_type, self),
+                        ),
+                        <Strategies as AlignmentStrategySelector>::Cost::zero(),
+                        alignment_type,
+                        self,
+                    )].map(Into::into));
+
+                if self.dynamic_strategies.ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow
+                    && node
+                        .strategies
+                        .template_switch_count
+                        .can_start_another_template_switch(self)
+                {
+                    opened_nodes_output.extend(
+                        self.additional_tsm_starts_and_ends
+                            .explicit_tsm_starts
+                            .iter()
+                            .map(|coordinates| {
+                                node.generate_successor(
+                                    Identifier::new_alternative_start(coordinates),
+                                    Strategies::Cost::zero(),
+                                    AlignmentType::AlternativeStart {
+                                        reference_index: coordinates.reference(),
+                                        query_index: coordinates.query(),
+                                    },
+                                    self,
+                                )
+                                .into()
+                            }),
+                    );
+                }
+            }
+
+            Identifier::AlternativeStart {
+                reference_index,
+                query_index,
+            } => {
+                let primary_node = node.generate_successor(
+                    Identifier::new_primary(
+                        reference_index,
+                        query_index,
+                        self.config.left_flank_length,
+                        GapType::None,
+                        <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, AlignmentType::AlternativeStart { reference_index, query_index }, self),
+                    ),
+                    <Strategies as AlignmentStrategySelector>::Cost::zero(),
+                    AlignmentType::AlternativeStart {reference_index, query_index},
+                    self,
+                );
+                opened_nodes_output.extend(
+                    primary_node
+                        .generate_initial_template_switch_entrance_successors(
+                            config.rq_qr_offset_costs.evaluate(&0),
+                            config.rr_qq_offset_costs.evaluate(&0),
+                            &config.base_cost,
+                            self,
+                        )
+                        .map(|mut tsm_entrance_node| {
+                            tsm_entrance_node.node_data.predecessor =
+                                primary_node.node_data.predecessor;
+                            Box::new(tsm_entrance_node)
+                        }),
+                );
+            }
+
             Identifier::Primary {
                 reference_index,
                 query_index,
@@ -642,13 +731,11 @@ impl<
                 anti_descendant_gap,
                 ..
             } => {
+                // Use complete ranges here because the initial exit node may be out of range, but its successors may not be.
+                // I didn't verify if this is true, but better be safe than sorry.
                 let anti_descendant_range = match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => {
-                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
-                    }
-                    TemplateSwitchDescendant::Query => {
-                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
-                    }
+                    TemplateSwitchDescendant::Reference => 0..self.query.len(),
+                    TemplateSwitchDescendant::Query => 0..self.reference.len(),
                 };
                 let entrance_descendant_index = match template_switch_descendant {
                     TemplateSwitchDescendant::Reference => entrance_reference_index,
@@ -735,14 +822,21 @@ impl<
                 reference_index,
                 query_index,
                 ..
+            } => {
+                reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit()
             }
-            | Identifier::PrimaryReentry {
+            Identifier::PrimaryReentry {
                 reference_index,
                 query_index,
                 ..
             } => {
-                reference_index == self.range.reference_limit()
-                    && query_index == self.range.query_limit()
+                (reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit())
+                    || self
+                        .additional_tsm_starts_and_ends
+                        .explicit_tsm_ends
+                        .contains(&AlignmentCoordinates::new(reference_index, query_index))
             }
             _ => false,
         }

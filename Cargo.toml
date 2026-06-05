@@ -31,5 +31,9 @@ num-traits = "0.2.19"
 rustc-hash = "2.1.1"
 binary-heap-plus = "0.5.0"
 
+[profile.dev]
+debug = 1 # or "line-tables-only" instead of full debug info
+split-debuginfo = "unpacked" # Keeps symbols out of the main object file
+
 [profile.release]
-debug = true
+debug = 1

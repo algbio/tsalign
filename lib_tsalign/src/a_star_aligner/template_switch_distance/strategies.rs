@@ -16,6 +16,7 @@ use crate::a_star_aligner::template_switch_distance::strategies::descendant::Tem
 
 use super::{AlignmentType, Context, Identifier};
 
+pub mod allow_ts_14_out_of_range;
 pub mod chaining;
 pub mod descendant;
 pub mod node_ord;

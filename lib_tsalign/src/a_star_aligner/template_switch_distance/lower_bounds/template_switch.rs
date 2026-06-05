@@ -21,9 +21,9 @@ use crate::{
             context::{DynamicStrategies, Memory},
             identifier::GapType,
             strategies::{
-                AlignmentStrategySelection, chaining::NoChainingStrategy,
-                descendant::AnyTemplateSwitchDescendantStrategy, node_ord::CostOnlyNodeOrdStrategy,
-                primary_match::AllowPrimaryMatchStrategy,
+                AlignmentStrategySelection, allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
+                chaining::NoChainingStrategy, descendant::AnyTemplateSwitchDescendantStrategy,
+                node_ord::CostOnlyNodeOrdStrategy, primary_match::AllowPrimaryMatchStrategy,
                 primary_range::NoPrunePrimaryRangeStrategy,
                 secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
@@ -100,6 +100,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                 "",
                 "",
                 AlignmentRange::new_complete(genome.len(), genome.len()),
+                Default::default(),
                 lower_bound_config.clone(),
                 Memory {
                     template_switch_min_length: (),
@@ -108,7 +109,9 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     shortcut: (),
                     primary_match: (),
                 },
-                DynamicStrategies {},
+                DynamicStrategies {
+                    ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+                },
                 None,
                 None,
                 false,
@@ -130,6 +133,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
 
                 let has_target = match a_star.search_until(|context, node| {
                     match *node.identifier() {
+                        Identifier::Root | Identifier::AlternativeStart { .. } => false,
                         Identifier::Primary {
                             reference_index,
                             query_index,

@@ -22,6 +22,7 @@ use crate::{
             context::{DynamicStrategies, Memory},
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
                 chaining::NoChainingStrategy,
                 descendant::AnyTemplateSwitchDescendantStrategy,
                 node_ord::CostOnlyNodeOrdStrategy,
@@ -100,6 +101,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 "",
                 "",
                 AlignmentRange::new_complete(genome.len(), genome.len()),
+                Default::default(),
                 lower_bound_config.clone(),
                 Memory {
                     template_switch_min_length: (),
@@ -115,7 +117,9 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                             .min_substitution_cost(),
                     },
                 },
-                DynamicStrategies {},
+                DynamicStrategies {
+                    ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+                },
                 None,
                 None,
                 false,
@@ -135,6 +139,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
             trace!("Searching for target ({target_reference_index}, {target_query_index})");
 
             match a_star.search_until(|_, node| match *node.identifier() {
+                Identifier::Root | Identifier::AlternativeStart { .. } => false,
                 Identifier::Primary {
                     reference_index,
                     query_index,

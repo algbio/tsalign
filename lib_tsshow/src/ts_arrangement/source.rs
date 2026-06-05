@@ -162,12 +162,14 @@ impl TsSourceArrangement {
                     ts_index += 1;
                 }
 
-                AlignmentType::Root | AlignmentType::PrimaryReentry => { /* Do nothing */ }
+                AlignmentType::PrimaryReentry { .. } => { /* Do nothing */ }
                 AlignmentType::TemplateSwitchExit { .. }
                 | AlignmentType::SecondaryInsertion
                 | AlignmentType::SecondaryDeletion
                 | AlignmentType::SecondarySubstitution
                 | AlignmentType::SecondaryMatch
+                | AlignmentType::Root
+                | AlignmentType::AlternativeStart { .. }
                 | AlignmentType::SecondaryRoot
                 | AlignmentType::PrimaryShortcut { .. } => unreachable!(),
             }

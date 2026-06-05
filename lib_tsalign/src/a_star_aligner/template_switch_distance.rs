@@ -636,10 +636,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 flank_index: -context.config.right_flank_length,
                 data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                 <Strategies as AlignmentStrategySelector>::Cost,
-            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
+            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry {reference_index, query_index}, context),
             },
             cost_increment,
-            AlignmentType::PrimaryReentry,
+            AlignmentType::PrimaryReentry {reference_index, query_index},
             context,
         ))
     }
@@ -691,7 +691,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 flank_index: -context.config.right_flank_length,
                 data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                 <Strategies as AlignmentStrategySelector>::Cost,
-            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
+            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryShortcut { delta_reference, delta_query, }, context),
             },
             cost_increment,
             AlignmentType::PrimaryShortcut {

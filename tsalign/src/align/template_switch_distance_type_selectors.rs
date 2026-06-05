@@ -9,6 +9,7 @@ use lib_tsalign::{
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
                 chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
                 descendant::{
                     AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
@@ -16,7 +17,7 @@ use lib_tsalign::{
                 },
                 node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
                 primary_match::AllowPrimaryMatchStrategy,
-                primary_range::NoPrunePrimaryRangeStrategy,
+                primary_range::RangePrunePrimaryRangeStrategy,
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::NoShortcutStrategy,
                 template_switch_count::{
@@ -88,6 +89,7 @@ pub fn align_a_star_template_switch_distance<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -96,6 +98,7 @@ pub fn align_a_star_template_switch_distance<
         reference,
         query,
         range,
+        additional_tsm_starts_and_ends,
         reference_name,
         query_name,
     );
@@ -109,6 +112,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -126,7 +130,15 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
                 _,
                 _,
                 AntiDiagonalNodeOrdStrategy,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
     }
 }
@@ -140,6 +152,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -150,7 +163,15 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 NoTemplateSwitchMinLengthStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
         TemplateSwitchMinLengthStrategySelector::Lookahead => {
             align_a_star_template_switch_select_chaining_strategy::<
@@ -158,7 +179,15 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
         TemplateSwitchMinLengthStrategySelector::PreprocessPrice => {
             align_a_star_template_switch_select_chaining_strategy::<
@@ -166,7 +195,15 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 PreprocessedTemplateSwitchMinLengthStrategy<false, U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
         TemplateSwitchMinLengthStrategySelector::PreprocessFilter => {
             align_a_star_template_switch_select_chaining_strategy::<
@@ -174,7 +211,15 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 PreprocessedTemplateSwitchMinLengthStrategy<true, U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
         TemplateSwitchMinLengthStrategySelector::PreprocessLookahead => {
             align_a_star_template_switch_select_chaining_strategy::<
@@ -182,7 +227,15 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 PreprocessedLookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
     }
 }
@@ -197,6 +250,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -208,7 +262,15 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 NodeOrd,
                 TemplateSwitchMinLength,
                 NoChainingStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
         /*TemplateSwitchChainingStrategySelector::PrecomputeOnly => {
             align_a_star_template_switch_select_no_ts_strategy::<
@@ -217,7 +279,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 NodeOrd,
                 TemplateSwitchMinLength,
                 PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(cli, reference, query, range,additional_tsm_starts_and_ends, reference_name, query_name)
             unimplemented!("No reason to precompute without using the information.");
         }*/
         TemplateSwitchChainingStrategySelector::LowerBound => {
@@ -227,7 +289,15 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 NodeOrd,
                 TemplateSwitchMinLength,
                 LowerBoundChainingStrategy<U64Cost>,
-            >(cli, reference, query, range, reference_name, query_name)
+            >(
+                cli,
+                reference,
+                query,
+                range,
+                additional_tsm_starts_and_ends,
+                reference_name,
+                query_name,
+            )
         }
     }
 }
@@ -243,6 +313,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -254,7 +325,16 @@ fn align_a_star_template_switch_select_no_ts_strategy<
             TemplateSwitchMinLength,
             Chaining,
             MaxTemplateSwitchCountStrategy,
-        >(cli, reference, query, range, reference_name, query_name, 0)
+        >(
+            cli,
+            reference,
+            query,
+            range,
+            additional_tsm_starts_and_ends,
+            reference_name,
+            query_name,
+            0,
+        )
     } else {
         align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
@@ -263,10 +343,20 @@ fn align_a_star_template_switch_select_no_ts_strategy<
             TemplateSwitchMinLength,
             Chaining,
             NoTemplateSwitchCountStrategy,
-        >(cli, reference, query, range, reference_name, query_name, ())
+        >(
+            cli,
+            reference,
+            query,
+            range,
+            additional_tsm_starts_and_ends,
+            reference_name,
+            query_name,
+            (),
+        )
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -279,6 +369,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
@@ -298,6 +389,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
                 reference,
                 query,
                 range,
+                additional_tsm_starts_and_ends,
                 reference_name,
                 query_name,
                 template_switch_count_memory,
@@ -317,6 +409,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
                 reference,
                 query,
                 range,
+                additional_tsm_starts_and_ends,
                 reference_name,
                 query_name,
                 template_switch_count_memory,
@@ -325,6 +418,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -338,6 +432,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
@@ -358,6 +453,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
                 reference,
                 query,
                 range,
+                additional_tsm_starts_and_ends,
                 reference_name,
                 query_name,
                 template_switch_count_memory,
@@ -378,6 +474,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
                 reference,
                 query,
                 range,
+                additional_tsm_starts_and_ends,
                 reference_name,
                 query_name,
                 template_switch_count_memory,
@@ -386,6 +483,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -400,12 +498,15 @@ fn align_a_star_template_switch_distance_call<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     range: AlignmentRange,
+    additional_tsm_starts_and_ends: AdditionalExplicitTSMStartsAndEnds,
     reference_name: &str,
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
     let costs = load_tsa_config(&cli.configuration_directory).unwrap();
-    let dynamic_strategies = DynamicStrategies {};
+    let dynamic_strategies = DynamicStrategies {
+        ts_14_out_of_range: cli.allow_ts_14_out_of_range,
+    };
 
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -418,7 +519,7 @@ fn align_a_star_template_switch_distance_call<
             AllowSecondaryDeletionStrategy,
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
-            NoPrunePrimaryRangeStrategy,
+            RangePrunePrimaryRangeStrategy,
             TemplateSwitchTotalLength,
             TemplateSwitchDescendant,
         >,
@@ -429,6 +530,7 @@ fn align_a_star_template_switch_distance_call<
         reference_name,
         query_name,
         range,
+        additional_tsm_starts_and_ends,
         &costs,
         dynamic_strategies,
         cli.cost_limit,

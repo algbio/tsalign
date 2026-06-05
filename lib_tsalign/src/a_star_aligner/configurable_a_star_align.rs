@@ -13,11 +13,14 @@ use crate::{
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::{
+                    AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
+                },
                 descendant::{
                     AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
                     TemplateSwitchDescendantStrategy,
                 },
-                primary_range::NoPrunePrimaryRangeStrategy,
+                primary_range::RangePrunePrimaryRangeStrategy,
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::NoShortcutStrategy,
                 template_switch_min_length::{
@@ -112,6 +115,7 @@ struct QueryData<'a> {
     query_name: &'a str,
     query: &'a [u8],
     ranges: Option<AlignmentRange>,
+    gap_characters: &'a [u8],
     cost_limit: Option<u64>,
     memory_limit: Option<usize>,
     extend_beyond_range: bool,
@@ -127,6 +131,7 @@ pub struct Aligner<AlphabetType: Alphabet = DnaAlphabetOrN> {
     chaining_strategy: ChainingStrategySelector,
     total_length_strategy: TotalLengthStrategySelector,
     descendant_strategy: DescendantStrategySelector,
+    ts_14_out_of_range_strategy: Ts14OutOfRangeStrategy,
     no_ts: bool,
 }
 
@@ -143,10 +148,11 @@ impl<AlphabetType: Alphabet> Default for Aligner<AlphabetType> {
     fn default() -> Self {
         Self {
             costs: TemplateSwitchConfig::<AlphabetType, U64Cost>::default(),
-            min_length_strategy: MinLengthStrategySelector::default(),
-            chaining_strategy: ChainingStrategySelector::default(),
-            total_length_strategy: TotalLengthStrategySelector::default(),
-            descendant_strategy: DescendantStrategySelector::default(),
+            min_length_strategy: Default::default(),
+            chaining_strategy: Default::default(),
+            total_length_strategy: Default::default(),
+            descendant_strategy: Default::default(),
+            ts_14_out_of_range_strategy: Default::default(),
             no_ts: false,
         }
     }
@@ -204,7 +210,20 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         self
     }
 
-    /// This performs the actual alignment and is, depending on the inputs, potentially taking quite long.
+    pub fn set_ts_14_out_of_range_strategy(
+        &mut self,
+        ts_14_out_of_range_strategy: Ts14OutOfRangeStrategy,
+    ) -> &mut Self {
+        self.ts_14_out_of_range_strategy = ts_14_out_of_range_strategy;
+        self
+    }
+
+    /// Perform the actual alignment.
+    ///
+    /// Special gap characters can be specified in order to interpret the given sequences as an alignment with gaps instead of raw sequences.
+    /// In this case, the range coordinates must refer to the ungapped sequences.
+    ///
+    /// Depending on the inputs, this takes quite long.
     /// Consider spawning tasks to not block the user application.
     #[allow(
         clippy::too_many_arguments,
@@ -218,6 +237,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         query_name: &str,
         query: &[u8],
         ranges: Option<AlignmentRange>,
+        gap_characters: &[u8],
         cost_limit: Option<u64>,
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
@@ -228,6 +248,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             query_name,
             query,
             ranges,
+            gap_characters,
             cost_limit,
             memory_limit,
             extend_beyond_range,
@@ -336,9 +357,48 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         count_strategy_memory: TC::Memory,
     ) -> AlignmentResult<AlignmentType, U64Cost> {
         // TODO error handling
-        let reference = VectorGenome::<AlphabetType>::from_slice_u8(data.reference).unwrap();
-        let query = VectorGenome::from_slice_u8(data.query).unwrap();
+        let reference = VectorGenome::<AlphabetType>::from_iter_u8(
+            data.reference
+                .iter()
+                .copied()
+                .filter(|c| !data.gap_characters.contains(c)),
+        )
+        .unwrap();
+        let query = VectorGenome::from_iter_u8(
+            data.query
+                .iter()
+                .copied()
+                .filter(|c| !data.gap_characters.contains(c)),
+        )
+        .unwrap();
+
+        let range = data
+            .ranges
+            .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len()));
+        let additional_tsm_starts_and_ends =
+            if self.ts_14_out_of_range_strategy == Ts14OutOfRangeStrategy::Allow {
+                AdditionalExplicitTSMStartsAndEnds::new(
+                    &data
+                        .reference
+                        .iter()
+                        .map(|c| *c as char)
+                        .collect::<String>(),
+                    &data.query.iter().map(|c| *c as char).collect::<String>(),
+                    &range,
+                    &data
+                        .gap_characters
+                        .iter()
+                        .map(|c| *c as char)
+                        .collect::<Vec<_>>(),
+                    false,
+                )
+                .unwrap()
+            } else {
+                AdditionalExplicitTSMStartsAndEnds::default()
+            };
+
         let cost_limit = data.cost_limit.map(U64Cost::from);
+
         template_switch_distance_a_star_align::<
             AlignmentStrategySelection<
                 AlphabetType,
@@ -350,7 +410,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
                 AllowSecondaryDeletionStrategy,
                 NoShortcutStrategy<U64Cost>,
                 AllowPrimaryMatchStrategy,
-                NoPrunePrimaryRangeStrategy,
+                RangePrunePrimaryRangeStrategy,
                 TL,
                 DS,
             >,
@@ -360,10 +420,12 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             query.as_genome_subsequence(),
             data.reference_name,
             data.query_name,
-            data.ranges
-                .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len())),
+            range,
+            additional_tsm_starts_and_ends,
             &self.costs,
-            DynamicStrategies {},
+            DynamicStrategies {
+                ts_14_out_of_range: self.ts_14_out_of_range_strategy,
+            },
             cost_limit,
             data.memory_limit,
             false,
@@ -395,6 +457,7 @@ mod tests {
                 AlignmentCoordinates::new(27, 200),
                 AlignmentCoordinates::new(33, 214)
             ).into(),
+            &[],
             None,
             None,
         true);

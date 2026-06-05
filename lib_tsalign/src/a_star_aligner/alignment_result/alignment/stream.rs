@@ -176,8 +176,9 @@ impl AlignmentStream {
             AlignmentType::TemplateSwitchEntrance { .. }
             | AlignmentType::TemplateSwitchExit { .. }
             | AlignmentType::Root
+            | AlignmentType::AlternativeStart { .. }
             | AlignmentType::SecondaryRoot
-            | AlignmentType::PrimaryReentry => 0,
+            | AlignmentType::PrimaryReentry { .. } => 0,
             AlignmentType::PrimaryShortcut { .. } => {
                 unreachable!("Shortcut alignments are not supported for show")
             }
@@ -245,10 +246,25 @@ impl AlignmentStreamCoordinates {
                 }
                 (0, 0)
             }
+            AlignmentType::AlternativeStart {
+                reference_index,
+                query_index,
+            } => {
+                assert_eq!(self.reference, reference_index);
+                assert_eq!(self.query, query_index);
+                (0, 0)
+            }
+            AlignmentType::PrimaryReentry {
+                reference_index,
+                query_index,
+            } => {
+                assert_eq!(self.reference, reference_index);
+                assert_eq!(self.query, query_index);
+                (0, 0)
+            }
             AlignmentType::SecondaryDeletion
             | AlignmentType::Root
-            | AlignmentType::SecondaryRoot
-            | AlignmentType::PrimaryReentry => (0, 0),
+            | AlignmentType::SecondaryRoot => (0, 0),
             AlignmentType::PrimaryShortcut { .. } => {
                 unreachable!("Shortcut alignments are not supported for show")
             }

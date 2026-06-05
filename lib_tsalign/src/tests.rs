@@ -14,6 +14,7 @@ use crate::{
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
+                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
                 chaining::NoChainingStrategy,
                 descendant::AnyTemplateSwitchDescendantStrategy,
                 node_ord::AntiDiagonalNodeOrdStrategy,
@@ -72,8 +73,11 @@ fn test_tsnax_disc1_473() {
         "ref",
         "qry",
         range.clone(),
+        Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -91,7 +95,7 @@ fn test_tsnax_disc1_473() {
         result.cigar()
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -115,8 +119,11 @@ fn test_tsnax_disc1_473() {
         "ref",
         "qry",
         range.clone(),
+        Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -124,7 +131,7 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -148,8 +155,11 @@ fn test_tsnax_disc1_473() {
         "ref",
         "qry",
         range.clone(),
+        Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -157,7 +167,7 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 
     let result = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -181,8 +191,11 @@ fn test_tsnax_disc1_473() {
         "ref",
         "qry",
         range.clone(),
+        Default::default(),
         &config,
-        DynamicStrategies {},
+        DynamicStrategies {
+            ts_14_out_of_range: Ts14OutOfRangeStrategy::Disallow,
+        },
         None,
         None,
         false,
@@ -190,5 +203,5 @@ fn test_tsnax_disc1_473() {
         (),
     );
     println!("{sample_alignment}");
-    assert_eq!(result.statistics().cost, r64(10.0));
+    assert_eq!(result.statistics().cost, r64(8.0));
 }

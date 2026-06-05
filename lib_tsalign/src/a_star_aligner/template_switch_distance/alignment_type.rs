@@ -1,6 +1,8 @@
 use equal_cost_range::EqualCostRange;
 
-use crate::a_star_aligner::alignment_result::IAlignmentType;
+use crate::a_star_aligner::{
+    alignment_geometry::AlignmentCoordinates, alignment_result::IAlignmentType,
+};
 
 use super::identifier::{
     TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
@@ -63,10 +65,18 @@ pub enum AlignmentType {
     },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
+    /// The alignment starts from a different position than given by the alignment ranges.
+    AlternativeStart {
+        reference_index: usize,
+        query_index: usize,
+    },
     /// The root node of a secondary graph.
     SecondaryRoot,
     /// A reentry node into the primary graph, treated like a root.
-    PrimaryReentry,
+    PrimaryReentry {
+        reference_index: usize,
+        query_index: usize,
+    },
     /// A shortcut in the primary matrix.
     ///
     /// Used only for computing lower bounds.
@@ -92,8 +102,9 @@ impl IAlignmentType for AlignmentType {
             | Self::PrimaryFlankMatch
             | Self::SecondaryMatch
             | Self::Root
+            | Self::AlternativeStart { .. }
             | Self::SecondaryRoot
-            | Self::PrimaryReentry => true,
+            | Self::PrimaryReentry { .. } => true,
             Self::TemplateSwitchEntrance { .. }
             | Self::TemplateSwitchExit { .. }
             | Self::PrimaryShortcut { .. } => false,
@@ -143,7 +154,10 @@ impl IAlignmentType for AlignmentType {
     fn is_internal(&self) -> bool {
         matches!(
             self,
-            Self::Root | Self::SecondaryRoot | Self::PrimaryReentry
+            Self::Root
+                | Self::AlternativeStart { .. }
+                | Self::SecondaryRoot
+                | Self::PrimaryReentry { .. }
         )
     }
 
@@ -153,6 +167,30 @@ impl IAlignmentType for AlignmentType {
 
     fn is_template_switch_exit(&self) -> bool {
         matches!(self, Self::TemplateSwitchExit { .. })
+    }
+
+    fn alternative_start(&self) -> Option<AlignmentCoordinates> {
+        if let Self::AlternativeStart {
+            reference_index,
+            query_index,
+        } = self
+        {
+            Some(AlignmentCoordinates::new(*reference_index, *query_index))
+        } else {
+            None
+        }
+    }
+
+    fn alternative_end(&self) -> Option<AlignmentCoordinates> {
+        if let Self::PrimaryReentry {
+            reference_index,
+            query_index,
+        } = self
+        {
+            Some(AlignmentCoordinates::new(*reference_index, *query_index))
+        } else {
+            None
+        }
     }
 }
 
@@ -178,6 +216,20 @@ impl AlignmentType {
                 equal_cost_range: *equal_cost_range,
                 first_offset: *first_offset,
             },
+            Self::AlternativeStart {
+                reference_index,
+                query_index,
+            } => Self::AlternativeStart {
+                reference_index: *query_index,
+                query_index: *reference_index,
+            },
+            Self::PrimaryReentry {
+                reference_index,
+                query_index,
+            } => Self::PrimaryReentry {
+                reference_index: *query_index,
+                query_index: *reference_index,
+            },
             Self::PrimaryShortcut {
                 delta_reference,
                 delta_query,
@@ -194,8 +246,7 @@ impl AlignmentType {
             | Self::SecondaryMatch
             | Self::TemplateSwitchExit { .. }
             | Self::Root
-            | Self::SecondaryRoot
-            | Self::PrimaryReentry) => *symmetric,
+            | Self::SecondaryRoot) => *symmetric,
         }
     }
 }
