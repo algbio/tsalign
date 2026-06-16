@@ -25,3 +25,17 @@ fn test_panic() {
     println!("{res:#?}");
     assert!(res.statistics().cost.is_sign_positive());
 }
+
+#[test]
+fn test_193() {
+    //        [-- 10 --][-- 11 ---]1
+    let r = b"AAAAAAAAAACCCCCCCCCCCC";
+    let q = b"AAAAAAAAAATTTTTTTTTTTC";
+
+    let mut tsa = Aligner::<DnaAlphabetOrN>::default();
+
+    let mut costs = TemplateSwitchConfig::default();
+    costs.base_cost.qrr = 4u64.into();
+    tsa.set_costs(costs.clone());
+    let _tsa_res = tsa.align("ref", r, "qry", q, None, &[], None, None, false);
+}
