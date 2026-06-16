@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
-use num_traits::{Bounded, Zero};
+use num_traits::{Bounded, CheckedAdd, Zero};
 use strategies::{
     AlignmentStrategiesNodeMemory, AlignmentStrategySelector, node_ord::NodeOrdStrategy,
     primary_match::PrimaryMatchStrategy,
@@ -25,7 +25,7 @@ pub use identifier::{
 
 use crate::{
     a_star_aligner::template_switch_distance::strategies::descendant::TemplateSwitchDescendantStrategy,
-    config::BaseCost,
+    config::BaseCost, costs::cost_function::CostFunction,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -223,8 +223,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &'result self,
-        rq_qr_cost_increment: Strategies::Cost,
-        rr_qq_cost_increment: Strategies::Cost,
+        rq_qr_offset_costs: &'result CostFunction<isize, Strategies::Cost>,
+        rr_qq_offset_costs: &'result CostFunction<isize, Strategies::Cost>,
         base_cost: &'result BaseCost<Strategies::Cost>,
         context: &'result Context<SubsequenceType, Strategies>,
     ) -> impl 'result + Iterator<Item = Self> {
@@ -234,10 +234,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ) {
             unreachable!("This method is only called on primary nodes.")
         }
-        debug_assert!(
-            rq_qr_cost_increment < Strategies::Cost::max_value()
-                || rr_qq_cost_increment < Strategies::Cost::max_value(),
-        );
 
         self.node_data
             .identifier
@@ -268,34 +264,42 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     *template_switch_ancestor,
                     *template_switch_direction,
                 );
-                let cost_increment = match (*template_switch_descendant, *template_switch_ancestor)
-                {
+                let cost_function = match (*template_switch_descendant, *template_switch_ancestor) {
                     (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Query)
                     | (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Reference) => {
-                        rq_qr_cost_increment
+                        rq_qr_offset_costs
                     }
                     (TemplateSwitchDescendant::Reference, TemplateSwitchAncestor::Reference)
                     | (TemplateSwitchDescendant::Query, TemplateSwitchAncestor::Query) => {
-                        rr_qq_cost_increment
+                        rr_qq_offset_costs
                     }
                 };
+                let cost_increment = cost_function.evaluate(template_switch_first_offset);
 
-                (base_cost != Strategies::Cost::max_value()
-                    && cost_increment != Strategies::Cost::max_value())
-                .then(|| {
-                    self.generate_successor(
-                        identifier,
-                        base_cost + cost_increment,
-                        AlignmentType::TemplateSwitchEntrance {
-                            descendant: *template_switch_descendant,
-                            ancestor: *template_switch_ancestor,
-                            direction: *template_switch_direction,
-                            equal_cost_range: EqualCostRange::new_invalid(),
-                            first_offset: *template_switch_first_offset,
-                        },
-                        context,
-                    )
-                })
+                if base_cost != Strategies::Cost::max_value()
+                    && cost_increment != Strategies::Cost::max_value()
+                {
+                    if let Some(cost_increment) = base_cost.checked_add(&cost_increment)
+                        && cost_increment != Strategies::Cost::max_value()
+                    {
+                        Some(self.generate_successor(
+                            identifier,
+                            cost_increment,
+                            AlignmentType::TemplateSwitchEntrance {
+                                descendant: *template_switch_descendant,
+                                ancestor: *template_switch_ancestor,
+                                direction: *template_switch_direction,
+                                equal_cost_range: EqualCostRange::new_invalid(),
+                                first_offset: *template_switch_first_offset,
+                            },
+                            context,
+                        ))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             })
     }
 

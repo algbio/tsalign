@@ -759,12 +759,11 @@ impl Alignment<AlignmentType> {
                     descendant = ts_descendant;
                     ancestor = ts_ancestor;
                     direction = ts_direction;
-                    let cost_increment = config.base_cost.get(descendant, ancestor, direction);
-                    let Some(cost_increment) = cost_increment.checked_add(
-                        &config
-                            .offset_costs(descendant, ancestor)
-                            .evaluate(&first_offset),
-                    ) else {
+                    let base_cost = config.base_cost.get(descendant, ancestor, direction);
+                    let offset_cost = config
+                        .offset_costs(descendant, ancestor)
+                        .evaluate(&first_offset);
+                    let Some(cost_increment) = base_cost.checked_add(&offset_cost) else {
                         return Cost::max_value();
                     };
                     descendant_index = match descendant {
@@ -1298,7 +1297,6 @@ mod tests {
         for (expected_alignment, expected_cost) in
             START_ALIGNMENTS[1..].iter().zip(&START_COSTS[1..])
         {
-            println!("{}", alignment.cigar());
             assert!(alignment.move_template_switch_start_backwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),

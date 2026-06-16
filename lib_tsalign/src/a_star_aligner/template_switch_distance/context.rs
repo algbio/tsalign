@@ -208,8 +208,8 @@ impl<
                 opened_nodes_output.extend(
                     primary_node
                         .generate_initial_template_switch_entrance_successors(
-                            config.rq_qr_offset_costs.evaluate(&0),
-                            config.rr_qq_offset_costs.evaluate(&0),
+                            &config.rq_qr_offset_costs,
+                            &config.rr_qq_offset_costs,
                             &config.base_cost,
                             self,
                         )
@@ -444,22 +444,15 @@ impl<
 
                 // Template switches are always allowed, as long as we have a left flank.
                 if flank_index == config.left_flank_length && can_start_another_template_switch {
-                    let rq_qr_offset_costs = config.rq_qr_offset_costs.evaluate(&0);
-                    let rr_qq_offset_costs = config.rr_qq_offset_costs.evaluate(&0);
-
-                    if rq_qr_offset_costs != Strategies::Cost::max_value()
-                        || rr_qq_offset_costs != Strategies::Cost::max_value()
-                    {
-                        opened_nodes_output.extend(
-                            node.generate_initial_template_switch_entrance_successors(
-                                rq_qr_offset_costs,
-                                rr_qq_offset_costs,
-                                &config.base_cost,
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    }
+                    opened_nodes_output.extend(
+                        node.generate_initial_template_switch_entrance_successors(
+                            &config.rq_qr_offset_costs,
+                            &config.rr_qq_offset_costs,
+                            &config.base_cost,
+                            self,
+                        )
+                        .map(Into::into),
+                    );
                 }
             }
 
