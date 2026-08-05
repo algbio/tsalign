@@ -20,7 +20,10 @@ use crate::{
                     AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
                     TemplateSwitchDescendantStrategy,
                 },
-                primary_range::RangePrunePrimaryRangeStrategy,
+                primary_range::{
+                    NoPrunePrimaryRangeStrategy, PrimaryRangeStrategy,
+                    RangePrunePrimaryRangeStrategy,
+                },
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::NoShortcutStrategy,
                 template_switch_min_length::{
@@ -111,6 +114,19 @@ pub enum DescendantStrategySelector {
     AllowOnlyAllEqual,
 }
 
+/// Select whether the primary alignment is restricted to the alignment range.
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum PrimaryRangeStrategySelector {
+    /// The primary alignment is restricted to the alignment range.
+    #[default]
+    Prune,
+    /// The primary alignment is restricted to the input sequences only, and may hence leave the
+    /// alignment range.
+    NoPrune,
+}
+
 /// Just used in this file to bundle the query parameters to make the code more readable
 struct QueryData<'a> {
     reference_name: &'a str,
@@ -135,6 +151,7 @@ pub struct Aligner<AlphabetType: Alphabet = DnaAlphabetOrN> {
     total_length_strategy: TotalLengthStrategySelector,
     descendant_strategy: DescendantStrategySelector,
     ts_14_out_of_range_strategy: Ts14OutOfRangeStrategy,
+    primary_range_strategy: PrimaryRangeStrategySelector,
     no_ts: bool,
 }
 
@@ -156,6 +173,7 @@ impl<AlphabetType: Alphabet> Default for Aligner<AlphabetType> {
             total_length_strategy: Default::default(),
             descendant_strategy: Default::default(),
             ts_14_out_of_range_strategy: Default::default(),
+            primary_range_strategy: Default::default(),
             no_ts: false,
         }
     }
@@ -218,6 +236,14 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         ts_14_out_of_range_strategy: Ts14OutOfRangeStrategy,
     ) -> &mut Self {
         self.ts_14_out_of_range_strategy = ts_14_out_of_range_strategy;
+        self
+    }
+
+    pub fn set_primary_range_strategy(
+        &mut self,
+        primary_range_strategy: PrimaryRangeStrategySelector,
+    ) -> &mut Self {
+        self.primary_range_strategy = primary_range_strategy;
         self
     }
 
@@ -335,16 +361,40 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     ) -> AlignmentResult<AlignmentType, U64Cost> {
         match self.descendant_strategy {
             DescendantStrategySelector::AllowAny => self
-                .align_call::<ML, CH, TL, TC, AnyTemplateSwitchDescendantStrategy>(
+                .align_select_primary_range_strategy::<ML, CH, TL, TC, AnyTemplateSwitchDescendantStrategy>(
                     data,
                     count_strategy_memory,
                 ),
-            DescendantStrategySelector::AllowOnlyAllEqual => {
-                self.align_call::<ML, CH, TL, TC, OnlyEqualTemplateSwitchDescendantStrategy>(
+            DescendantStrategySelector::AllowOnlyAllEqual => self
+                .align_select_primary_range_strategy::<ML, CH, TL, TC, OnlyEqualTemplateSwitchDescendantStrategy>(
                     data,
                     count_strategy_memory,
-                )
-            }
+                ),
+        }
+    }
+
+    fn align_select_primary_range_strategy<
+        ML: TemplateSwitchMinLengthStrategy<U64Cost>,
+        CH: ChainingStrategy<U64Cost>,
+        TL: TemplateSwitchTotalLengthStrategy,
+        TC: TemplateSwitchCountStrategy,
+        DS: TemplateSwitchDescendantStrategy,
+    >(
+        &self,
+        data: QueryData,
+        count_strategy_memory: TC::Memory,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        match self.primary_range_strategy {
+            PrimaryRangeStrategySelector::Prune => self
+                .align_call::<ML, CH, TL, TC, DS, RangePrunePrimaryRangeStrategy>(
+                    data,
+                    count_strategy_memory,
+                ),
+            PrimaryRangeStrategySelector::NoPrune => self
+                .align_call::<ML, CH, TL, TC, DS, NoPrunePrimaryRangeStrategy>(
+                    data,
+                    count_strategy_memory,
+                ),
         }
     }
 
@@ -354,6 +404,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         TL: TemplateSwitchTotalLengthStrategy,
         TC: TemplateSwitchCountStrategy,
         DS: TemplateSwitchDescendantStrategy,
+        PR: PrimaryRangeStrategy,
     >(
         &self,
         data: QueryData,
@@ -413,7 +464,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
                 AllowSecondaryDeletionStrategy,
                 NoShortcutStrategy<U64Cost>,
                 AllowPrimaryMatchStrategy,
-                RangePrunePrimaryRangeStrategy,
+                PR,
                 TL,
                 DS,
             >,
