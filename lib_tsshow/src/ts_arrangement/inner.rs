@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{
 use log::{trace, warn};
 use tagged_vec::TaggedVec;
 
-use crate::ts_arrangement::character::Char;
+use crate::{svg::EqualCostRangeMode, ts_arrangement::character::Char};
 
 use super::{
     complement::TsComplementArrangement,
@@ -49,7 +49,7 @@ impl TsInnerArrangement {
         source_arrangement: &mut TsSourceArrangement,
         complement_arrangement: &mut TsComplementArrangement,
         template_switches: Vec<TemplateSwitch>,
-        visualise_equal_cost_ranges: bool,
+        equal_cost_range_mode: EqualCostRangeMode,
     ) -> Self {
         let mut result = Self {
             inners: Default::default(),
@@ -319,7 +319,10 @@ impl TsInnerArrangement {
                     .skip(inner.len());
             inner.extend(suffix_blanks);
 
-            if visualise_equal_cost_ranges {
+            if matches!(
+                equal_cost_range_mode,
+                EqualCostRangeMode::InnerOnly | EqualCostRangeMode::Full,
+            ) {
                 // Add characters to visualise TSM equal cost range.
                 if forward {
                     warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
@@ -327,19 +330,19 @@ impl TsInnerArrangement {
                     // Insert range characters before point 2.
 
                     let last_initial_blank = inner
-                        .iter()
+                        .iter(..)
                         .take_while(|(_, c)| c.is_blank())
                         .last()
                         .map(|(i, _)| i);
                     let first_final_blank = inner
-                        .iter()
+                        .iter(..)
                         .rev()
                         .take_while(|(_, c)| c.is_blank())
                         .last()
                         .map(|(i, _)| i)
                         .unwrap_or(inner.len().into());
                     let first_non_blank = inner
-                        .iter()
+                        .iter(..)
                         .find(|(_, c)| !c.is_blank())
                         .map(|(i, _)| i)
                         .unwrap();
@@ -362,7 +365,6 @@ impl TsInnerArrangement {
                     let mut arrangement_column =
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
-                    #[allow(clippy::explicit_counter_loop)]
                     for _ in 0..ts.equal_cost_range.max_end {
                         arrangement_column -= 1;
                         source_column += 1;
@@ -446,13 +448,13 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| inner.1.reference && !inner.1.complement)
     }
 
     pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| !inner.1.reference && !inner.1.complement)
     }
 
@@ -460,7 +462,7 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| inner.1.reference && inner.1.complement)
     }
 
@@ -468,7 +470,7 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| !inner.1.reference && inner.1.complement)
     }
 
@@ -479,7 +481,7 @@ impl TsInnerArrangement {
         let sequence = &self.inners[inner_identifier].sequence;
 
         sequence
-            .iter()
+            .iter(..)
             .find(|(_, c)| !c.is_blank())
             .map(|(i, _)| i)
             .unwrap_or(sequence.len().into())
@@ -492,7 +494,7 @@ impl TsInnerArrangement {
         let sequence = &self.inners[inner_identifier].sequence;
 
         sequence
-            .iter()
+            .iter(..)
             .rev()
             .find(|(_, c)| !c.is_blank())
             .map(|(i, _)| i)
@@ -569,7 +571,7 @@ impl From<SourceChar> for InnerChar {
                 lower_case,
                 copy_depth,
             },
-            SourceChar::Hidden { .. } => {
+            SourceChar::OptionalSource { .. } | SourceChar::Hidden { .. } => {
                 panic!("Cannot be translated into InnerChar")
             }
             SourceChar::Gap { copy_depth } => Self::Gap { copy_depth },

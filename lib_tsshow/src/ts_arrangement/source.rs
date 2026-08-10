@@ -15,7 +15,7 @@ use super::{
     index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn},
     template_switch::TemplateSwitch,
 };
-use crate::error::Result;
+use crate::{error::Result, svg::EqualCostRangeMode};
 
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
@@ -32,6 +32,11 @@ pub struct RemovedHiddenChars {
 #[derive(Debug, Clone, Copy)]
 pub enum SourceChar {
     Source {
+        column: SourceColumn,
+        lower_case: bool,
+        copy_depth: Option<usize>,
+    },
+    OptionalSource {
         column: SourceColumn,
         lower_case: bool,
         copy_depth: Option<usize>,
@@ -59,6 +64,7 @@ impl TsSourceArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
+        equal_cost_range_mode: EqualCostRangeMode,
         template_switches_out: &mut impl Extend<TemplateSwitch>,
     ) -> Result<Self> {
         let mut ts_index = 0;
@@ -155,6 +161,7 @@ impl TsSourceArrangement {
                         direction,
                         first_offset,
                         equal_cost_range,
+                        equal_cost_range_mode,
                         &mut alignment,
                         &mut current_reference_index,
                         &mut current_query_index,
@@ -225,6 +232,7 @@ impl TsSourceArrangement {
         ts_direction: TemplateSwitchDirection,
         first_offset: isize,
         equal_cost_range: EqualCostRange,
+        equal_cost_range_mode: EqualCostRangeMode,
         mut alignment: impl Iterator<Item = AlignmentType>,
         current_reference_index: &mut ArrangementColumn,
         current_query_index: &mut ArrangementColumn,
@@ -232,7 +240,9 @@ impl TsSourceArrangement {
         debug!("Aligning template switch #{ts_index}");
         let sp1_reference =
             self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
+        let sp1_reference_arrangement_column = *current_reference_index;
         let sp1_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
+        let sp1_query_arrangement_column = *current_query_index;
         let sp2_ancestor = match ts_ancestor {
             TemplateSwitchAncestor::Reference => {
                 let source_current_reference_index =
@@ -366,15 +376,76 @@ impl TsSourceArrangement {
         // Insert spacers.
         let mut required_spacer_count = 4usize.saturating_sub(anti_descendant_inner_length);
 
+        let descendant_minimal_equal_cost_range_start =
+            match ts_descendant {
+                TemplateSwitchDescendant::Reference => sp1_reference,
+                TemplateSwitchDescendant::Query => sp1_query,
+            } + usize::try_from(equal_cost_range.max_start).unwrap();
+        let descendant_minimal_equal_cost_range_end =
+            match ts_descendant {
+                TemplateSwitchDescendant::Reference => {
+                    self.reference_arrangement_to_arrangement_char_column(*current_descendant_index)
+                }
+                TemplateSwitchDescendant::Query => {
+                    self.query_arrangement_to_arrangement_char_column(*current_descendant_index)
+                }
+            } - usize::try_from(-equal_cost_range.min_end).unwrap();
+        let (descendant_minimal_equal_cost_range_start, descendant_minimal_equal_cost_range_end) =
+            match ts_descendant {
+                TemplateSwitchDescendant::Reference => (
+                    self.reference_arrangement_char_to_arrangement_column(
+                        descendant_minimal_equal_cost_range_start,
+                    ),
+                    self.reference_arrangement_char_to_arrangement_column(
+                        descendant_minimal_equal_cost_range_end,
+                    ),
+                ),
+                TemplateSwitchDescendant::Query => (
+                    self.query_arrangement_char_to_arrangement_column(
+                        descendant_minimal_equal_cost_range_start,
+                    ),
+                    self.query_arrangement_char_to_arrangement_column(
+                        descendant_minimal_equal_cost_range_end,
+                    ),
+                ),
+            };
+
+        let (descendant, anti_descendant) = match ts_descendant {
+            TemplateSwitchDescendant::Reference => (&mut self.reference, &mut self.query),
+            TemplateSwitchDescendant::Query => (&mut self.query, &mut self.reference),
+        };
+
         match descendant_inner_length.cmp(&anti_descendant_inner_length) {
             Ordering::Less => {
                 let delta = anti_descendant_inner_length
                     .checked_sub(descendant_inner_length)
                     .unwrap();
-                descendant.splice(
-                    *current_descendant_index..*current_descendant_index,
-                    iter::repeat_n(SourceChar::Blank, delta),
-                );
+
+                if descendant_minimal_equal_cost_range_start
+                    <= descendant_minimal_equal_cost_range_end
+                {
+                    descendant.splice(
+                        descendant_minimal_equal_cost_range_end
+                            ..descendant_minimal_equal_cost_range_end,
+                        iter::repeat_n(SourceChar::Blank, delta),
+                    );
+                } else {
+                    // If the ranges overlap, we place the spacers around the overlap.
+                    let start_delta = delta / 2;
+                    let end_delta = delta - start_delta;
+
+                    descendant.splice(
+                        descendant_minimal_equal_cost_range_start
+                            ..descendant_minimal_equal_cost_range_start,
+                        iter::repeat_n(SourceChar::Blank, start_delta),
+                    );
+                    descendant.splice(
+                        descendant_minimal_equal_cost_range_end
+                            ..descendant_minimal_equal_cost_range_end,
+                        iter::repeat_n(SourceChar::Blank, end_delta),
+                    );
+                }
+
                 *current_descendant_index += delta;
             }
             Ordering::Equal => { /* Do nothing */ }
@@ -413,6 +484,51 @@ impl TsSourceArrangement {
             }
         };
 
+        if equal_cost_range_mode == EqualCostRangeMode::Full {
+            let sp1_descendant = match ts_descendant {
+                TemplateSwitchDescendant::Reference => sp1_reference_arrangement_column,
+                TemplateSwitchDescendant::Query => sp1_query_arrangement_column,
+            };
+            let sp4_descendant = match ts_descendant {
+                TemplateSwitchDescendant::Reference => *current_reference_index,
+                TemplateSwitchDescendant::Query => *current_query_index,
+            };
+
+            // Mark characters left of SP1 as optional.
+            descendant
+                .iter_values_mut()
+                .take(usize::from(sp1_descendant))
+                .rev()
+                .filter(|c| c.is_char())
+                .take(usize::try_from(-equal_cost_range.min_start).unwrap())
+                .for_each(|c| c.make_optional());
+
+            // Mark characters right of SP4 as optional.
+            descendant
+                .iter_values_mut()
+                .skip(usize::from(sp4_descendant))
+                .filter(|c| c.is_char())
+                .take(usize::try_from(equal_cost_range.max_end).unwrap())
+                .for_each(|c| c.make_optional());
+
+            // Mark characters right of SP1 as optional.
+            descendant
+                .iter_values_mut()
+                .skip(usize::from(sp1_descendant))
+                .filter(|c| c.is_char())
+                .take(usize::try_from(equal_cost_range.max_start).unwrap())
+                .for_each(|c| c.make_optional());
+
+            // Mark characters left of SP4 as optional.
+            descendant
+                .iter_values_mut()
+                .take(usize::from(sp4_descendant))
+                .rev()
+                .filter(|c| c.is_char())
+                .take(usize::try_from(-equal_cost_range.min_end).unwrap())
+                .for_each(|c| c.make_optional());
+        }
+
         let sp4_reference =
             self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
         let sp4_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
@@ -440,6 +556,16 @@ impl TsSourceArrangement {
         match ancestor {
             TemplateSwitchAncestor::Reference => self.reference(),
             TemplateSwitchAncestor::Query => self.query(),
+        }
+    }
+
+    pub fn descendant(
+        &self,
+        descendant: TemplateSwitchDescendant,
+    ) -> &TaggedVec<ArrangementColumn, SourceChar> {
+        match descendant {
+            TemplateSwitchDescendant::Reference => self.reference(),
+            TemplateSwitchDescendant::Query => self.query(),
         }
     }
 
@@ -608,7 +734,7 @@ impl TsSourceArrangement {
         source_column: SourceColumn,
     ) -> Option<ArrangementColumn> {
         sequence
-            .iter()
+            .iter(..)
             .filter_map(|(i, c)| match c {
                 SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
                     if *column + 1usize == source_column =>
@@ -726,7 +852,7 @@ impl TsSourceArrangement {
         column: ArrangementCharColumn,
     ) -> ArrangementColumn {
         sequence
-            .iter()
+            .iter(..)
             .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
             .chain(iter::once(sequence.len().into()))
             .nth(column.primitive())
@@ -807,6 +933,7 @@ impl SourceChar {
     pub fn is_copy(&self) -> bool {
         match self {
             Self::Source { copy_depth, .. }
+            | Self::OptionalSource { copy_depth, .. }
             | Self::Hidden { copy_depth, .. }
             | Self::Gap { copy_depth } => copy_depth.is_some(),
             Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
@@ -815,7 +942,9 @@ impl SourceChar {
 
     pub fn copy_depth(&self) -> Option<usize> {
         match self {
-            Self::Source { copy_depth, .. } | Self::Hidden { copy_depth, .. } => *copy_depth,
+            Self::Source { copy_depth, .. }
+            | Self::OptionalSource { copy_depth, .. }
+            | Self::Hidden { copy_depth, .. } => *copy_depth,
             Self::Gap { copy_depth } => *copy_depth,
             Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
@@ -823,7 +952,9 @@ impl SourceChar {
 
     pub fn to_lower_case(&mut self) {
         match self {
-            Self::Source { lower_case, .. } => *lower_case = true,
+            Self::Source { lower_case, .. } | Self::OptionalSource { lower_case, .. } => {
+                *lower_case = true
+            }
             Self::Hidden { .. }
             | Self::Gap { .. }
             | Self::Separator
@@ -836,7 +967,9 @@ impl SourceChar {
 
     pub fn to_upper_case(&mut self) {
         match self {
-            Self::Source { lower_case, .. } => *lower_case = false,
+            Self::Source { lower_case, .. } | Self::OptionalSource { lower_case, .. } => {
+                *lower_case = false
+            }
             Self::Hidden { .. }
             | Self::Gap { .. }
             | Self::Separator
@@ -861,8 +994,31 @@ impl SourceChar {
                 };
             }
             Self::Hidden { .. } => unreachable!("Already hidden"),
-            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
+            Self::OptionalSource { .. }
+            | Self::Gap { .. }
+            | Self::Separator
+            | Self::Spacer
+            | Self::Blank => {
                 unreachable!("Cannot be hidden: {self:?}")
+            }
+        }
+    }
+
+    pub fn make_optional(&mut self) {
+        match self {
+            Self::Source {
+                column, copy_depth, ..
+            }
+            | Self::Hidden { column, copy_depth } => {
+                *self = Self::OptionalSource {
+                    column: *column,
+                    lower_case: false,
+                    copy_depth: *copy_depth,
+                };
+            }
+            Self::OptionalSource { .. } => unreachable!("Already optional"),
+            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
+                unreachable!("Cannot be made optional: {self:?}")
             }
         }
     }
@@ -872,6 +1028,13 @@ impl SourceChar {
             Self::Source {
                 column, copy_depth, ..
             } => Self::Source {
+                column: *column,
+                lower_case: false,
+                copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
+            },
+            Self::OptionalSource {
+                column, copy_depth, ..
+            } => Self::OptionalSource {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
@@ -896,6 +1059,13 @@ impl SourceChar {
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
+            Self::OptionalSource {
+                column, copy_depth, ..
+            } => Self::OptionalSource {
+                column: *column,
+                lower_case: false,
+                copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
+            },
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
                 panic!("Should never be copied: {self:?}")
             }
@@ -906,13 +1076,18 @@ impl SourceChar {
 impl Char for SourceChar {
     fn source_column(&self) -> SourceColumn {
         match self {
-            Self::Source { column, .. } | Self::Hidden { column, .. } => *column,
+            Self::Source { column, .. }
+            | Self::OptionalSource { column, .. }
+            | Self::Hidden { column, .. } => *column,
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => panic!("Not a char"),
         }
     }
 
     fn is_char(&self) -> bool {
-        matches!(self, Self::Source { .. } | Self::Hidden { .. })
+        matches!(
+            self,
+            Self::Source { .. } | Self::OptionalSource { .. } | Self::Hidden { .. }
+        )
     }
 
     fn is_gap(&self) -> bool {
@@ -928,10 +1103,14 @@ impl Char for SourceChar {
     }
 
     /// Returns true if this is a source char and not a copy of a source char.
+    /// It may be optional or hidden.
     fn is_source_char(&self) -> bool {
         matches!(
             self,
             Self::Source {
+                copy_depth: None,
+                ..
+            } | Self::OptionalSource {
                 copy_depth: None,
                 ..
             } | Self::Hidden {

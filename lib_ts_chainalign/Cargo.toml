@@ -15,7 +15,7 @@ ndarray = { version = "0.17.1", features = ["serde"] }
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"] }
 compact-genome.workspace = true
-itertools = "0.14.0"
+itertools.workspace = true
 log.workspace = true
 indicatif = "0.18.3"
 bitvec = "1.0.1"

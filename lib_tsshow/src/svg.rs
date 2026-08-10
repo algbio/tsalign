@@ -1,6 +1,7 @@
 use std::{collections::HashMap, io::Write};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
+use clap::ValueEnum;
 use font::{CharacterData, sans_serif_mono, svg_string, typewriter};
 use indexed_str::IndexedStr;
 use lib_tsalign::{
@@ -43,8 +44,10 @@ mod numbers;
 
 const SVG_PADDING: f32 = 10.0;
 const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
-const OPTIONAL_COPY_COLORS: &[&str] = &["#88CC88", "#669966", "#446644", "#223322"];
-const OPTIONAL_SOURCE_COLOR: &str = "blue";
+const OPTIONAL_INNER_COPY_COLORS: &[&str] = &["#88CC88", "#669966", "#446644", "#223322"];
+const OPTIONAL_SOURCE_COPY_COLORS: &[&str] = &["#0000FF66"];
+const OPTIONAL_INNER_COLOR: &str = "#0000FF";
+const OPTIONAL_SOURCE_COLOR: &str = "#0000FF66";
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 const TS_RUNNING_NUMBER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -65,7 +68,18 @@ pub struct SvgConfig {
     /// Restrict the context around the template switches to this many characters on each side.
     /// If `None`, the full sequences will be rendered.
     pub restrict_context: Option<usize>,
-    pub visualise_equal_cost_ranges: bool,
+    pub equal_cost_range_mode: EqualCostRangeMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum EqualCostRangeMode {
+    /// Do not render equal cost ranges.
+    None,
+    /// Render the equal cost ranges only on the inner sequences.
+    InnerOnly,
+    /// Render the equal cost ranges on all sequences.
+    /// This may be messy if there are overlaps.
+    Full,
 }
 
 pub fn create_ts_svg(
@@ -97,7 +111,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
-        config.visualise_equal_cost_ranges,
+        config.equal_cost_range_mode,
     )?;
 
     if config.render_more_complement {
@@ -138,6 +152,7 @@ pub fn create_ts_svg(
                 reference.len(),
                 query.len(),
                 alignment.iter_flat_cloned(),
+                config.equal_cost_range_mode,
                 &mut Vec::new(),
             )
             .map(|mut no_ts_arrangement| {
@@ -184,6 +199,7 @@ pub fn create_ts_svg(
             sp3_ancestor,
             sp4_reference,
             sp4_query,
+            equal_cost_range,
             ..
         },
     ) in ts_arrangement.template_switches()
@@ -241,49 +257,38 @@ pub fn create_ts_svg(
             }
         }*/
 
-        let descendant_sp4_minus_one = match descendant {
-            TemplateSwitchDescendant::Reference => sp4_reference.checked_sub(1).map(|column| {
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
-            }),
-            TemplateSwitchDescendant::Query => sp4_query.checked_sub(1).map(|column| {
-                ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
-            }),
-        };
+        let descendant_sp1 = ts_arrangement.descendant_arrangement_char_to_arrangement_column(
+            match descendant {
+                TemplateSwitchDescendant::Reference => *sp1_reference,
+                TemplateSwitchDescendant::Query => *sp1_query,
+            } - usize::try_from(-equal_cost_range.min_start).unwrap(),
+            *descendant,
+        );
 
-        let (descendant_sp1, descendant_sp4, descendant_row) = match descendant {
-            TemplateSwitchDescendant::Reference => (
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp1_reference),
-                ts_arrangement
-                    .reference()
-                    .iter()
-                    .take(
-                        usize::from(
-                            ts_arrangement
-                                .reference_arrangement_char_to_arrangement_column(*sp4_reference),
-                        ) + 1usize,
-                    )
-                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
-                    .find(|(_, c)| !c.is_blank())
-                    .unwrap()
-                    .0,
-                TsArrangementRow::Reference,
-            ),
-            TemplateSwitchDescendant::Query => (
-                ts_arrangement.query_arrangement_char_to_arrangement_column(*sp1_query),
-                ts_arrangement
-                    .query()
-                    .iter()
-                    .take(
-                        usize::from(
-                            ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
-                        ) + 1usize,
-                    )
-                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
-                    .find(|(_, c)| !c.is_blank())
-                    .map(|(column, _)| column)
-                    .unwrap_or(ts_arrangement.query().len().into()),
-                TsArrangementRow::Query,
-            ),
+        let descendant_sp4 = match descendant {
+            TemplateSwitchDescendant::Reference => *sp4_reference,
+            TemplateSwitchDescendant::Query => *sp4_query,
+        } + usize::try_from(equal_cost_range.max_end).unwrap();
+        let descendant_sp4_minus_one = descendant_sp4.checked_sub(1).map(|column| {
+            ts_arrangement.descendant_arrangement_char_to_arrangement_column(column, *descendant)
+                + 1usize
+        });
+        let descendant_sp4 = ts_arrangement
+            .descendant(*descendant)
+            .iter(
+                descendant_sp4_minus_one.unwrap_or(0.into())
+                    ..ts_arrangement.descendant_arrangement_char_to_arrangement_column(
+                        descendant_sp4,
+                        *descendant,
+                    ) + 1usize,
+            )
+            .find(|(_, c)| !c.is_blank())
+            .unwrap()
+            .0;
+
+        let descendant_row = match descendant {
+            TemplateSwitchDescendant::Reference => TsArrangementRow::Reference,
+            TemplateSwitchDescendant::Query => TsArrangementRow::Query,
         };
 
         let forward = sp2_ancestor < sp3_ancestor;
@@ -755,6 +760,7 @@ pub fn create_ts_svg(
         &statistics.sequences.reference_name,
         &statistics.sequences.query_name,
         0.6,
+        config,
     );
     let vertical_spacer_height = typewriter::FONT.character_height;
     body_group = body_group.add(
@@ -807,11 +813,31 @@ fn render_source_char(
                 c
             };
 
-            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, false)))
+            Character::new_char(
+                c,
+                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::NotOptional)),
+            )
+        }
+        SourceChar::OptionalSource {
+            column,
+            lower_case,
+            copy_depth,
+        } => {
+            let c = source_sequence.char_at(column.into());
+            let c = if *lower_case {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            };
+
+            Character::new_char(
+                c,
+                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::Source)),
+            )
         }
         SourceChar::Gap { copy_depth } => Character::new_char(
             '-',
-            CharacterData::new_colored(copy_color(copy_depth, false)),
+            CharacterData::new_colored(copy_color(copy_depth, OptionalChar::NotOptional)),
         ),
         SourceChar::Separator => Character::new_char_with_default('|'),
         SourceChar::Hidden { .. } | SourceChar::Spacer | SourceChar::Blank => {
@@ -874,7 +900,10 @@ fn render_inner_char(
             } else {
                 c
             };
-            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, false)))
+            Character::new_char(
+                c,
+                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::NotOptional)),
+            )
         }
         InnerChar::OptionalInner {
             column,
@@ -887,11 +916,14 @@ fn render_inner_char(
             } else {
                 c
             };
-            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth, true)))
+            Character::new_char(
+                c,
+                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::Inner)),
+            )
         }
         InnerChar::Gap { copy_depth } => Character::new_char(
             '-',
-            CharacterData::new_colored(copy_color(copy_depth, false)),
+            CharacterData::new_colored(copy_color(copy_depth, OptionalChar::NotOptional)),
         ),
         InnerChar::Blank => Character::new_char(' ', Default::default()),
     }
@@ -901,22 +933,39 @@ fn render_label_char(c: char) -> Character<CharacterData> {
     Character::new_char(c, CharacterData::new_colored("#555555"))
 }
 
-fn copy_color(copy_depth: &Option<usize>, is_optional: bool) -> impl ToString {
+enum OptionalChar {
+    NotOptional,
+    Source,
+    Inner,
+}
+
+fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> impl ToString {
     if let Some(copy_depth) = copy_depth {
-        if is_optional {
-            OPTIONAL_COPY_COLORS[copy_depth % OPTIONAL_COPY_COLORS.len()]
-        } else {
-            COPY_COLORS[copy_depth % COPY_COLORS.len()]
+        match optional {
+            OptionalChar::NotOptional => COPY_COLORS[copy_depth % COPY_COLORS.len()],
+            OptionalChar::Source => {
+                OPTIONAL_SOURCE_COPY_COLORS[copy_depth % OPTIONAL_SOURCE_COPY_COLORS.len()]
+            }
+            OptionalChar::Inner => {
+                OPTIONAL_INNER_COPY_COLORS[copy_depth % OPTIONAL_INNER_COPY_COLORS.len()]
+            }
         }
-    } else if is_optional {
-        OPTIONAL_SOURCE_COLOR
     } else {
-        "black"
+        match optional {
+            OptionalChar::NotOptional => "black",
+            OptionalChar::Source => OPTIONAL_SOURCE_COLOR,
+            OptionalChar::Inner => OPTIONAL_INNER_COLOR,
+        }
     }
 }
 
 /// Returns the SVG legend along with its width and height.
-fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f32) {
+fn legend(
+    reference_name: &str,
+    query_name: &str,
+    scale: f32,
+    config: &SvgConfig,
+) -> (Group, f32, f32) {
     let mut result = Group::new();
 
     let headline = "Legend:";
@@ -977,16 +1026,18 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    let uncertainty_label = "BLUE CHARACTERS";
-    result = result.add(svg_string(
-        uncertainty_label
-            .chars()
-            .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_SOURCE_COLOR))),
-        &SvgLocation { x: 0.0, y },
-        &typewriter::FONT,
-    ));
-    label_width = label_width
-        .max(uncertainty_label.chars().count() as f32 * typewriter::FONT.character_width);
+    if config.equal_cost_range_mode != EqualCostRangeMode::None {
+        let uncertainty_label = "BLUE CHARACTERS";
+        result = result.add(svg_string(
+            uncertainty_label
+                .chars()
+                .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_INNER_COLOR))),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        label_width = label_width
+            .max(uncertainty_label.chars().count() as f32 * typewriter::FONT.character_width);
+    }
 
     // Explanations.
     let label_width = label_width + typewriter::FONT.character_width;
@@ -1020,20 +1071,22 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    let uncertainty_explanation = "Equal-cost range of the TSM";
-    result = result.add(svg_string(
-        uncertainty_explanation
-            .chars()
-            .map(Character::<CharacterData>::new_char_with_default),
-        &SvgLocation { x: label_width, y },
-        &sans_serif_mono::FONT,
-    ));
-    explanation_width = explanation_width.max(
-        uncertainty_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width,
-    );
-    y += typewriter::FONT
-        .character_height
-        .max(sans_serif_mono::FONT.character_height);
+    if config.equal_cost_range_mode != EqualCostRangeMode::None {
+        let uncertainty_explanation = "Equal-cost range of the TSM";
+        result = result.add(svg_string(
+            uncertainty_explanation
+                .chars()
+                .map(Character::<CharacterData>::new_char_with_default),
+            &SvgLocation { x: label_width, y },
+            &sans_serif_mono::FONT,
+        ));
+        explanation_width = explanation_width.max(
+            uncertainty_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width,
+        );
+        y += typewriter::FONT
+            .character_height
+            .max(sans_serif_mono::FONT.character_height);
+    }
 
     result = result.set("transform", format!("scale({scale})"));
     let legend_width = headline_width.max(label_width + explanation_width) * scale;

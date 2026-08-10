@@ -8,7 +8,7 @@ use anyhow::{Context, Result, bail};
 use clap::Parser;
 use lib_tsshow::{
     plain_text::show_template_switches,
-    svg::{SvgConfig, create_error_svg, create_ts_svg},
+    svg::{EqualCostRangeMode, SvgConfig, create_error_svg, create_ts_svg},
     svg_to_png,
 };
 use log::{LevelFilter, error, info, warn};
@@ -64,8 +64,8 @@ pub struct Cli {
     restrict_context_to: Option<usize>,
 
     /// Add a visualisation of the equal-cost ranges to the SVG output.
-    #[clap(long, short = 'e')]
-    visualise_equal_cost_ranges: bool,
+    #[clap(long, short = 'e', default_value = "none", default_missing_value = "full", num_args = 0..=1)]
+    equal_cost_range_mode: EqualCostRangeMode,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -115,7 +115,7 @@ pub fn cli(cli: Cli) -> Result<()> {
                 render_arrows: cli.svg_arrows,
                 render_more_complement: cli.more_svg_complement,
                 restrict_context: cli.restrict_context_to,
-                visualise_equal_cost_ranges: cli.visualise_equal_cost_ranges,
+                equal_cost_range_mode: cli.equal_cost_range_mode,
             },
         ) {
             if cli.render_always {

@@ -8,14 +8,14 @@ use complement::{ComplementChar, TsComplementArrangement};
 use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
 use inner::{TsInner, TsInnerArrangement};
 use lib_tsalign::a_star_aligner::template_switch_distance::{
-    AlignmentType, TemplateSwitchAncestor,
+    AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
 };
 use log::debug;
 use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
 use template_switch::TemplateSwitch;
 
-use crate::error::Result;
+use crate::{error::Result, svg::EqualCostRangeMode};
 
 pub mod character;
 pub mod complement;
@@ -38,7 +38,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-        visualise_equal_cost_ranges: bool,
+        equal_cost_range_mode: EqualCostRangeMode,
     ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
@@ -47,6 +47,7 @@ impl TsArrangement {
             reference_length,
             query_length,
             alignment,
+            equal_cost_range_mode,
             &mut template_switches,
         )?;
         let mut complement = TsComplementArrangement::new(&source);
@@ -54,7 +55,7 @@ impl TsArrangement {
             &mut source,
             &mut complement,
             template_switches,
-            visualise_equal_cost_ranges,
+            equal_cost_range_mode,
         );
 
         Ok(Self {
@@ -68,7 +69,7 @@ impl TsArrangement {
     pub fn remove_empty_columns(&mut self) {
         let mut remove_columns = Vec::new();
 
-        'column_iter: for column in self.reference().iter_indices() {
+        'column_iter: for column in self.reference().iter_indices(..) {
             if !self.reference()[column].is_blank_or_hidden() {
                 continue;
             }
@@ -182,6 +183,13 @@ impl TsArrangement {
         self.source.query()
     }
 
+    pub fn descendant(
+        &self,
+        descendant: TemplateSwitchDescendant,
+    ) -> &TaggedVec<ArrangementColumn, SourceChar> {
+        self.source.descendant(descendant)
+    }
+
     pub fn reference_complement(&self) -> &TaggedVec<ArrangementColumn, ComplementChar> {
         self.complement.reference_complement()
     }
@@ -218,7 +226,7 @@ impl TsArrangement {
 
     pub fn template_switches(&self) -> impl Iterator<Item = (TsInnerIdentifier, &TemplateSwitch)> {
         self.inners()
-            .iter()
+            .iter(..)
             .map(|(identifier, inner)| (identifier, inner.template_switch()))
     }
 
@@ -240,6 +248,21 @@ impl TsArrangement {
     ) -> ArrangementColumn {
         self.source
             .query_arrangement_char_to_arrangement_column(column)
+    }
+
+    pub fn descendant_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+        descendant: TemplateSwitchDescendant,
+    ) -> ArrangementColumn {
+        match descendant {
+            TemplateSwitchDescendant::Reference => {
+                self.reference_arrangement_char_to_arrangement_column(column)
+            }
+            TemplateSwitchDescendant::Query => {
+                self.query_arrangement_char_to_arrangement_column(column)
+            }
+        }
     }
 
     pub fn reference_source_to_arrangement_column(
