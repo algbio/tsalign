@@ -46,6 +46,11 @@ impl TsComplementArrangement {
                         column,
                         copy_depth: None,
                         ..
+                    }
+                    | SourceChar::OptionalSource {
+                        column,
+                        copy_depth: None,
+                        ..
                     } => {
                         sequence_c.push(ComplementChar::new_hidden(*column, false));
                     }
@@ -56,6 +61,10 @@ impl TsComplementArrangement {
                         sequence_c.push(ComplementChar::new_hidden(*column, true));
                     }
                     SourceChar::Source {
+                        copy_depth: Some(_),
+                        ..
+                    }
+                    | SourceChar::OptionalSource {
                         copy_depth: Some(_),
                         ..
                     }

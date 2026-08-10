@@ -569,7 +569,7 @@ impl From<SourceChar> for InnerChar {
                 lower_case,
                 copy_depth,
             },
-            SourceChar::Hidden { .. } => {
+            SourceChar::OptionalSource { .. } | SourceChar::Hidden { .. } => {
                 panic!("Cannot be translated into InnerChar")
             }
             SourceChar::Gap { copy_depth } => Self::Gap { copy_depth },

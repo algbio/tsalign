@@ -36,6 +36,11 @@ pub enum SourceChar {
         lower_case: bool,
         copy_depth: Option<usize>,
     },
+    OptionalSource {
+        column: SourceColumn,
+        lower_case: bool,
+        copy_depth: Option<usize>,
+    },
     Hidden {
         column: SourceColumn,
         copy_depth: Option<usize>,
@@ -807,6 +812,7 @@ impl SourceChar {
     pub fn is_copy(&self) -> bool {
         match self {
             Self::Source { copy_depth, .. }
+            | Self::OptionalSource { copy_depth, .. }
             | Self::Hidden { copy_depth, .. }
             | Self::Gap { copy_depth } => copy_depth.is_some(),
             Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
@@ -815,7 +821,9 @@ impl SourceChar {
 
     pub fn copy_depth(&self) -> Option<usize> {
         match self {
-            Self::Source { copy_depth, .. } | Self::Hidden { copy_depth, .. } => *copy_depth,
+            Self::Source { copy_depth, .. }
+            | Self::OptionalSource { copy_depth, .. }
+            | Self::Hidden { copy_depth, .. } => *copy_depth,
             Self::Gap { copy_depth } => *copy_depth,
             Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
@@ -823,7 +831,9 @@ impl SourceChar {
 
     pub fn to_lower_case(&mut self) {
         match self {
-            Self::Source { lower_case, .. } => *lower_case = true,
+            Self::Source { lower_case, .. } | Self::OptionalSource { lower_case, .. } => {
+                *lower_case = true
+            }
             Self::Hidden { .. }
             | Self::Gap { .. }
             | Self::Separator
@@ -836,7 +846,9 @@ impl SourceChar {
 
     pub fn to_upper_case(&mut self) {
         match self {
-            Self::Source { lower_case, .. } => *lower_case = false,
+            Self::Source { lower_case, .. } | Self::OptionalSource { lower_case, .. } => {
+                *lower_case = false
+            }
             Self::Hidden { .. }
             | Self::Gap { .. }
             | Self::Separator
@@ -861,8 +873,36 @@ impl SourceChar {
                 };
             }
             Self::Hidden { .. } => unreachable!("Already hidden"),
-            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
+            Self::OptionalSource { .. }
+            | Self::Gap { .. }
+            | Self::Separator
+            | Self::Spacer
+            | Self::Blank => {
                 unreachable!("Cannot be hidden: {self:?}")
+            }
+        }
+    }
+
+    pub fn make_optional(&mut self) {
+        match self {
+            Self::Source {
+                column,
+                lower_case,
+                copy_depth,
+            } => {
+                *self = Self::OptionalSource {
+                    column: *column,
+                    lower_case: *lower_case,
+                    copy_depth: *copy_depth,
+                };
+            }
+            Self::OptionalSource { .. } => unreachable!("Already optional"),
+            Self::Hidden { .. }
+            | Self::Gap { .. }
+            | Self::Separator
+            | Self::Spacer
+            | Self::Blank => {
+                unreachable!("Cannot be made optional: {self:?}")
             }
         }
     }
@@ -872,6 +912,13 @@ impl SourceChar {
             Self::Source {
                 column, copy_depth, ..
             } => Self::Source {
+                column: *column,
+                lower_case: false,
+                copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
+            },
+            Self::OptionalSource {
+                column, copy_depth, ..
+            } => Self::OptionalSource {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
@@ -896,6 +943,13 @@ impl SourceChar {
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
+            Self::OptionalSource {
+                column, copy_depth, ..
+            } => Self::OptionalSource {
+                column: *column,
+                lower_case: false,
+                copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
+            },
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
                 panic!("Should never be copied: {self:?}")
             }
@@ -906,13 +960,18 @@ impl SourceChar {
 impl Char for SourceChar {
     fn source_column(&self) -> SourceColumn {
         match self {
-            Self::Source { column, .. } | Self::Hidden { column, .. } => *column,
+            Self::Source { column, .. }
+            | Self::OptionalSource { column, .. }
+            | Self::Hidden { column, .. } => *column,
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => panic!("Not a char"),
         }
     }
 
     fn is_char(&self) -> bool {
-        matches!(self, Self::Source { .. } | Self::Hidden { .. })
+        matches!(
+            self,
+            Self::Source { .. } | Self::OptionalSource { .. } | Self::Hidden { .. }
+        )
     }
 
     fn is_gap(&self) -> bool {
@@ -932,6 +991,9 @@ impl Char for SourceChar {
         matches!(
             self,
             Self::Source {
+                copy_depth: None,
+                ..
+            } | Self::OptionalSource {
                 copy_depth: None,
                 ..
             } | Self::Hidden {
