@@ -636,6 +636,7 @@ dependencies = [
 name = "lib_tsshow"
 version = "4.1.0"
 dependencies = [
+ "clap",
  "ena",
  "itertools 0.15.0",
  "lib_tsalign",

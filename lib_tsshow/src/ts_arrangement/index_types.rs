@@ -7,7 +7,7 @@ pub struct SourceColumn(usize);
 
 /// A column index over the characters in an arrangement.
 ///
-/// This includes copies and hidden characters, but not gaps and blanks.
+/// This includes copies, optional and hidden characters, but not gaps and blanks.
 #[derive(StrongType)]
 #[strong_type(conversion, addable)]
 pub struct ArrangementCharColumn(usize);

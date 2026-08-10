@@ -1,6 +1,7 @@
 use std::{collections::HashMap, io::Write};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
+use clap::ValueEnum;
 use font::{CharacterData, sans_serif_mono, svg_string, typewriter};
 use indexed_str::IndexedStr;
 use lib_tsalign::{
@@ -67,7 +68,18 @@ pub struct SvgConfig {
     /// Restrict the context around the template switches to this many characters on each side.
     /// If `None`, the full sequences will be rendered.
     pub restrict_context: Option<usize>,
-    pub visualise_equal_cost_ranges: bool,
+    pub equal_cost_range_mode: EqualCostRangeMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum EqualCostRangeMode {
+    /// Do not render equal cost ranges.
+    None,
+    /// Render the equal cost ranges only on the inner sequences.
+    InnerOnly,
+    /// Render the equal cost ranges on all sequences.
+    /// This may be messy if there are overlaps.
+    Full,
 }
 
 pub fn create_ts_svg(
@@ -99,7 +111,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
-        config.visualise_equal_cost_ranges,
+        config.equal_cost_range_mode,
     )?;
 
     if config.render_more_complement {
@@ -140,6 +152,7 @@ pub fn create_ts_svg(
                 reference.len(),
                 query.len(),
                 alignment.iter_flat_cloned(),
+                config.equal_cost_range_mode,
                 &mut Vec::new(),
             )
             .map(|mut no_ts_arrangement| {
@@ -1020,12 +1033,12 @@ fn legend(
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    if config.visualise_equal_cost_ranges {
+    if config.equal_cost_range_mode != EqualCostRangeMode::None {
         let uncertainty_label = "BLUE CHARACTERS";
         result = result.add(svg_string(
             uncertainty_label
                 .chars()
-                .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_SOURCE_COLOR))),
+                .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_INNER_COLOR))),
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
@@ -1065,7 +1078,7 @@ fn legend(
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    if config.visualise_equal_cost_ranges {
+    if config.equal_cost_range_mode != EqualCostRangeMode::None {
         let uncertainty_explanation = "Equal-cost range of the TSM";
         result = result.add(svg_string(
             uncertainty_explanation

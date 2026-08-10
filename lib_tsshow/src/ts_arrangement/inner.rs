@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{
 use log::{trace, warn};
 use tagged_vec::TaggedVec;
 
-use crate::ts_arrangement::character::Char;
+use crate::{svg::EqualCostRangeMode, ts_arrangement::character::Char};
 
 use super::{
     complement::TsComplementArrangement,
@@ -49,7 +49,7 @@ impl TsInnerArrangement {
         source_arrangement: &mut TsSourceArrangement,
         complement_arrangement: &mut TsComplementArrangement,
         template_switches: Vec<TemplateSwitch>,
-        visualise_equal_cost_ranges: bool,
+        equal_cost_range_mode: EqualCostRangeMode,
     ) -> Self {
         let mut result = Self {
             inners: Default::default(),
@@ -319,7 +319,10 @@ impl TsInnerArrangement {
                     .skip(inner.len());
             inner.extend(suffix_blanks);
 
-            if visualise_equal_cost_ranges {
+            if matches!(
+                equal_cost_range_mode,
+                EqualCostRangeMode::InnerOnly | EqualCostRangeMode::Full,
+            ) {
                 // Add characters to visualise TSM equal cost range.
                 if forward {
                     warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
@@ -362,7 +365,7 @@ impl TsInnerArrangement {
                     let mut arrangement_column =
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
-                    #[allow(clippy::explicit_counter_loop)]
+                    #[expect(clippy::explicit_counter_loop)]
                     for _ in 0..ts.equal_cost_range.max_end {
                         arrangement_column -= 1;
                         source_column += 1;

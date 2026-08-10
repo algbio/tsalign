@@ -15,7 +15,7 @@ use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
 use template_switch::TemplateSwitch;
 
-use crate::error::Result;
+use crate::{error::Result, svg::EqualCostRangeMode};
 
 pub mod character;
 pub mod complement;
@@ -38,7 +38,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-        visualise_equal_cost_ranges: bool,
+        equal_cost_range_mode: EqualCostRangeMode,
     ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
@@ -47,6 +47,7 @@ impl TsArrangement {
             reference_length,
             query_length,
             alignment,
+            equal_cost_range_mode,
             &mut template_switches,
         )?;
         let mut complement = TsComplementArrangement::new(&source);
@@ -54,7 +55,7 @@ impl TsArrangement {
             &mut source,
             &mut complement,
             template_switches,
-            visualise_equal_cost_ranges,
+            equal_cost_range_mode,
         );
 
         Ok(Self {

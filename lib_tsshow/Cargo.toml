@@ -18,3 +18,4 @@ tagged-vec = "1.1.0"
 strong-type = "1.1.1"
 ena = "0.14.3"
 itertools.workspace = true
+clap.workspace = true
