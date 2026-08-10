@@ -365,7 +365,6 @@ impl TsInnerArrangement {
                     let mut arrangement_column =
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
-                    #[expect(clippy::explicit_counter_loop)]
                     for _ in 0..ts.equal_cost_range.max_end {
                         arrangement_column -= 1;
                         source_column += 1;
