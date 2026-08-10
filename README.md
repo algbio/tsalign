@@ -260,7 +260,8 @@ There are additional switches and parameters to influence the visualisation.
 
 * `-a` adds arrows for the jumps of the alignments
 * `-c` renders more of the complements of the input sequences
-* `-e` renders the heuristically computed uncertainties of a TSM with grey characters
+* `-e inner-only` renders the heuristically computed uncertainties of a TSM with blue characters in the TSM inner alignment
+* `-e full` or just `-e` renders the heuristically computed uncertainties of a TSM with blue characters in the TSM inner alignment and the source sequences
 * `-z X` renders only `X` bases of context around the TSMs
 
 ```bash
