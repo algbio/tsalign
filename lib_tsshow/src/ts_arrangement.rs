@@ -8,7 +8,7 @@ use complement::{ComplementChar, TsComplementArrangement};
 use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
 use inner::{TsInner, TsInnerArrangement};
 use lib_tsalign::a_star_aligner::template_switch_distance::{
-    AlignmentType, TemplateSwitchAncestor,
+    AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
 };
 use log::debug;
 use source::{SourceChar, TsSourceArrangement};
@@ -183,6 +183,13 @@ impl TsArrangement {
         self.source.query()
     }
 
+    pub fn descendant(
+        &self,
+        descendant: TemplateSwitchDescendant,
+    ) -> &TaggedVec<ArrangementColumn, SourceChar> {
+        self.source.descendant(descendant)
+    }
+
     pub fn reference_complement(&self) -> &TaggedVec<ArrangementColumn, ComplementChar> {
         self.complement.reference_complement()
     }
@@ -241,6 +248,21 @@ impl TsArrangement {
     ) -> ArrangementColumn {
         self.source
             .query_arrangement_char_to_arrangement_column(column)
+    }
+
+    pub fn descendant_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+        descendant: TemplateSwitchDescendant,
+    ) -> ArrangementColumn {
+        match descendant {
+            TemplateSwitchDescendant::Reference => {
+                self.reference_arrangement_char_to_arrangement_column(column)
+            }
+            TemplateSwitchDescendant::Query => {
+                self.query_arrangement_char_to_arrangement_column(column)
+            }
+        }
     }
 
     pub fn reference_source_to_arrangement_column(

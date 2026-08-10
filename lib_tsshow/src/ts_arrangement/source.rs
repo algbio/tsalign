@@ -559,6 +559,16 @@ impl TsSourceArrangement {
         }
     }
 
+    pub fn descendant(
+        &self,
+        descendant: TemplateSwitchDescendant,
+    ) -> &TaggedVec<ArrangementColumn, SourceChar> {
+        match descendant {
+            TemplateSwitchDescendant::Reference => self.reference(),
+            TemplateSwitchDescendant::Query => self.query(),
+        }
+    }
+
     pub fn reference(&self) -> &TaggedVec<ArrangementColumn, SourceChar> {
         &self.reference
     }

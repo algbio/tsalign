@@ -199,6 +199,7 @@ pub fn create_ts_svg(
             sp3_ancestor,
             sp4_reference,
             sp4_query,
+            equal_cost_range,
             ..
         },
     ) in ts_arrangement.template_switches()
@@ -256,46 +257,38 @@ pub fn create_ts_svg(
             }
         }*/
 
-        let descendant_sp4_minus_one = match descendant {
-            TemplateSwitchDescendant::Reference => sp4_reference.checked_sub(1).map(|column| {
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
-            }),
-            TemplateSwitchDescendant::Query => sp4_query.checked_sub(1).map(|column| {
-                ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
-            }),
-        };
+        let descendant_sp1 = ts_arrangement.descendant_arrangement_char_to_arrangement_column(
+            match descendant {
+                TemplateSwitchDescendant::Reference => *sp1_reference,
+                TemplateSwitchDescendant::Query => *sp1_query,
+            } - usize::try_from(-equal_cost_range.min_start).unwrap(),
+            *descendant,
+        );
 
-        let (descendant_sp1, descendant_sp4, descendant_row) = match descendant {
-            TemplateSwitchDescendant::Reference => (
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp1_reference),
-                ts_arrangement
-                    .reference()
-                    .iter(
-                        descendant_sp4_minus_one.unwrap_or(0.into())
-                            ..ts_arrangement
-                                .reference_arrangement_char_to_arrangement_column(*sp4_reference)
-                                + 1usize,
-                    )
-                    .find(|(_, c)| !c.is_blank())
-                    .unwrap()
-                    .0,
-                TsArrangementRow::Reference,
-            ),
-            TemplateSwitchDescendant::Query => (
-                ts_arrangement.query_arrangement_char_to_arrangement_column(*sp1_query),
-                ts_arrangement
-                    .query()
-                    .iter(
-                        descendant_sp4_minus_one.unwrap_or(0.into())
-                            ..ts_arrangement
-                                .query_arrangement_char_to_arrangement_column(*sp4_query)
-                                + 1usize,
-                    )
-                    .find(|(_, c)| !c.is_blank())
-                    .map(|(column, _)| column)
-                    .unwrap_or(ts_arrangement.query().len().into()),
-                TsArrangementRow::Query,
-            ),
+        let descendant_sp4 = match descendant {
+            TemplateSwitchDescendant::Reference => *sp4_reference,
+            TemplateSwitchDescendant::Query => *sp4_query,
+        } + usize::try_from(equal_cost_range.max_end).unwrap();
+        let descendant_sp4_minus_one = descendant_sp4.checked_sub(1).map(|column| {
+            ts_arrangement.descendant_arrangement_char_to_arrangement_column(column, *descendant)
+                + 1usize
+        });
+        let descendant_sp4 = ts_arrangement
+            .descendant(*descendant)
+            .iter(
+                descendant_sp4_minus_one.unwrap_or(0.into())
+                    ..ts_arrangement.descendant_arrangement_char_to_arrangement_column(
+                        descendant_sp4,
+                        *descendant,
+                    ) + 1usize,
+            )
+            .find(|(_, c)| !c.is_blank())
+            .unwrap()
+            .0;
+
+        let descendant_row = match descendant {
+            TemplateSwitchDescendant::Reference => TsArrangementRow::Reference,
+            TemplateSwitchDescendant::Query => TsArrangementRow::Query,
         };
 
         let forward = sp2_ancestor < sp3_ancestor;
