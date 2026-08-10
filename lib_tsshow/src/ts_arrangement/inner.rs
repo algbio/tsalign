@@ -327,19 +327,19 @@ impl TsInnerArrangement {
                     // Insert range characters before point 2.
 
                     let last_initial_blank = inner
-                        .iter()
+                        .iter(..)
                         .take_while(|(_, c)| c.is_blank())
                         .last()
                         .map(|(i, _)| i);
                     let first_final_blank = inner
-                        .iter()
+                        .iter(..)
                         .rev()
                         .take_while(|(_, c)| c.is_blank())
                         .last()
                         .map(|(i, _)| i)
                         .unwrap_or(inner.len().into());
                     let first_non_blank = inner
-                        .iter()
+                        .iter(..)
                         .find(|(_, c)| !c.is_blank())
                         .map(|(i, _)| i)
                         .unwrap();
@@ -446,13 +446,13 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| inner.1.reference && !inner.1.complement)
     }
 
     pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| !inner.1.reference && !inner.1.complement)
     }
 
@@ -460,7 +460,7 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| inner.1.reference && inner.1.complement)
     }
 
@@ -468,7 +468,7 @@ impl TsInnerArrangement {
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inners
-            .iter()
+            .iter(..)
             .filter(|inner| !inner.1.reference && inner.1.complement)
     }
 
@@ -479,7 +479,7 @@ impl TsInnerArrangement {
         let sequence = &self.inners[inner_identifier].sequence;
 
         sequence
-            .iter()
+            .iter(..)
             .find(|(_, c)| !c.is_blank())
             .map(|(i, _)| i)
             .unwrap_or(sequence.len().into())
@@ -492,7 +492,7 @@ impl TsInnerArrangement {
         let sequence = &self.inners[inner_identifier].sequence;
 
         sequence
-            .iter()
+            .iter(..)
             .rev()
             .find(|(_, c)| !c.is_blank())
             .map(|(i, _)| i)

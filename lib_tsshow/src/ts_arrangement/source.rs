@@ -608,7 +608,7 @@ impl TsSourceArrangement {
         source_column: SourceColumn,
     ) -> Option<ArrangementColumn> {
         sequence
-            .iter()
+            .iter(..)
             .filter_map(|(i, c)| match c {
                 SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
                     if *column + 1usize == source_column =>
@@ -726,7 +726,7 @@ impl TsSourceArrangement {
         column: ArrangementCharColumn,
     ) -> ArrangementColumn {
         sequence
-            .iter()
+            .iter(..)
             .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
             .chain(iter::once(sequence.len().into()))
             .nth(column.primitive())

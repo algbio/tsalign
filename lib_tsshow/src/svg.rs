@@ -255,14 +255,12 @@ pub fn create_ts_svg(
                 ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp1_reference),
                 ts_arrangement
                     .reference()
-                    .iter()
-                    .take(
-                        usize::from(
-                            ts_arrangement
-                                .reference_arrangement_char_to_arrangement_column(*sp4_reference),
-                        ) + 1usize,
+                    .iter(
+                        descendant_sp4_minus_one.unwrap_or(0.into())
+                            ..ts_arrangement
+                                .reference_arrangement_char_to_arrangement_column(*sp4_reference)
+                                + 1usize,
                     )
-                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .unwrap()
                     .0,
@@ -272,13 +270,12 @@ pub fn create_ts_svg(
                 ts_arrangement.query_arrangement_char_to_arrangement_column(*sp1_query),
                 ts_arrangement
                     .query()
-                    .iter()
-                    .take(
-                        usize::from(
-                            ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
-                        ) + 1usize,
+                    .iter(
+                        descendant_sp4_minus_one.unwrap_or(0.into())
+                            ..ts_arrangement
+                                .query_arrangement_char_to_arrangement_column(*sp4_query)
+                                + 1usize,
                     )
-                    .skip(descendant_sp4_minus_one.unwrap_or(0.into()).into())
                     .find(|(_, c)| !c.is_blank())
                     .map(|(column, _)| column)
                     .unwrap_or(ts_arrangement.query().len().into()),

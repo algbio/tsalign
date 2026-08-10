@@ -68,7 +68,7 @@ impl TsArrangement {
     pub fn remove_empty_columns(&mut self) {
         let mut remove_columns = Vec::new();
 
-        'column_iter: for column in self.reference().iter_indices() {
+        'column_iter: for column in self.reference().iter_indices(..) {
             if !self.reference()[column].is_blank_or_hidden() {
                 continue;
             }
@@ -218,7 +218,7 @@ impl TsArrangement {
 
     pub fn template_switches(&self) -> impl Iterator<Item = (TsInnerIdentifier, &TemplateSwitch)> {
         self.inners()
-            .iter()
+            .iter(..)
             .map(|(identifier, inner)| (identifier, inner.template_switch()))
     }
 
