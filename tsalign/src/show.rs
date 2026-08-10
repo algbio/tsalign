@@ -64,7 +64,7 @@ pub struct Cli {
     restrict_context_to: Option<usize>,
 
     /// Add a visualisation of the equal-cost ranges to the SVG output.
-    #[clap(long, short = 'e', default_value = "none")]
+    #[clap(long, short = 'e', default_value = "none", default_missing_value = "full", num_args = 0..=1)]
     equal_cost_range_mode: EqualCostRangeMode,
 }
 
