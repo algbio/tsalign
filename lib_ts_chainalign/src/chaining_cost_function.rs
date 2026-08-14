@@ -32,7 +32,7 @@ pub struct ChainingCostFunction<Cost> {
 impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn new_from_lower_bounds(
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         sequences: &AlignmentSequences,
         max_exact_cost_function_cost: Cost,
         rc_fn: &dyn Fn(u8) -> u8,
@@ -92,8 +92,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             &mut PanicOnExtend,
         );
         // Allow start to chain without gaps to first primary anchor if it exists.
-        additional_primary_targets_output
-            .push((PrimaryAnchor::new_from_start(&start), Cost::zero()));
+        additional_primary_targets_output.push((start, Cost::zero()));
         additional_primary_targets_output.sort_unstable();
         for (to_index, cost) in
             anchors.primary_anchor_to_index_iter(additional_primary_targets_output.iter().copied())
@@ -108,7 +107,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         if let Some(start_end_cost) = additional_primary_targets_output
             .iter()
             .rev()
-            .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+            .map_while(|(coordinates, cost)| (coordinates == &end).then_some(cost))
             .copied()
             .last()
         {
@@ -119,8 +118,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
 
         // Fill remaining primary with lower bound.
-        let gap1 = end.primary_ordinate_a().unwrap() - start.primary_ordinate_a().unwrap();
-        let gap2 = end.primary_ordinate_b().unwrap() - start.primary_ordinate_b().unwrap();
+        let gap1 = end.a() - start.a();
+        let gap2 = end.b() - start.b();
         primary[[primary_start_anchor_index, primary_end_anchor_index]] = chaining_lower_bounds
             .primary_lower_bound(gap1, gap2)
             .max(max_exact_cost_function_cost + Cost::from_usize(1))
@@ -154,7 +153,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             if let Some(to_end_cost) = additional_primary_targets_output
                 .iter()
                 .rev()
-                .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+                .map_while(|(coordinates, cost)| (coordinates == &end).then_some(cost))
                 .copied()
                 .last()
             {
@@ -216,7 +215,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill secondary from from_index with exact values.
                 additional_secondary_targets_output.clear();
                 secondary_aligner.align_until_cost_limit(
-                    anchors.secondary(from_index, ts_kind).end(ts_kind, k),
+                    anchors
+                        .secondary(from_index, ts_kind)
+                        .end(k)
+                        .into_specific(ts_kind),
                     max_exact_cost_function_cost,
                     &mut PanicOnExtend,
                     &mut additional_secondary_targets_output,
@@ -234,7 +236,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
                 // Fill remaining secondary with lower bound.
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
-                    if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor, ts_kind, k) {
+                    if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor, k) {
                         secondary[[from_index, to_index]] = chaining_lower_bounds
                             .secondary_lower_bound(gap1, gap2)
                             .max(max_exact_cost_function_cost + Cost::from_usize(1))
@@ -306,17 +308,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
                 if !eligible_anchors.is_empty() {
                     total_12_jump_exact_evaluations += 1;
-                    eligible_anchors.sort_unstable_by_key(|anchor| {
-                        anchor.start(ts_kind).secondary_ordinate_ancestor().unwrap()
-                    });
+                    eligible_anchors.sort_unstable_by_key(|anchor| anchor.start().ancestor());
                     // TODO: use eligible anchors for much more detailed filtering or for an A* lower bound in alignment.
                     let eligible_anchors = eligible_anchors;
-                    let min_eligible_ancestor = eligible_anchors
-                        .first()
-                        .unwrap()
-                        .start(ts_kind)
-                        .secondary_ordinate_ancestor()
-                        .unwrap();
+                    let min_eligible_ancestor =
+                        eligible_anchors.first().unwrap().start().ancestor();
                     let align_end = AlignmentCoordinates::new_secondary(
                         min_eligible_ancestor,
                         sequences
@@ -404,7 +400,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill 34-jumps from from_index with exact values.
                 additional_primary_targets_output.clear();
                 ts_34_jump_aligner.align_until_cost_limit(
-                    anchors.secondary(from_index, ts_kind).end(ts_kind, k),
+                    anchors
+                        .secondary(from_index, ts_kind)
+                        .end(k)
+                        .into_specific(ts_kind),
                     max_exact_cost_function_cost,
                     &mut additional_primary_targets_output,
                 );

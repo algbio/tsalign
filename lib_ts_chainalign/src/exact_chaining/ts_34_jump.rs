@@ -3,11 +3,13 @@ use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 use crate::{
     alignment::{
         Alignment,
-        coordinates::AlignmentCoordinates,
+        coordinates::{
+            AlignmentCoordinates, PrimaryAlignmentCoordinates,
+            SpecificSecondaryAlignmentCoordinates,
+        },
         sequences::AlignmentSequences,
         ts_kind::{TsDescendant, TsKind},
     },
-    anchors::primary::PrimaryAnchor,
     costs::AlignmentCosts,
     exact_chaining::ts_34_jump::algo::{Context, Node},
 };
@@ -50,23 +52,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     /// Note that the output list may contain duplicate anchors with different cost.
     pub fn align(
         &mut self,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        start: SpecificSecondaryAlignmentCoordinates,
+        end: PrimaryAlignmentCoordinates,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
-        assert!(start.is_secondary());
-        assert!(end.is_primary());
-
         // Enfore non-match if there is a gap between the anchors in the descendant.
         // This is to match the lower-bound computation.
         // It also discourages chains to deviate from the alignment geometry boundaries.
-        let descendant_end = match start.ts_kind().unwrap().descendant {
-            TsDescendant::Seq1 => end.primary_ordinate_a(),
-            TsDescendant::Seq2 => end.primary_ordinate_b(),
-        }
-        .unwrap();
-        let descendant_start = start.secondary_ordinate_descendant().unwrap();
-        let enforce_non_match = descendant_end != start.secondary_ordinate_descendant().unwrap();
+        let descendant_end = match start.ts_kind().descendant {
+            TsDescendant::Seq1 => end.a(),
+            TsDescendant::Seq2 => end.b(),
+        };
+        let descendant_start = start.descendant();
+        let enforce_non_match = descendant_end != start.descendant();
 
         let context = Context::new(
             self.alignment_costs,
@@ -96,7 +94,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             &a_star,
             descendant_start,
-            start.ts_kind().unwrap(),
+            start.ts_kind(),
             additional_primary_targets_output,
         );
         self.a_star_buffers = Some(a_star.into_buffers());
@@ -110,11 +108,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     /// Note that the output list may contain duplicate anchors with different cost.
     pub fn align_until_cost_limit(
         &mut self,
-        start: AlignmentCoordinates,
+        start: SpecificSecondaryAlignmentCoordinates,
         cost_limit: Cost,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) {
-        assert!(start.is_secondary());
         let end = self.sequences.primary_end();
 
         let context = Context::new(
@@ -130,8 +127,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star.initialise();
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
-        let descendant_start = start.secondary_ordinate_descendant().unwrap();
-        let ts_kind = start.ts_kind().unwrap();
+        let descendant_start = start.descendant();
+        let ts_kind = start.ts_kind();
         Self::fill_additional_targets(
             &a_star,
             descendant_start,
@@ -145,30 +142,29 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star: &AStar<Context<Cost>>,
         descendant_start: usize,
         ts_kind: TsKind,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) {
         additional_primary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
-                .filter(|node| {
-                    node.identifier.coordinates().is_primary()
-                        && (node.identifier.has_non_match()
-                            != (descendant_start
-                                == match ts_kind.descendant {
-                                    TsDescendant::Seq1 => {
-                                        node.identifier.coordinates().primary_ordinate_a().unwrap()
-                                    }
-                                    TsDescendant::Seq2 => {
-                                        node.identifier.coordinates().primary_ordinate_b().unwrap()
-                                    }
-                                }))
+                .filter_map(|node| {
+                    if let AlignmentCoordinates::Primary(primary) =
+                        node.identifier.coordinates(ts_kind)
+                    {
+                        Some((primary, node.identifier.has_non_match(), node.cost))
+                    } else {
+                        None
+                    }
                 })
-                .map(|node| {
-                    (
-                        PrimaryAnchor::new_from_start(&node.identifier.coordinates()),
-                        node.cost,
-                    )
-                }),
+                .filter(|(coordinates, has_non_match, cost)| {
+                    *has_non_match
+                        != (descendant_start
+                            == match ts_kind.descendant {
+                                TsDescendant::Seq1 => coordinates.a(),
+                                TsDescendant::Seq2 => coordinates.b(),
+                            })
+                })
+                .map(|(coordinates, _, cost)| (coordinates, cost)),
         );
     }
 }
