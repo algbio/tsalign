@@ -3,7 +3,9 @@ use num_traits::{Bounded, Zero};
 
 use crate::{
     alignment::{
-        coordinates::AlignmentCoordinates, sequences::AlignmentSequences, ts_kind::TsKind,
+        coordinates::{PrimaryAlignmentCoordinates, SecondaryAlignmentCoordinates},
+        sequences::AlignmentSequences,
+        ts_kind::TsKind,
     },
     anchors::Anchors,
     chaining_cost_function::ChainingCostFunction,
@@ -37,7 +39,7 @@ fn create_lower_bounds(max_match_run: u32) -> ChainingLowerBounds<U32Cost> {
 fn create_chaining_cost_function(
     sequences: &AlignmentSequences,
     max_match_run: u32,
-) -> (Anchors, ChainingCostFunction<U32Cost>) {
+) -> (Anchors<U32Cost>, ChainingCostFunction<U32Cost>) {
     let anchors = Anchors::new(sequences, max_match_run.checked_add(1).unwrap(), &dna_rc_fn);
     let cost_function = ChainingCostFunction::new_from_lower_bounds(
         &create_lower_bounds(max_match_run),
@@ -56,8 +58,8 @@ fn test_start_end_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(5, 5),
-        AlignmentCoordinates::new_primary(5, 5),
+        PrimaryAlignmentCoordinates::new(5, 5),
+        PrimaryAlignmentCoordinates::new(5, 5),
     );
     let (_, cost_function) = create_chaining_cost_function(&sequences, 4);
     assert!(cost_function.start_to_end().is_zero());
@@ -70,8 +72,8 @@ fn test_start_anchor_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 4);
     assert!(
@@ -92,15 +94,15 @@ fn test_anchor_end_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 4);
     assert!(
         cost_function
             .primary_to_end(
                 anchors
-                    .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(4, 4))
+                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(4, 4))
                     .unwrap()
             )
             .is_zero()
@@ -114,8 +116,8 @@ fn test_start_end_indirect_lt_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (_, cost_function) = create_chaining_cost_function(&sequences, 8);
     assert!(cost_function.start_to_end().is_zero());
@@ -128,8 +130,8 @@ fn test_start_end_indirect_geq_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (_, cost_function) = create_chaining_cost_function(&sequences, 7);
     assert!(!cost_function.start_to_end().is_zero());
@@ -142,15 +144,15 @@ fn test_start_anchor_indirect() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 4);
     assert!(
         !cost_function
             .primary_from_start(
                 anchors
-                    .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(2, 2))
+                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(2, 2))
                     .unwrap()
             )
             .is_zero()
@@ -164,15 +166,15 @@ fn test_anchor_end_indirect() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 4);
     assert!(
         !cost_function
             .primary_to_end(
                 anchors
-                    .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(3, 3))
+                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(3, 3))
                     .unwrap()
             )
             .is_zero()
@@ -186,17 +188,17 @@ fn test_anchor_anchor_direct_primary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 2);
     assert_eq!(
         cost_function.primary(
             anchors
-                .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(1, 1))
+                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(1, 1))
                 .unwrap(),
             anchors
-                .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(4, 4))
+                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(4, 4))
                 .unwrap(),
         ),
         U32Cost::max_value(),
@@ -210,17 +212,17 @@ fn test_anchor_anchor_indirect_primary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 2);
     assert_eq!(
         cost_function.primary(
             anchors
-                .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(1, 1))
+                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(1, 1))
                 .unwrap(),
             anchors
-                .primary_index_from_start_coordinates(AlignmentCoordinates::new_primary(5, 5))
+                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(5, 5))
                 .unwrap(),
         ),
         2u8.into(),
@@ -234,21 +236,21 @@ fn test_anchor_anchor_direct_secondary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 2);
     assert_eq!(
         cost_function.secondary(
             anchors
-                .secondary_index_from_start_coordinates(AlignmentCoordinates::new_secondary(
+                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
                     9,
                     1,
                     TsKind::TS12
                 ))
                 .unwrap(),
             anchors
-                .secondary_index_from_start_coordinates(AlignmentCoordinates::new_secondary(
+                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
                     6,
                     4,
                     TsKind::TS12
@@ -267,21 +269,21 @@ fn test_anchor_anchor_indirect_secondary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let (anchors, cost_function) = create_chaining_cost_function(&sequences, 2);
     assert_eq!(
         cost_function.secondary(
             anchors
-                .secondary_index_from_start_coordinates(AlignmentCoordinates::new_secondary(
+                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
                     9,
                     1,
                     TsKind::TS12
                 ))
                 .unwrap(),
             anchors
-                .secondary_index_from_start_coordinates(AlignmentCoordinates::new_secondary(
+                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
                     5,
                     5,
                     TsKind::TS12

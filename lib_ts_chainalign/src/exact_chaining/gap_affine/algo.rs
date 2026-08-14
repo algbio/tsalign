@@ -140,7 +140,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }
         }
 
-        if coordinates.can_increment_a(self.end, Some(self.sequences)) {
+        if coordinates.can_increment_a_or_ancestor(self.end, Some(self.sequences)) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
@@ -160,7 +160,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_b(self.end, Some(self.sequences)) {
+        if coordinates.can_increment_b_or_descendant(self.end, Some(self.sequences)) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {

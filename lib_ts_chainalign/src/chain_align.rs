@@ -52,7 +52,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
-    anchors: &Anchors,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.open_list {
@@ -89,7 +89,7 @@ pub fn choose_closed_list<
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
-    anchors: &Anchors,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.closed_list {
@@ -129,7 +129,7 @@ fn actually_align<
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
-    anchors: &Anchors,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     info!("Aligning...");
@@ -436,10 +436,10 @@ fn actually_align<
     let duration_seconds = (end_time - start_time).as_secs_f64();
 
     let alignment_range = AlignmentRange::new(
-        sequences.primary_start().primary_ordinate_a().unwrap(),
-        sequences.primary_start().primary_ordinate_b().unwrap(),
-        sequences.primary_end().primary_ordinate_a().unwrap(),
-        sequences.primary_end().primary_ordinate_b().unwrap(),
+        sequences.primary_start().a(),
+        sequences.primary_start().b(),
+        sequences.primary_end().a(),
+        sequences.primary_end().b(),
     );
 
     AlignmentResult::new_with_target::<AlphabetType, _>(

@@ -29,7 +29,7 @@ impl<Store> Cluster<Store> {
     }
 }
 
-pub fn find_kmer_matches<Store: KmerStore>(
+pub fn find_exact_kmer_matches<Store: KmerStore>(
     mut a: &[(Kmer<Store>, usize)],
     mut b: &[(Kmer<Store>, usize)],
 ) -> Vec<(usize, usize)> {
