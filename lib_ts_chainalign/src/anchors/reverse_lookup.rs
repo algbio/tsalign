@@ -1,15 +1,14 @@
 use std::{cmp::Ordering, iter::Peekable};
 
 use crate::{
-    alignment::ts_kind::TsKind,
+    alignment::{
+        coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
+        ts_kind::TsKind,
+    },
     anchors::{Anchors, index::AnchorIndex, primary::PrimaryAnchor, secondary::SecondaryAnchor},
 };
 
-struct PrimaryAnchorToIndexIter<
-    Anchor,
-    CoordinateIter: Iterator<Item = Anchor>,
-    AnchorIter: Iterator,
-> {
+struct PrimaryAnchorToIndexIter<CoordinateIter: Iterator, AnchorIter: Iterator> {
     coordinate_iter: Peekable<CoordinateIter>,
     anchor_iter: Peekable<AnchorIter>,
 }
@@ -29,18 +28,19 @@ pub trait PartialIntoAnchorIndex {
 }
 
 impl<
-    Anchor: PartialIntoAnchorIndex<IntoPartSource = PrimaryAnchor>,
-    CoordinateIter: Iterator<Item = Anchor>,
-    AnchorIter: Iterator<Item = (AnchorIndex, PrimaryAnchor)>,
-> Iterator for PrimaryAnchorToIndexIter<Anchor, CoordinateIter, AnchorIter>
+    Cost: Ord,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
+    CoordinateIter: Iterator<Item = Coordinates>,
+    AnchorIter: Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>,
+> Iterator for PrimaryAnchorToIndexIter<CoordinateIter, AnchorIter>
 {
-    type Item = Anchor::IntoTarget;
+    type Item = Coordinates::IntoTarget;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let (Some(coordinate_anchor), Some((anchor_index, anchor))) =
             (self.coordinate_iter.peek(), self.anchor_iter.peek())
         {
-            match coordinate_anchor.source_part().cmp(anchor) {
+            match coordinate_anchor.source_part().cmp(&anchor.start()) {
                 Ordering::Less => {
                     self.coordinate_iter.next().unwrap();
                 }
@@ -65,12 +65,13 @@ impl<
 }
 
 impl<
-    Anchor: PartialIntoAnchorIndex<IntoPartSource = SecondaryAnchor>,
-    CoordinateIter: Iterator<Item = Anchor>,
-    AnchorIter: Iterator<Item = (AnchorIndex, SecondaryAnchor)>,
+    Cost: Ord,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
+    CoordinateIter: Iterator<Item = Coordinates>,
+    AnchorIter: Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>,
 > Iterator for SecondaryAnchorToIndexIter<CoordinateIter, AnchorIter>
 {
-    type Item = Anchor::IntoTarget;
+    type Item = Coordinates::IntoTarget;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let (Some(coordinate_anchor), Some((anchor_index, anchor))) =
@@ -100,32 +101,38 @@ impl<
     }
 }
 
-impl Anchors {
-    /// Returns an iterator over the primary anchor indices that correspond to the given primary anchors.
+impl<Cost> Anchors<Cost> {
+    /// Returns an iterator over the primary anchor indices that correspond to the given primary alignment coordinates.
     ///
-    /// If a primary anchor does not exist, then the iterator returns `Some(None)`.
+    /// If a pair of primary alignment coordinates does not correspond to a primary anchor, then the iterator returns `Some(None)`.
     pub fn primary_anchor_to_index_iter<
-        Anchor: PartialIntoAnchorIndex<IntoPartSource = PrimaryAnchor>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
     >(
         &self,
-        iter: impl IntoIterator<Item = Anchor>,
-    ) -> impl Iterator<Item = Anchor::IntoTarget> {
+        iter: impl IntoIterator<Item = Coordinates>,
+    ) -> impl Iterator<Item = Coordinates::IntoTarget>
+    where
+        Cost: Ord + Copy,
+    {
         PrimaryAnchorToIndexIter {
             coordinate_iter: iter.into_iter().peekable(),
             anchor_iter: self.enumerate_primaries().peekable(),
         }
     }
 
-    /// Returns an iterator over the secondary anchor indices that correspond to the given secondary anchors.
+    /// Returns an iterator over the secondary anchor indices that correspond to the given secondary alignment coordinates.
     ///
-    /// If a secondary anchor does not exist, then the iterator returns `Some(None)`.
+    /// If a pair of secondary alignment coordinates does not correspond to a secondary anchor, then the iterator returns `Some(None)`.
     pub fn secondary_anchor_to_index_iter<
-        Anchor: PartialIntoAnchorIndex<IntoPartSource = SecondaryAnchor>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
     >(
         &self,
-        iter: impl IntoIterator<Item = Anchor>,
+        iter: impl IntoIterator<Item = Coordinates>,
         ts_kind: TsKind,
-    ) -> impl Iterator<Item = Anchor::IntoTarget> {
+    ) -> impl Iterator<Item = Coordinates::IntoTarget>
+    where
+        Cost: Ord + Copy,
+    {
         SecondaryAnchorToIndexIter {
             coordinate_iter: iter.into_iter().peekable(),
             anchor_iter: self.enumerate_secondaries(ts_kind).peekable(),
@@ -133,8 +140,8 @@ impl Anchors {
     }
 }
 
-impl PartialIntoAnchorIndex for PrimaryAnchor {
-    type IntoPartSource = PrimaryAnchor;
+impl PartialIntoAnchorIndex for PrimaryAlignmentCoordinates {
+    type IntoPartSource = Self;
 
     type IntoTarget = AnchorIndex;
 
@@ -147,8 +154,8 @@ impl PartialIntoAnchorIndex for PrimaryAnchor {
     }
 }
 
-impl PartialIntoAnchorIndex for SecondaryAnchor {
-    type IntoPartSource = SecondaryAnchor;
+impl PartialIntoAnchorIndex for AnySecondaryAlignmentCoordinates {
+    type IntoPartSource = Self;
 
     type IntoTarget = AnchorIndex;
 
@@ -161,8 +168,8 @@ impl PartialIntoAnchorIndex for SecondaryAnchor {
     }
 }
 
-impl<T> PartialIntoAnchorIndex for (PrimaryAnchor, T) {
-    type IntoPartSource = PrimaryAnchor;
+impl<T> PartialIntoAnchorIndex for (PrimaryAlignmentCoordinates, T) {
+    type IntoPartSource = PrimaryAlignmentCoordinates;
 
     type IntoTarget = (AnchorIndex, T);
 
@@ -175,8 +182,8 @@ impl<T> PartialIntoAnchorIndex for (PrimaryAnchor, T) {
     }
 }
 
-impl<T> PartialIntoAnchorIndex for (SecondaryAnchor, T) {
-    type IntoPartSource = SecondaryAnchor;
+impl<T> PartialIntoAnchorIndex for (AnySecondaryAlignmentCoordinates, T) {
+    type IntoPartSource = AnySecondaryAlignmentCoordinates;
 
     type IntoTarget = (AnchorIndex, T);
 

@@ -9,7 +9,7 @@ use lib_tsalign::a_star_aligner::{
 use log::{debug, info, trace};
 
 use crate::{
-    alignment::{coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    alignment::{coordinates::PrimaryAlignmentCoordinates, sequences::AlignmentSequences},
     anchors::Anchors,
     chain_align::performance_parameters::AlignmentPerformanceParameters,
     chaining_cost_function::ChainingCostFunction,
@@ -88,8 +88,8 @@ pub fn align<AlphabetType: Alphabet>(
         query,
         reference_name.to_string(),
         query_name.to_string(),
-        AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset()),
-        AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit()),
+        PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
+        PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
     let k = chaining_lower_bounds.max_match_run() + 1;
 

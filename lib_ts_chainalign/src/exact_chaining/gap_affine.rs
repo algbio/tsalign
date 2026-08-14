@@ -1,8 +1,13 @@
 use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 
 use crate::{
-    alignment::{Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
-    anchors::{primary::PrimaryAnchor, secondary::SecondaryAnchor},
+    alignment::{
+        Alignment,
+        coordinates::{
+            AlignmentCoordinates, AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+        },
+        sequences::AlignmentSequences,
+    },
     costs::GapAffineCosts,
     exact_chaining::gap_affine::algo::{Context, Node},
 };
@@ -37,24 +42,22 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         }
     }
 
+    /// Evaluate if `allow_direct_chaining` should be set in the alignment context.
     fn allow_direct_chaining(
         &self,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
     ) -> bool {
-        start == self.sequences.primary_start() || end == self.sequences.primary_end()
+        start == self.sequences.primary_start().into() || end == self.sequences.primary_end().into()
     }
 
+    /// Evaluate if `allow_all_matches` should be set in the alignment context.
     fn allow_all_matches(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
-        let minimum_primary_sequence_length =
-            (self.sequences.primary_end().primary_ordinate_a().unwrap()
-                - self.sequences.primary_start().primary_ordinate_a().unwrap())
-            .min(
-                self.sequences.primary_end().primary_ordinate_b().unwrap()
-                    - self.sequences.primary_start().primary_ordinate_b().unwrap(),
-            );
-        start == self.sequences.primary_start()
-            && end == self.sequences.primary_end()
+        let minimum_primary_sequence_length = (self.sequences.primary_end().a()
+            - self.sequences.primary_start().a())
+        .min(self.sequences.primary_end().b() - self.sequences.primary_start().b());
+        start == self.sequences.primary_start().into()
+            && end == self.sequences.primary_end().into()
             && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run
     }
 
@@ -68,8 +71,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         &mut self,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
@@ -113,14 +116,15 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// Align from start until the cost limit is reached.
     ///
     /// Collect all closed nodes into the given output lists.
-    /// Note that the output lists may contain duplicate anchors with different cost.
+    /// Note that the output lists may contain duplicate coordinates with different cost.
     pub fn align_until_cost_limit(
         &mut self,
-        start: AlignmentCoordinates,
+        start: impl Into<AlignmentCoordinates>,
         cost_limit: Cost,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
+        let start = start.into();
         let end = self.sequences.end(start.ts_kind());
         debug_assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
@@ -153,8 +157,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         &self,
         a_star: &AStar<Context<Cost>>,
         start: AlignmentCoordinates,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
         additional_primary_targets_output.extend(
             a_star
@@ -183,7 +187,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 })
                 .map(|node| {
                     (
-                        PrimaryAnchor::new_from_start(&node.identifier.coordinates),
+                        node.identifier.coordinates.into_primary().unwrap(),
                         node.cost,
                     )
                 }),
@@ -215,7 +219,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 })
                 .map(|node| {
                     (
-                        SecondaryAnchor::new_from_start(&node.identifier.coordinates),
+                        node.identifier.coordinates.into_secondary().unwrap().into(),
                         node.cost,
                     )
                 }),

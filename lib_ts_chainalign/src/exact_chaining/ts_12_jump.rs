@@ -3,11 +3,12 @@ use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 use crate::{
     alignment::{
         Alignment,
-        coordinates::AlignmentCoordinates,
+        coordinates::{
+            AlignmentCoordinates, PrimaryAlignmentCoordinates, SecondaryAlignmentCoordinates,
+        },
         sequences::AlignmentSequences,
         ts_kind::{TsDescendant, TsKind},
     },
-    anchors::secondary::SecondaryAnchor,
     costs::AlignmentCosts,
     exact_chaining::ts_12_jump::algo::{Context, Node},
 };
@@ -52,7 +53,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         &mut self,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
         assert!(start.is_primary());
         assert!(end.is_secondary());
@@ -103,15 +104,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     /// Note that the output list may contain duplicate anchors with different cost.
     pub fn align_until_cost_limit(
         &mut self,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
+        start: PrimaryAlignmentCoordinates,
+        end: SecondaryAlignmentCoordinates,
         ts_kind: TsKind,
         cost_limit: Cost,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAlignmentCoordinates, Cost)>,
     ) -> usize {
-        assert!(start.is_primary());
-        assert!(end.is_secondary());
-
         let context = Context::new(
             self.alignment_costs,
             self.sequences,
@@ -126,10 +124,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
         let descendant_start = match ts_kind.descendant {
-            TsDescendant::Seq1 => start.primary_ordinate_a(),
-            TsDescendant::Seq2 => start.primary_ordinate_b(),
-        }
-        .unwrap();
+            TsDescendant::Seq1 => start.a(),
+            TsDescendant::Seq2 => start.b(),
+        };
         Self::fill_additional_targets(
             &a_star,
             descendant_start,
@@ -144,7 +141,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     fn fill_additional_targets(
         a_star: &AStar<Context<Cost>>,
         descendant_start: usize,
-        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAlignmentCoordinates, Cost)>,
     ) {
         additional_secondary_targets_output.extend(
             a_star
@@ -161,7 +158,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 })
                 .map(|node| {
                     (
-                        SecondaryAnchor::new_from_start(&node.identifier.coordinates()),
+                        node.identifier.coordinates().into_secondary().unwrap(),
                         node.cost,
                     )
                 }),

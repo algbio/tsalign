@@ -1,22 +1,25 @@
 use std::{fmt::Display, time::Instant};
 
 use log::{info, trace};
+use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::AlignmentCoordinates, sequences::AlignmentSequences, ts_kind::TsKind,
+        coordinates::{PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates},
+        sequences::AlignmentSequences,
+        ts_kind::TsKind,
     },
     anchors::{
+        exact_kmer_matches::find_exact_kmer_matches,
         index::AnchorIndex,
-        kmer_matches::find_kmer_matches,
         kmers::{Kmer, KmerStore},
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
     },
 };
 
+pub mod exact_kmer_matches;
 pub mod index;
-pub mod kmer_matches;
 pub mod kmers;
 pub mod primary;
 pub mod reverse_lookup;
@@ -25,13 +28,16 @@ pub mod secondary;
 mod tests;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Anchors {
-    primary: Vec<PrimaryAnchor>,
-    secondaries: [Vec<SecondaryAnchor>; 4],
+pub struct Anchors<Cost> {
+    primary: Vec<PrimaryAnchor<Cost>>,
+    secondaries: [Vec<SecondaryAnchor<Cost>>; 4],
 }
 
-impl Anchors {
-    pub fn new(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self {
+impl<Cost> Anchors<Cost> {
+    pub fn new(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self
+    where
+        Cost: Zero + Ord,
+    {
         if k <= 8 {
             Self::new_with_kmer_store::<u16>(sequences, k, rc_fn)
         } else if k <= 16 {
@@ -49,7 +55,10 @@ impl Anchors {
         sequences: &AlignmentSequences,
         k: u32,
         rc_fn: &dyn Fn(u8) -> u8,
-    ) -> Self {
+    ) -> Self
+    where
+        Cost: Zero + Ord,
+    {
         let start_time = Instant::now();
 
         let k = usize::try_from(k).unwrap();
@@ -58,73 +67,65 @@ impl Anchors {
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
 
-        let s1_kmer_count = (sequences.primary_end().primary_ordinate_a().unwrap()
-            - sequences.primary_start().primary_ordinate_a().unwrap()
-            + 1)
-        .saturating_sub(k);
-        let s2_kmer_count = (sequences.primary_end().primary_ordinate_b().unwrap()
-            - sequences.primary_start().primary_ordinate_b().unwrap()
-            + 1)
-        .saturating_sub(k);
+        let s1_kmer_count =
+            (sequences.primary_end().a() - sequences.primary_start().a() + 1).saturating_sub(k);
+        let s2_kmer_count =
+            (sequences.primary_end().b() - sequences.primary_start().b() + 1).saturating_sub(k);
 
         // Compute k-mers.
-        let mut s1_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_a().unwrap()
-            ..sequences.primary_start().primary_ordinate_a().unwrap() + s1_kmer_count)
+        let mut s1_kmers: Vec<_> = (sequences.primary_start().a()
+            ..sequences.primary_start().a() + s1_kmer_count)
             .map(|offset| (Kmer::<Store>::from(&s1[offset..offset + k]), offset))
             .collect();
-        s1_kmers.sort();
+        s1_kmers.sort_unstable();
         let s1_kmers = s1_kmers;
-        let mut s2_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_b().unwrap()
-            ..sequences.primary_start().primary_ordinate_b().unwrap() + s2_kmer_count)
+        let mut s2_kmers: Vec<_> = (sequences.primary_start().b()
+            ..sequences.primary_start().b() + s2_kmer_count)
             .map(|offset| (Kmer::<Store>::from(&s2[offset..offset + k]), offset))
             .collect();
-        s2_kmers.sort();
+        s2_kmers.sort_unstable();
         let s2_kmers = s2_kmers;
-        let mut s1_rc_kmers: Vec<_> = (0..s1_rc.len() + 1 - k)
+        let mut s1_rc_kmers: Vec<_> = (0..(s1_rc.len() + 1).saturating_sub(k))
             .map(|offset| (Kmer::<Store>::from(&s1_rc[offset..offset + k]), offset))
             .collect();
-        s1_rc_kmers.sort();
+        s1_rc_kmers.sort_unstable();
         let s1_rc_kmers = s1_rc_kmers;
-        let mut s2_rc_kmers: Vec<_> = (0..s2_rc.len() + 1 - k)
+        let mut s2_rc_kmers: Vec<_> = (0..(s2_rc.len() + 1).saturating_sub(k))
             .map(|offset| (Kmer::<Store>::from(&s2_rc[offset..offset + k]), offset))
             .collect();
-        s2_rc_kmers.sort();
+        s2_rc_kmers.sort_unstable();
         let s2_rc_kmers = s2_rc_kmers;
 
         trace!("s1_kmers: {s1_kmers:?}");
         trace!("s2_kmers: {s2_kmers:?}");
 
         // Compute anchors.
-        let mut primary: Vec<_> = find_kmer_matches(&s1_kmers, &s2_kmers)
+        let mut primary: Vec<_> = find_exact_kmer_matches(&s1_kmers, &s2_kmers)
             .into_iter()
-            .map(|(seq1, seq2)| PrimaryAnchor { seq1, seq2 })
+            .map(|(seq1, seq2)| PrimaryAnchor::new(seq1, seq2, Cost::zero()))
             .collect();
-        let secondary_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
+        let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s1.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
             })
             .collect();
-        let secondary_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
+        let secondary_12: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s2_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s1.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
             })
             .collect();
-        let secondary_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
+        let secondary_21: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s1_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s2.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
             })
             .collect();
-        let secondary_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
+        let secondary_22: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s2_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s2.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
             })
             .collect();
         let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
@@ -155,7 +156,7 @@ impl Anchors {
         }
     }
 
-    pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor {
+    pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {
         &self.primary[index.as_usize()]
     }
 
@@ -163,7 +164,10 @@ impl Anchors {
         self.primary.len().into()
     }
 
-    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor)> {
+    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
         self.primary
             .iter()
             .copied()
@@ -173,19 +177,21 @@ impl Anchors {
 
     pub fn primary_index_from_start_coordinates(
         &self,
-        start: AlignmentCoordinates,
-    ) -> Option<AnchorIndex> {
-        let target_anchor = PrimaryAnchor::new_from_start(&start);
+        start: PrimaryAlignmentCoordinates,
+    ) -> Option<AnchorIndex>
+    where
+        Cost: Copy,
+    {
         self.enumerate_primaries()
-            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+            .filter_map(|(index, anchor)| (anchor.is_at(start)).then_some(index))
             .next()
     }
 
-    fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor> {
+    fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor<Cost>> {
         &self.secondaries[ts_kind.index()]
     }
 
-    pub fn secondary(&self, index: AnchorIndex, ts_kind: TsKind) -> &SecondaryAnchor {
+    pub fn secondary(&self, index: AnchorIndex, ts_kind: TsKind) -> &SecondaryAnchor<Cost> {
         &self.secondary_anchor_vec(ts_kind)[index.as_usize()]
     }
 
@@ -196,7 +202,10 @@ impl Anchors {
     pub fn enumerate_secondaries(
         &self,
         ts_kind: TsKind,
-    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor)> {
+    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
         self.secondary_anchor_vec(ts_kind)
             .iter()
             .copied()
@@ -206,16 +215,18 @@ impl Anchors {
 
     pub fn secondary_index_from_start_coordinates(
         &self,
-        start: AlignmentCoordinates,
-    ) -> Option<AnchorIndex> {
-        let target_anchor = SecondaryAnchor::new_from_start(&start);
-        self.enumerate_secondaries(start.ts_kind().unwrap())
-            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+        start: SpecificSecondaryAlignmentCoordinates,
+    ) -> Option<AnchorIndex>
+    where
+        Cost: Copy,
+    {
+        self.enumerate_secondaries(start.ts_kind())
+            .filter_map(|(index, anchor)| (anchor.is_at(start.into())).then_some(index))
             .next()
     }
 }
 
-impl Display for Anchors {
+impl<Cost: Display> Display for Anchors<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "P: [")?;
         let mut once = true;
