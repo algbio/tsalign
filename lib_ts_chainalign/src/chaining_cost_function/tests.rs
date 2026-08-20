@@ -3,7 +3,7 @@ use num_traits::{Bounded, Zero};
 
 use crate::{
     alignment::{
-        coordinates::{PrimaryAlignmentCoordinates, SecondaryAlignmentCoordinates},
+        coordinates::{PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates},
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
@@ -243,14 +243,14 @@ fn test_anchor_anchor_direct_secondary() {
     assert_eq!(
         cost_function.secondary(
             anchors
-                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
+                .secondary_index_from_start_coordinates(SpecificSecondaryAlignmentCoordinates::new(
                     9,
                     1,
                     TsKind::TS12
                 ))
                 .unwrap(),
             anchors
-                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
+                .secondary_index_from_start_coordinates(SpecificSecondaryAlignmentCoordinates::new(
                     6,
                     4,
                     TsKind::TS12
@@ -276,14 +276,14 @@ fn test_anchor_anchor_indirect_secondary() {
     assert_eq!(
         cost_function.secondary(
             anchors
-                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
+                .secondary_index_from_start_coordinates(SpecificSecondaryAlignmentCoordinates::new(
                     9,
                     1,
                     TsKind::TS12
                 ))
                 .unwrap(),
             anchors
-                .secondary_index_from_start_coordinates(SecondaryAlignmentCoordinates::new(
+                .secondary_index_from_start_coordinates(SpecificSecondaryAlignmentCoordinates::new(
                     5,
                     5,
                     TsKind::TS12

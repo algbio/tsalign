@@ -96,13 +96,13 @@ impl AlignmentSequences {
         self.end
     }
 
-    pub fn secondary_end(&self, ts_kind: TsKind) -> AlignmentCoordinates {
+    pub fn secondary_end(&self, ts_kind: TsKind) -> SpecificSecondaryAlignmentCoordinates {
         match ts_kind {
             ts_kind @ (TsKind::TS11 | TsKind::TS21) => {
-                AlignmentCoordinates::new_secondary(0, self.seq1.len(), ts_kind)
+                SpecificSecondaryAlignmentCoordinates::new(0, self.seq1.len(), ts_kind)
             }
             ts_kind @ (TsKind::TS12 | TsKind::TS22) => {
-                AlignmentCoordinates::new_secondary(0, self.seq2.len(), ts_kind)
+                SpecificSecondaryAlignmentCoordinates::new(0, self.seq2.len(), ts_kind)
             }
         }
     }
@@ -110,7 +110,7 @@ impl AlignmentSequences {
     pub fn end(&self, ts_kind: Option<TsKind>) -> AlignmentCoordinates {
         match ts_kind {
             None => self.primary_end().into(),
-            Some(ts_kind) => self.secondary_end(ts_kind),
+            Some(ts_kind) => self.secondary_end(ts_kind).into(),
         }
     }
 

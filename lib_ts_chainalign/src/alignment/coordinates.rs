@@ -1,11 +1,8 @@
 use std::fmt::Display;
 
-use crate::{
-    alignment::{
-        sequences::AlignmentSequences,
-        ts_kind::{TsAncestor, TsDescendant, TsKind},
-    },
-    anchors::secondary::SecondaryAnchor,
+use crate::alignment::{
+    sequences::AlignmentSequences,
+    ts_kind::{TsAncestor, TsDescendant, TsKind},
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -522,11 +519,6 @@ impl AnySecondaryAlignmentCoordinates {
             && self.can_increment_descendant_secondary(end, ts_kind)
     }
 
-    pub fn cmp<Cost>(&self, anchor: &SecondaryAnchor<Cost>) -> std::cmp::Ordering {
-        // The comparison is independent of the ts_kind, so we just choose any.
-        Ord::cmp(self, &anchor.start())
-    }
-
     /// Generate all possible 34-jumps.
     ///
     /// The `end` coordinates are in primary form and limit the jump to the left of (or into) them.
@@ -692,13 +684,6 @@ impl SpecificSecondaryAlignmentCoordinates {
 
     pub fn can_increment_both_secondary(&self, end: SpecificSecondaryAlignmentCoordinates) -> bool {
         self.can_increment_ancestor_secondary(end) && self.can_increment_descendant_secondary(end)
-    }
-
-    pub fn cmp<Cost>(&self, anchor: &SecondaryAnchor<Cost>) -> std::cmp::Ordering {
-        Ord::cmp(
-            &AnySecondaryAlignmentCoordinates::from(*self),
-            &anchor.start(),
-        )
     }
 
     /// Generate all possible 34-jumps.
