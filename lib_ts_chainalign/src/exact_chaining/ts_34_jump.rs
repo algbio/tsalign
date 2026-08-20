@@ -156,7 +156,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         None
                     }
                 })
-                .filter(|(coordinates, has_non_match, cost)| {
+                .filter(|(coordinates, has_non_match, _)| {
                     *has_non_match
                         != (descendant_start
                             == match ts_kind.descendant {

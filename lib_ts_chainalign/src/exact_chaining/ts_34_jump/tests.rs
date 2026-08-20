@@ -2,7 +2,9 @@ use generic_a_star::cost::U32Cost;
 
 use crate::{
     alignment::{
-        AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
+        AlignmentType,
+        coordinates::{PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates},
+        sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
@@ -45,8 +47,8 @@ fn test_start_end() {
         },
     };
 
-    let start: AlignmentCoordinates = AlignmentCoordinates::new_secondary(2, 0, TsKind::TS12);
-    let end = AlignmentCoordinates::new_primary(4, 5);
+    let start = SpecificSecondaryAlignmentCoordinates::new(2, 0, TsKind::TS12);
+    let end = PrimaryAlignmentCoordinates::new(4, 5);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -89,8 +91,8 @@ fn test_partial_alignment() {
         },
     };
 
-    let start: AlignmentCoordinates = AlignmentCoordinates::new_secondary(1, 1, TsKind::TS12);
-    let end = AlignmentCoordinates::new_primary(3, 4);
+    let start = SpecificSecondaryAlignmentCoordinates::new(1, 1, TsKind::TS12);
+    let end = PrimaryAlignmentCoordinates::new(3, 4);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -132,8 +134,8 @@ fn test_gap_directions() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(18, 0, TsKind::TS21);
-    let end = AlignmentCoordinates::new_primary(18, 9);
+    let start = SpecificSecondaryAlignmentCoordinates::new(18, 0, TsKind::TS21);
+    let end = PrimaryAlignmentCoordinates::new(18, 9);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -182,8 +184,8 @@ fn test_max_match_run_0() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
-    let end = AlignmentCoordinates::new_primary(16, 16);
+    let start = SpecificSecondaryAlignmentCoordinates::new(8, 0, TsKind::TS12);
+    let end = PrimaryAlignmentCoordinates::new(16, 16);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -223,8 +225,8 @@ fn test_max_match_run_1() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
-    let end = AlignmentCoordinates::new_primary(16, 16);
+    let start = SpecificSecondaryAlignmentCoordinates::new(8, 0, TsKind::TS12);
+    let end = PrimaryAlignmentCoordinates::new(16, 16);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 1);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -272,8 +274,8 @@ fn test_max_match_run_2() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
-    let end = AlignmentCoordinates::new_primary(16, 16);
+    let start = SpecificSecondaryAlignmentCoordinates::new(8, 0, TsKind::TS12);
+    let end = PrimaryAlignmentCoordinates::new(16, 16);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -322,8 +324,8 @@ fn test_only_jump() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(2, 8, TsKind::TS21);
-    let end = AlignmentCoordinates::new_primary(8, 8);
+    let start = SpecificSecondaryAlignmentCoordinates::new(2, 8, TsKind::TS21);
+    let end = PrimaryAlignmentCoordinates::new(8, 8);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -360,8 +362,8 @@ fn test_only_jump_start() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(0, 0, TsKind::TS21);
-    let end = AlignmentCoordinates::new_primary(0, 0);
+    let start = SpecificSecondaryAlignmentCoordinates::new(0, 0, TsKind::TS21);
+    let end = PrimaryAlignmentCoordinates::new(0, 0);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
@@ -398,8 +400,8 @@ fn test_only_jump_end() {
         },
     };
 
-    let start = AlignmentCoordinates::new_secondary(10, 10, TsKind::TS21);
-    let end = AlignmentCoordinates::new_primary(10, 10);
+    let start = SpecificSecondaryAlignmentCoordinates::new(10, 10, TsKind::TS21);
+    let end = PrimaryAlignmentCoordinates::new(10, 10);
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 

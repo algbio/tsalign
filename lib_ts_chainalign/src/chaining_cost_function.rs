@@ -7,9 +7,14 @@ use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::AlignmentCoordinates, sequences::AlignmentSequences, ts_kind::TsKind,
+        coordinates::{
+            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+            SpecificSecondaryAlignmentCoordinates,
+        },
+        sequences::AlignmentSequences,
+        ts_kind::TsKind,
     },
-    anchors::{Anchors, index::AnchorIndex, primary::PrimaryAnchor, secondary::SecondaryAnchor},
+    anchors::{Anchors, index::AnchorIndex},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
     exact_chaining::{
@@ -313,12 +318,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     let eligible_anchors = eligible_anchors;
                     let min_eligible_ancestor =
                         eligible_anchors.first().unwrap().start().ancestor();
-                    let align_end = AlignmentCoordinates::new_secondary(
+                    let align_end = SpecificSecondaryAlignmentCoordinates::new(
                         min_eligible_ancestor,
-                        sequences
-                            .secondary_end(ts_kind)
-                            .secondary_ordinate_descendant()
-                            .unwrap(),
+                        sequences.secondary_end(ts_kind).descendant(),
                         ts_kind,
                     );
 
@@ -330,7 +332,6 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                         .align_until_cost_limit(
                             anchors.primary(from_index - 1).end(k),
                             align_end,
-                            ts_kind,
                             max_exact_cost_function_cost
                                 + chaining_lower_bounds
                                     .alignment_costs()
@@ -420,7 +421,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 if let Some(to_end_cost) = additional_primary_targets_output
                     .iter()
                     .rev()
-                    .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+                    .map_while(|(target, cost)| (target == &end).then_some(cost))
                     .copied()
                     .last()
                 {
@@ -452,7 +453,6 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             ts_12_jump_aligner.align_until_cost_limit(
                 start,
                 sequences.secondary_end(ts_kind),
-                ts_kind,
                 max_exact_cost_function_cost
                     + chaining_lower_bounds
                         .alignment_costs()
@@ -939,8 +939,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn update_additional_primary_targets(
         &mut self,
         from_primary_index: AnchorIndex,
-        additional_targets: &mut [(PrimaryAnchor, Cost)],
-        anchors: &Anchors,
+        additional_targets: &mut [(PrimaryAlignmentCoordinates, Cost)],
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();
@@ -958,8 +958,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
     pub fn update_additional_primary_targets_from_start(
         &mut self,
-        additional_targets: &mut [(PrimaryAnchor, Cost)],
-        anchors: &Anchors,
+        additional_targets: &mut [(PrimaryAlignmentCoordinates, Cost)],
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();
@@ -978,9 +978,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn update_additional_secondary_targets(
         &mut self,
         from_secondary_index: AnchorIndex,
-        additional_targets: &mut [(SecondaryAnchor, Cost)],
+        additional_targets: &mut [(AnySecondaryAlignmentCoordinates, Cost)],
         ts_kind: TsKind,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();
@@ -1008,9 +1008,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn update_additional_12_jump_targets(
         &mut self,
         from_primary_index: AnchorIndex,
-        additional_targets: &mut [(SecondaryAnchor, Cost)],
+        additional_targets: &mut [(AnySecondaryAlignmentCoordinates, Cost)],
         ts_kind: TsKind,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();
@@ -1034,9 +1034,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
     pub fn update_additional_12_jump_targets_from_start(
         &mut self,
-        additional_targets: &mut [(SecondaryAnchor, Cost)],
+        additional_targets: &mut [(AnySecondaryAlignmentCoordinates, Cost)],
         ts_kind: TsKind,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();
@@ -1055,9 +1055,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn update_additional_34_jump_targets(
         &mut self,
         from_secondary_index: AnchorIndex,
-        additional_targets: &mut [(PrimaryAnchor, Cost)],
+        additional_targets: &mut [(PrimaryAlignmentCoordinates, Cost)],
         ts_kind: TsKind,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
     ) {
         additional_targets.sort_unstable();

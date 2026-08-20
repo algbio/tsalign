@@ -5,8 +5,12 @@ use log::trace;
 use num_traits::Zero;
 
 use crate::{
-    alignment::{Alignment, AlignmentType, sequences::AlignmentSequences},
-    anchors::{Anchors, primary::PrimaryAnchor, secondary::SecondaryAnchor},
+    alignment::{
+        Alignment, AlignmentType,
+        coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
+        sequences::AlignmentSequences,
+    },
+    anchors::Anchors,
     chain_align::chainer::Identifier,
     chaining_cost_function::ChainingCostFunction,
     costs::AlignmentCosts,
@@ -23,8 +27,8 @@ pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     ts_34_jump_aligner: Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
 
-    additional_primary_targets_buffer: Vec<(PrimaryAnchor, Cost)>,
-    additional_secondary_targets_buffer: Vec<(SecondaryAnchor, Cost)>,
+    additional_primary_targets_buffer: Vec<(PrimaryAlignmentCoordinates, Cost)>,
+    additional_secondary_targets_buffer: Vec<(AnySecondaryAlignmentCoordinates, Cost)>,
 
     total_gaps: u64,
     total_gap_fillings: u64,
@@ -80,7 +84,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
     pub fn evaluate_chain(
         &mut self,
-        anchors: &Anchors,
+        anchors: &Anchors<Cost>,
         chain: &[Identifier],
         max_match_run: u32,
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
@@ -187,7 +191,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     Identifier::SecondaryToPrimary { index, ts_kind, .. }
                     | Identifier::SecondaryToSecondary { index, ts_kind, .. },
                 ) => {
-                    let end = anchors.secondary(index, ts_kind).start(ts_kind);
+                    let end = anchors
+                        .secondary(index, ts_kind)
+                        .start()
+                        .into_specific(ts_kind);
                     if final_evaluation
                         || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
                     {
@@ -257,7 +264,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         .saturating_add(&chaining_cost_function.primary_to_end(index));
                 }
                 (Identifier::SecondaryToPrimary { index, ts_kind, .. }, Identifier::End) => {
-                    let start = anchors.secondary(index, ts_kind).end(ts_kind, k);
+                    let start = anchors
+                        .secondary(index, ts_kind)
+                        .end(k)
+                        .into_specific(ts_kind);
                     if final_evaluation
                         || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
                     {
@@ -336,9 +346,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             cost
                         );
 
-                        if end.primary_ordinate_a().unwrap() - start.primary_ordinate_a().unwrap()
-                            > usize::try_from(max_match_run).unwrap()
-                        {
+                        if end.a() - start.a() > usize::try_from(max_match_run).unwrap() {
                             assert!(
                                 !cost.is_zero(),
                                 "Alignment is longer than max_match_run, but has zero cost: {}",
@@ -377,7 +385,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     },
                 ) => {
                     let start = anchors.primary(from_index).end(k);
-                    let end = anchors.secondary(to_index, ts_kind).start(ts_kind);
+                    let end = anchors
+                        .secondary(to_index, ts_kind)
+                        .start()
+                        .into_specific(ts_kind);
                     if final_evaluation
                         || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
                     {
@@ -441,8 +452,14 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(Alignment::from(vec![AlignmentType::Match]));
                         continue;
                     }
-                    let start = anchors.secondary(from_index, ts_kind).end(ts_kind, k);
-                    let end = anchors.secondary(to_index, ts_kind).start(ts_kind);
+                    let start = anchors
+                        .secondary(from_index, ts_kind)
+                        .end(k)
+                        .into_specific(ts_kind);
+                    let end = anchors
+                        .secondary(to_index, ts_kind)
+                        .start()
+                        .into_specific(ts_kind);
                     if final_evaluation
                         || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
                     {
@@ -496,7 +513,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         index: to_index, ..
                     },
                 ) => {
-                    let start = anchors.secondary(from_index, ts_kind).end(ts_kind, k);
+                    let start = anchors
+                        .secondary(from_index, ts_kind)
+                        .end(k)
+                        .into_specific(ts_kind);
                     let end = anchors.primary(to_index).start();
                     if final_evaluation
                         || !chaining_cost_function.is_jump_34_exact(from_index, to_index, ts_kind)
