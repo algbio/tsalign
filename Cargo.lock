@@ -539,6 +539,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "integer-composition"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d40882c35e5bbdbd936ea94a1642a2f5f6500333803adb33cace5fe75caf8a37"
+dependencies = [
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -602,6 +612,7 @@ dependencies = [
  "compact-genome",
  "generic_a_star",
  "indicatif",
+ "integer-composition",
  "itertools 0.15.0",
  "lib_tsalign",
  "log",

@@ -1,5 +1,6 @@
 use std::{fmt::Display, time::Instant};
 
+use generic_a_star::cost::AStarCost;
 use log::{info, trace};
 use num_traits::Zero;
 
@@ -12,14 +13,17 @@ use crate::{
     anchors::{
         exact_kmer_matches::find_exact_kmer_matches,
         index::AnchorIndex,
+        inexact_kmer_matches::compute_inexact_kmers,
         kmers::{Kmer, KmerStore},
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
     },
+    costs::GapAffineCosts,
 };
 
 pub mod exact_kmer_matches;
 pub mod index;
+pub mod inexact_kmer_matches;
 pub mod kmers;
 pub mod primary;
 pub mod reverse_lookup;
@@ -34,24 +38,24 @@ pub struct Anchors<Cost> {
 }
 
 impl<Cost> Anchors<Cost> {
-    pub fn new(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self
+    pub fn new_exact(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self
     where
         Cost: Zero + Ord,
     {
         if k <= 8 {
-            Self::new_with_kmer_store::<u16>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u16>(sequences, k, rc_fn)
         } else if k <= 16 {
-            Self::new_with_kmer_store::<u32>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u32>(sequences, k, rc_fn)
         } else if k <= 32 {
-            Self::new_with_kmer_store::<u64>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u64>(sequences, k, rc_fn)
         } else if k <= 64 {
-            Self::new_with_kmer_store::<u128>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u128>(sequences, k, rc_fn)
         } else {
             panic!("Only k-mer sizes up to 64 are supported, but got {k}");
         }
     }
 
-    fn new_with_kmer_store<Store: KmerStore>(
+    fn new_exact_with_kmer_store<Store: KmerStore>(
         sequences: &AlignmentSequences,
         k: u32,
         rc_fn: &dyn Fn(u8) -> u8,
@@ -136,8 +140,7 @@ impl<Cost> Anchors<Cost> {
             secondary.sort_unstable();
         }
 
-        let end_time = Instant::now();
-        let duration = end_time - start_time;
+        let duration = start_time.elapsed();
 
         info!(
             "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
@@ -154,6 +157,155 @@ impl<Cost> Anchors<Cost> {
             primary,
             secondaries,
         }
+    }
+
+    fn new_inexact_with_kmer_store<Store: KmerStore>(
+        sequences: &AlignmentSequences,
+        k: u32,
+        max_mutations: u8,
+        costs: &GapAffineCosts<Cost>,
+        rc_fn: &dyn Fn(u8) -> u8,
+    ) -> Self
+    where
+        Cost: AStarCost,
+    {
+        let start_time = Instant::now();
+
+        let k = usize::try_from(k).unwrap();
+        let max_mutations = isize::from(max_mutations);
+        let s1 = sequences.seq1();
+        let s2 = sequences.seq2();
+        let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
+        let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
+
+        let s1_kmer_counts: Vec<_> = (-max_mutations..=max_mutations)
+            .map(|i| {
+                usize::try_from(
+                    isize::try_from(
+                        sequences.primary_end().a() - sequences.primary_start().a() + 1,
+                    )
+                    .unwrap()
+                        + i,
+                )
+                .unwrap_or(0)
+                .saturating_sub(k)
+            })
+            .collect();
+        let s2_kmer_counts: Vec<_> = (-max_mutations..=max_mutations)
+            .map(|i| {
+                usize::try_from(
+                    isize::try_from(
+                        sequences.primary_end().b() - sequences.primary_start().b() + 1,
+                    )
+                    .unwrap()
+                        + i,
+                )
+                .unwrap_or(0)
+                .saturating_sub(k)
+            })
+            .collect();
+        let max_mutations = usize::try_from(max_mutations).unwrap();
+
+        // Compute forward exact k-mers.
+        let s1_kmers: Vec<Vec<_>> = s1_kmer_counts
+            .iter()
+            .map(|s1_kmer_count| {
+                let mut s1_kmers: Vec<_> = (sequences.primary_start().a()
+                    ..sequences.primary_start().a() + s1_kmer_count)
+                    .map(|offset| (Kmer::<Store>::from(&s1[offset..offset + k]), offset))
+                    .collect();
+                s1_kmers.sort_unstable();
+                s1_kmers
+            })
+            .collect();
+        let s2_kmers: Vec<Vec<_>> = s2_kmer_counts
+            .iter()
+            .map(|s2_kmer_count| {
+                let mut s2_kmers: Vec<_> = (sequences.primary_start().b()
+                    ..sequences.primary_start().b() + s2_kmer_count)
+                    .map(|offset| (Kmer::<Store>::from(&s2[offset..offset + k]), offset))
+                    .collect();
+                s2_kmers.sort_unstable();
+                s2_kmers
+            })
+            .collect();
+
+        // Compute forward inexact k-mers.
+        // Those are only needed for finding primary anchors, so we compute them only for s2.
+        let s2_inexact_kmers = compute_inexact_kmers::<Store, _>(s2, k, max_mutations, costs);
+
+        /*
+        // Compute rc inexact k-mers. (and also exact?)
+        let mut s1_rc_kmers: Vec<_> = (0..(s1_rc.len() + 1).saturating_sub(k))
+            .map(|offset| (Kmer::<Store>::from(&s1_rc[offset..offset + k]), offset))
+            .collect();
+        s1_rc_kmers.sort_unstable();
+        let s1_rc_kmers = s1_rc_kmers;
+        let mut s2_rc_kmers: Vec<_> = (0..(s2_rc.len() + 1).saturating_sub(k))
+            .map(|offset| (Kmer::<Store>::from(&s2_rc[offset..offset + k]), offset))
+            .collect();
+        s2_rc_kmers.sort_unstable();
+        let s2_rc_kmers = s2_rc_kmers;
+
+        trace!("s1_kmers: {s1_kmers:?}");
+        trace!("s2_kmers: {s2_kmers:?}");
+
+        // Compute anchors.
+        let mut primary: Vec<_> = find_exact_kmer_matches(&s1_kmers, &s2_kmers)
+            .into_iter()
+            .map(|(seq1, seq2)| PrimaryAnchor::new(seq1, seq2, Cost::zero()))
+            .collect();
+        let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
+            .into_iter()
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
+            })
+            .collect();
+        let secondary_12: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s2_kmers)
+            .into_iter()
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
+            })
+            .collect();
+        let secondary_21: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s1_kmers)
+            .into_iter()
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
+            })
+            .collect();
+        let secondary_22: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s2_kmers)
+            .into_iter()
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
+            })
+            .collect();
+        let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
+
+        // Sort anchors.
+        primary.sort_unstable();
+        for secondary in &mut secondaries {
+            secondary.sort_unstable();
+        }
+
+        let duration = start_time.elapsed();
+
+        info!(
+            "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
+            primary.len() + secondaries.iter().map(Vec::len).sum::<usize>(),
+            primary.len(),
+            secondaries[0].len(),
+            secondaries[1].len(),
+            secondaries[2].len(),
+            secondaries[3].len(),
+            duration.as_secs_f64() * 1e3,
+        );
+
+        Self {
+            primary,
+            secondaries,
+        }*/
+
+        todo!()
     }
 
     pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {
