@@ -40,7 +40,7 @@ fn create_chaining_cost_function(
     sequences: &AlignmentSequences,
     max_match_run: u32,
 ) -> (Anchors<U32Cost>, ChainingCostFunction<U32Cost>) {
-    let anchors = Anchors::new(sequences, max_match_run.checked_add(1).unwrap(), &dna_rc_fn);
+    let anchors = Anchors::new_exact(sequences, max_match_run.checked_add(1).unwrap(), &dna_rc_fn);
     let cost_function = ChainingCostFunction::new_from_lower_bounds(
         &create_lower_bounds(max_match_run),
         &anchors,

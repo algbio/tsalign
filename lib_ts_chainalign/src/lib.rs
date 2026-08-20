@@ -93,7 +93,7 @@ pub fn align<AlphabetType: Alphabet>(
     );
     let k = chaining_lower_bounds.max_match_run() + 1;
 
-    let anchors = Anchors::new(&sequences, k, rc_fn);
+    let anchors = Anchors::new_exact(&sequences, k, rc_fn);
     trace!("Anchors:\n{anchors}");
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
         chaining_lower_bounds,
