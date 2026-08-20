@@ -18,7 +18,7 @@ fn test_coordinates() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let k = 2;
 
-    let anchors = Anchors::new(&sequences, k, &rc_fn);
+    let anchors = Anchors::new_exact(&sequences, k, &rc_fn);
     assert_eq!(
         anchors.primary,
         [(0, 0, 0), (2, 0, 0)].map(PrimaryAnchor::from)
@@ -43,7 +43,7 @@ fn test_coordinates_rev() {
     let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
 
-    let anchors = Anchors::new(&sequences, k, &rc_fn);
+    let anchors = Anchors::new_exact(&sequences, k, &rc_fn);
     assert_eq!(
         anchors.primary,
         [(0, 0, 0), (0, 2, 0)].map(PrimaryAnchor::from)
