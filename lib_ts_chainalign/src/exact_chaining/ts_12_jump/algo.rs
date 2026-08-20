@@ -240,7 +240,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_secondary(self.end) {
-                    let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
+                    let (ca, cb) = self.sequences.secondary_characters(coordinates, self.rc_fn);
                     let is_match = ca == cb;
 
                     if is_match {
@@ -250,9 +250,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
-                                identifier: Identifier::new_primary_secondary(
-                                    is_primary,
-                                    coordinates.increment_both(),
+                                identifier: Identifier::new_secondary(
+                                    coordinates.increment_both(1).into(),
                                     GapType::None,
                                     has_non_match,
                                 ),
@@ -266,9 +265,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
-                            identifier: Identifier::new_primary_secondary(
-                                is_primary,
-                                coordinates.increment_both(),
+                            identifier: Identifier::new_secondary(
+                                coordinates.increment_both(1).into(),
                                 GapType::None,
                                 true,
                             ),
@@ -280,7 +278,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     }
                 }
 
-                if coordinates.can_increment_a_or_ancestor(self.end, Some(self.sequences)) {
+                if coordinates.can_increment_ancestor_secondary(self.end) {
                     // Gap in b
                     let new_cost = *cost
                         + match gap_type {
@@ -288,9 +286,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary_secondary(
-                            is_primary,
-                            coordinates.increment_a(),
+                        identifier: Identifier::new_secondary(
+                            coordinates.increment_ancestor().into(),
                             GapType::InB,
                             true,
                         ),
@@ -301,7 +298,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     }));
                 }
 
-                if coordinates.can_increment_b_or_descendant(self.end, Some(self.sequences)) {
+                if coordinates.can_increment_descendant_secondary(self.end) {
                     // Gap in a
                     let new_cost = *cost
                         + match gap_type {
@@ -309,9 +306,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary_secondary(
-                            is_primary,
-                            coordinates.increment_b(),
+                        identifier: Identifier::new_secondary(
+                            coordinates.increment_descendant().into(),
                             GapType::InA,
                             true,
                         ),
