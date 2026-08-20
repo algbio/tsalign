@@ -17,7 +17,7 @@ mod max_successors_iterator;
 const DEBUG_CHAINER: bool = false;
 
 pub struct Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost> {
-    pub anchors: &'anchors Anchors,
+    pub anchors: &'anchors Anchors<Cost>,
     pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
     pub ts_limits: &'ts_limits TsLimits,
     pub k: usize,
@@ -76,7 +76,7 @@ impl<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
     Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
 {
     pub fn new(
-        anchors: &'anchors Anchors,
+        anchors: &'anchors Anchors<Cost>,
         chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
         ts_limits: &'ts_limits TsLimits,
         k: usize,
@@ -371,7 +371,6 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 &self.anchors.secondary(first_secondary_index, ts_kind);
                             let ts_length = first_anchor.ts_length_until(
                                 self.anchors.secondary(successor_index, ts_kind),
-                                ts_kind,
                                 self.k,
                             );
 

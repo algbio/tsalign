@@ -2,6 +2,9 @@ use generic_a_star::cost::U32Cost;
 use num_traits::{Zero, bounds::UpperBounded};
 
 use crate::alignment::AlignmentType;
+use crate::alignment::coordinates::{
+    PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
+};
 use crate::alignment::ts_kind::TsKind;
 use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAligner};
 use crate::panic_on_extend::PanicOnExtend;
@@ -277,8 +280,8 @@ fn test_start_end_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(5, 5),
-        AlignmentCoordinates::new_primary(5, 5),
+        PrimaryAlignmentCoordinates::new(5, 5),
+        PrimaryAlignmentCoordinates::new(5, 5),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -305,8 +308,8 @@ fn test_start_end_direct() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_start() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_start() {
                 Some(cost)
             } else {
                 None
@@ -324,8 +327,8 @@ fn test_start_anchor_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(5, 5),
-        AlignmentCoordinates::new_primary(6, 6),
+        PrimaryAlignmentCoordinates::new(5, 5),
+        PrimaryAlignmentCoordinates::new(6, 6),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -352,8 +355,8 @@ fn test_start_anchor_direct() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_start() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_start() {
                 Some(cost)
             } else {
                 None
@@ -371,8 +374,8 @@ fn test_anchor_end_direct() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(5, 5),
-        AlignmentCoordinates::new_primary(6, 6),
+        PrimaryAlignmentCoordinates::new(5, 5),
+        PrimaryAlignmentCoordinates::new(6, 6),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -399,8 +402,8 @@ fn test_anchor_end_direct() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_end() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_end() {
                 Some(cost)
             } else {
                 None
@@ -418,8 +421,8 @@ fn test_start_end_indirect_lt_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -446,8 +449,8 @@ fn test_start_end_indirect_lt_k() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_end() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_end() {
                 Some(cost)
             } else {
                 None
@@ -465,8 +468,8 @@ fn test_start_end_indirect_geq_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -492,8 +495,8 @@ fn test_start_end_indirect_geq_k() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_end() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_end() {
                 Some(cost)
             } else {
                 None
@@ -511,12 +514,12 @@ fn test_start_anchor_indirect() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let end = AlignmentCoordinates::new_primary(2, 2);
+    let end = PrimaryAlignmentCoordinates::new(2, 2);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, _alignment) = aligner.align(
@@ -539,13 +542,11 @@ fn test_start_anchor_indirect() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == end {
-                Some(cost)
-            } else {
-                None
-            }
-        })
+        .filter_map(
+            |(target, cost)| {
+                if target == end { Some(cost) } else { None }
+            },
+        )
         .min()
         .unwrap();
     assert!(!min_cost.is_zero());
@@ -558,12 +559,12 @@ fn test_anchor_end_indirect() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let start = AlignmentCoordinates::new_primary(8, 8);
+    let start = PrimaryAlignmentCoordinates::new(8, 8);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, _alignment) = aligner.align(
@@ -586,8 +587,8 @@ fn test_anchor_end_indirect() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == sequences.primary_end() {
+        .filter_map(|(target, cost)| {
+            if target == sequences.primary_end() {
                 Some(cost)
             } else {
                 None
@@ -605,13 +606,13 @@ fn test_anchor_anchor_direct_primary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let start = AlignmentCoordinates::new_primary(5, 5);
-    let end = AlignmentCoordinates::new_primary(5, 5);
+    let start = PrimaryAlignmentCoordinates::new(5, 5);
+    let end = PrimaryAlignmentCoordinates::new(5, 5);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
@@ -630,13 +631,11 @@ fn test_anchor_anchor_direct_primary() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == end {
-                Some(cost)
-            } else {
-                None
-            }
-        })
+        .filter_map(
+            |(target, cost)| {
+                if target == end { Some(cost) } else { None }
+            },
+        )
         .min()
         .unwrap_or_else(U32Cost::max_value);
     assert_eq!(min_cost, U32Cost::max_value());
@@ -649,13 +648,13 @@ fn test_anchor_anchor_indirect_primary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let start = AlignmentCoordinates::new_primary(5, 5);
-    let end = AlignmentCoordinates::new_primary(6, 6);
+    let start = PrimaryAlignmentCoordinates::new(5, 5);
+    let end = PrimaryAlignmentCoordinates::new(6, 6);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
@@ -673,13 +672,11 @@ fn test_anchor_anchor_indirect_primary() {
 
     let min_cost = additional_primary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start() == end {
-                Some(cost)
-            } else {
-                None
-            }
-        })
+        .filter_map(
+            |(target, cost)| {
+                if target == end { Some(cost) } else { None }
+            },
+        )
         .min()
         .unwrap();
     assert!(!min_cost.is_zero());
@@ -692,13 +689,13 @@ fn test_anchor_anchor_direct_secondary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let start = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
-    let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
+    let start = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
+    let end = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
@@ -717,8 +714,8 @@ fn test_anchor_anchor_direct_secondary() {
 
     let min_cost = additional_secondary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start(TsKind::TS12) == end {
+        .filter_map(|(target, cost)| {
+            if target == end.into() {
                 Some(cost)
             } else {
                 None
@@ -736,13 +733,13 @@ fn test_anchor_anchor_indirect_secondary() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 1),
-        AlignmentCoordinates::new_primary(9, 9),
+        PrimaryAlignmentCoordinates::new(1, 1),
+        PrimaryAlignmentCoordinates::new(9, 9),
     );
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
-    let start = AlignmentCoordinates::new_secondary(6, 4, TsKind::TS12);
-    let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
+    let start = SpecificSecondaryAlignmentCoordinates::new(6, 4, TsKind::TS12);
+    let end = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, _alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
@@ -760,8 +757,8 @@ fn test_anchor_anchor_indirect_secondary() {
 
     let min_cost = additional_secondary_targets
         .into_iter()
-        .filter_map(|(anchor, cost)| {
-            if anchor.start(TsKind::TS12) == end {
+        .filter_map(|(target, cost)| {
+            if target == end.into() {
                 Some(cost)
             } else {
                 None
