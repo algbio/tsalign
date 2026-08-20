@@ -69,11 +69,14 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// Note that the output lists may contain duplicate anchors with different cost.
     pub fn align(
         &mut self,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
+        start: impl Into<AlignmentCoordinates>,
+        end: impl Into<AlignmentCoordinates>,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
+        let start = start.into();
+        let end = end.into();
+
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
         );

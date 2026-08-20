@@ -77,7 +77,7 @@ impl<
         while let (Some(coordinate_anchor), Some((anchor_index, anchor))) =
             (self.coordinate_iter.peek(), self.anchor_iter.peek())
         {
-            match coordinate_anchor.source_part().cmp(anchor) {
+            match coordinate_anchor.source_part().cmp(&anchor.start()) {
                 Ordering::Less => {
                     self.coordinate_iter.next().unwrap();
                 }
