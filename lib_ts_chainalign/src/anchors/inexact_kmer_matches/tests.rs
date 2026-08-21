@@ -296,3 +296,8 @@ fn test_generate_kmer_substitutions_2() {
     expected_output.dedup();
     assert_eq!(output, expected_output);
 }
+
+#[test]
+fn test_generate_inexact_kmers() {
+    todo!()
+}
