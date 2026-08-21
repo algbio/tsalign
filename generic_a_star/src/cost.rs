@@ -1,7 +1,8 @@
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
-    ops::{Add, AddAssign, Sub, SubAssign},
+    iter::Sum,
+    ops::{Add, AddAssign, Mul, Sub, SubAssign},
     str::FromStr,
 };
 
@@ -11,7 +12,9 @@ use num_traits::{Bounded, CheckedAdd, CheckedSub, SaturatingAdd, SaturatingSub, 
 pub trait AStarCost:
     From<u8>
     + Add<Output = Self>
+    + Sum
     + Sub<Output = Self>
+    + Mul<Output = Self>
     + SaturatingAdd
     + SaturatingSub
     + CheckedAdd
@@ -98,11 +101,25 @@ macro_rules! primitive_cost {
             }
         }
 
+        impl std::iter::Sum for $name {
+            fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+                iter.fold(Self::zero(), |acc, x| acc + x)
+            }
+        }
+
         impl std::ops::Sub for $name {
             type Output = Self;
 
             fn sub(self, rhs: Self) -> Self::Output {
                 Self(self.0.checked_sub(rhs.0).unwrap_or_else(|| panic!("Overflow when subtracting costs {self} - {rhs}")))
+            }
+        }
+
+        impl std::ops::Mul for $name {
+            type Output = Self;
+
+            fn mul(self, rhs: Self) -> Self::Output {
+                Self(self.0.checked_mul(rhs.0).unwrap_or_else(|| panic!("Overflow when multiplying costs {self} * {rhs}")))
             }
         }
 
@@ -257,11 +274,28 @@ impl<A: Add<Output = A>, B: Add<Output = B>> Add for OrderedPairCost<A, B> {
     }
 }
 
+impl<A, B> Sum for OrderedPairCost<A, B>
+where
+    OrderedPairCost<A, B>: Add<Output = OrderedPairCost<A, B>> + Zero,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::zero(), |acc, x| acc + x)
+    }
+}
+
 impl<A: Sub<Output = A>, B: Sub<Output = B>> Sub for OrderedPairCost<A, B> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+
+impl<A: Mul<Output = A>, B: Mul<Output = B>> Mul for OrderedPairCost<A, B> {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(self.0 * rhs.0, self.1 * rhs.1)
     }
 }
 

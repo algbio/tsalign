@@ -610,6 +610,7 @@ dependencies = [
  "bitvec",
  "clap",
  "compact-genome",
+ "extend_map",
  "generic_a_star",
  "indicatif",
  "integer-composition",
