@@ -660,7 +660,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d40882c35e5bbdbd936ea94a1642a2f5f6500333803adb33cace5fe75caf8a37"
 dependencies = [
  "num-traits",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -736,6 +736,7 @@ dependencies = [
  "bitvec",
  "clap",
  "compact-genome",
+ "extend_map",
  "generic_a_star",
  "indicatif",
  "integer-composition",

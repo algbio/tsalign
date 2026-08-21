@@ -24,3 +24,4 @@ rustc-hash.workspace = true
 binary-heap-plus.workspace = true
 clap.workspace = true
 integer-composition = "0.1.0"
+extend_map.workspace = true
