@@ -1,5 +1,6 @@
-use std::ops::Range;
+use std::{fmt::Debug, ops::Range};
 
+use generic_a_star::cost::AStarCost;
 use num_traits::{Zero, bounds::UpperBounded};
 use serde::{Deserialize, Serialize};
 
@@ -64,11 +65,22 @@ impl<Cost> GapAffineCosts<Cost> {
             gap_extend,
         }
     }
-}
 
-impl<Cost: Zero> GapAffineCosts<Cost> {
-    pub fn has_zero_cost(&self) -> bool {
+    pub fn has_zero_cost(&self) -> bool
+    where
+        Cost: Zero,
+    {
         self.substitution.is_zero() || self.gap_open.is_zero() || self.gap_extend.is_zero()
+    }
+
+    pub fn gap_cost(&self, gap_length: usize) -> Cost
+    where
+        Cost: AStarCost,
+    {
+        if gap_length == 0 {
+            return Cost::zero();
+        }
+        self.gap_open + self.gap_extend * Cost::from_usize(gap_length - 1)
     }
 }
 
