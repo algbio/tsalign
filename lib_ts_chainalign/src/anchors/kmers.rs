@@ -60,6 +60,18 @@ impl<Store: KmerStore> From<&[u8]> for Kmer<Store> {
     }
 }
 
+impl<Store: KmerStore> FromIterator<u8> for Kmer<Store> {
+    fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
+        let mut store = Store::zero();
+        for (i, c) in iter.into_iter().enumerate() {
+            assert!(i < mem::size_of::<Store>() * 4);
+            store <<= 2;
+            store |= char_to_bits(c);
+        }
+        Self { kmer: store }
+    }
+}
+
 impl<Store: KmerStore> LowerBounded for Kmer<Store> {
     fn min_value() -> Self {
         Self {
@@ -69,7 +81,12 @@ impl<Store: KmerStore> LowerBounded for Kmer<Store> {
 }
 
 impl<Store: KmerStore> Kmer<Store> {
-    fn to_vec(self, k: usize) -> Vec<u8> {
+    pub fn push(&mut self, char: u8) {
+        self.kmer <<= 2;
+        self.kmer |= char_to_bits(char);
+    }
+
+    pub fn to_vec(self, k: usize) -> Vec<u8> {
         assert!(k <= mem::size_of::<Store>() * 4);
         let mut result = Vec::new();
         let mut kmer = self.kmer;
@@ -81,8 +98,16 @@ impl<Store: KmerStore> Kmer<Store> {
         result
     }
 
-    fn to_string(self, k: usize) -> String {
+    pub fn to_string(self, k: usize) -> String {
         String::from_utf8_lossy(&self.to_vec(k)).to_string()
+    }
+}
+
+impl<Store: KmerStore> Default for Kmer<Store> {
+    fn default() -> Self {
+        Self {
+            kmer: Store::zero(),
+        }
     }
 }
 
