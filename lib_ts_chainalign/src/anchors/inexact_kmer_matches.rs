@@ -26,56 +26,65 @@ pub fn compute_inexact_kmers<Store: KmerStore, Cost: AStarCost>(
     for (kmer, offset) in (0..sequence.len().saturating_sub(k) + 1)
         .map(|offset| (Kmer::<Store>::from(&sequence[offset..offset + k]), offset))
     {
-        for (i, target_length) in (k.saturating_sub(max_mutations)..=k + max_mutations).enumerate()
-        {
-            let insertion_count = target_length.saturating_sub(k);
-            let deletion_count = k.saturating_sub(target_length);
-            let substitution_count = max_mutations.saturating_sub(insertion_count + deletion_count);
-            debug_assert_eq!(
-                insertion_count + deletion_count + substitution_count,
-                max_mutations
-            );
-            debug_assert!(insertion_count == 0 || deletion_count == 0);
+        for mutations in 0..=max_mutations {
+            for (i, target_length) in
+                ((max_mutations - mutations) * 2..).zip(k.saturating_sub(mutations)..=k + mutations)
+            {
+                let insertion_count = target_length.saturating_sub(k);
+                let deletion_count = k.saturating_sub(target_length);
+                let substitution_count = mutations.saturating_sub(insertion_count + deletion_count);
+                debug_assert_eq!(
+                    insertion_count + deletion_count + substitution_count,
+                    mutations
+                );
+                debug_assert!(insertion_count == 0 || deletion_count == 0);
 
-            if deletion_count > 0 {
-                generate_kmer_deletions(kmer, k, deletion_count, costs, &mut kmer_buffer);
-                for (kmer, deletion_cost) in kmer_buffer.drain(..) {
+                if deletion_count > 0 {
+                    generate_kmer_deletions(kmer, k, deletion_count, costs, &mut kmer_buffer);
+                    for (kmer, deletion_cost) in kmer_buffer.drain(..) {
+                        generate_kmer_substitutions(
+                            kmer,
+                            k,
+                            substitution_count,
+                            costs,
+                            &mut ExtendMap::new(&mut kmers[i], |(kmer, substitution_cost)| {
+                                (kmer, offset, deletion_cost + substitution_cost)
+                            }),
+                        );
+                    }
+                } else if insertion_count > 0 {
+                    generate_kmer_substitutions(
+                        kmer,
+                        k,
+                        substitution_count,
+                        costs,
+                        &mut kmer_buffer,
+                    );
+                    for (kmer, substitution_cost) in kmer_buffer.drain(..) {
+                        generate_kmer_insertions(
+                            kmer,
+                            k,
+                            insertion_count,
+                            costs,
+                            &mut ExtendMap::new(&mut kmers[i], |(kmer, insertion_cost)| {
+                                (kmer, offset, substitution_cost + insertion_cost)
+                            }),
+                        );
+                    }
+                } else {
                     generate_kmer_substitutions(
                         kmer,
                         k,
                         substitution_count,
                         costs,
                         &mut ExtendMap::new(&mut kmers[i], |(kmer, substitution_cost)| {
-                            (kmer, offset, deletion_cost + substitution_cost)
+                            (kmer, offset, substitution_cost)
                         }),
                     );
                 }
-            } else if insertion_count > 0 {
-                generate_kmer_substitutions(kmer, k, substitution_count, costs, &mut kmer_buffer);
-                for (kmer, substitution_cost) in kmer_buffer.drain(..) {
-                    generate_kmer_insertions(
-                        kmer,
-                        k,
-                        insertion_count,
-                        costs,
-                        &mut ExtendMap::new(&mut kmers[i], |(kmer, insertion_cost)| {
-                            (kmer, offset, substitution_cost + insertion_cost)
-                        }),
-                    );
-                }
-            } else {
-                generate_kmer_substitutions(
-                    kmer,
-                    k,
-                    substitution_count,
-                    costs,
-                    &mut ExtendMap::new(&mut kmers[i], |(kmer, substitution_cost)| {
-                        (kmer, offset, substitution_cost)
-                    }),
-                );
-            }
 
-            kmer_buffer.clear();
+                kmer_buffer.clear();
+            }
         }
     }
 
