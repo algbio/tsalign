@@ -472,7 +472,9 @@ impl<Cost: AStarCost + From<u64>>
                     config,
                     ignore_geometry_cost,
                 );
-                debug_assert_eq!(current_cost, (statistics.cost.round().raw() as u64).into());
+                if !ignore_geometry_cost {
+                    debug_assert_eq!(current_cost, (statistics.cost.round().raw() as u64).into());
+                }
 
                 // Move start to the left
                 {
