@@ -2,7 +2,8 @@ use std::fmt::{Display, Formatter, Result};
 
 use super::{
     AlignmentType, GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant,
-    alignment_type::equal_cost_range::EqualCostRange, identifier::TemplateSwitchDirection,
+    alignment_type::tsm_uncertainty_range::TSMUncertaintyRange,
+    identifier::TemplateSwitchDirection,
 };
 
 impl Display for AlignmentType {
@@ -22,11 +23,11 @@ impl Display for AlignmentType {
                 descendant,
                 ancestor,
                 direction,
-                equal_cost_range,
+                uncertainty_range,
                 first_offset,
             } => write!(
                 f,
-                "[TS{descendant}{ancestor}{direction}:{equal_cost_range}:{first_offset}:"
+                "[TS{descendant}{ancestor}{direction}:{uncertainty_range}:{first_offset}:"
             ),
             Self::TemplateSwitchExit {
                 anti_descendant_gap,
@@ -80,7 +81,7 @@ impl Display for TemplateSwitchDirection {
     }
 }
 
-impl Display for EqualCostRange {
+impl Display for TSMUncertaintyRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if self.is_valid() {
             let Self {

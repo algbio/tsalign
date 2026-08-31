@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{
 use log::{trace, warn};
 use tagged_vec::TaggedVec;
 
-use crate::{svg::EqualCostRangeMode, ts_arrangement::character::Char};
+use crate::{svg::UncertaintyRangeMode, ts_arrangement::character::Char};
 
 use super::{
     complement::TsComplementArrangement,
@@ -49,7 +49,7 @@ impl TsInnerArrangement {
         source_arrangement: &mut TsSourceArrangement,
         complement_arrangement: &mut TsComplementArrangement,
         template_switches: Vec<TemplateSwitch>,
-        equal_cost_range_mode: EqualCostRangeMode,
+        uncertainty_range_mode: UncertaintyRangeMode,
     ) -> Self {
         let mut result = Self {
             inners: Default::default(),
@@ -320,12 +320,14 @@ impl TsInnerArrangement {
             inner.extend(suffix_blanks);
 
             if matches!(
-                equal_cost_range_mode,
-                EqualCostRangeMode::InnerOnly | EqualCostRangeMode::Full,
+                uncertainty_range_mode,
+                UncertaintyRangeMode::InnerOnly | UncertaintyRangeMode::Full,
             ) {
-                // Add characters to visualise TSM equal cost range.
+                // Add characters to visualise TSM uncertainty range.
                 if forward {
-                    warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
+                    warn!(
+                        "TSM uncertainty range visualisation is not implemented for forward TSMs."
+                    )
                 } else {
                     // Insert range characters before point 2.
 
@@ -365,7 +367,7 @@ impl TsInnerArrangement {
                     let mut arrangement_column =
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
-                    for _ in 0..ts.equal_cost_range.max_end {
+                    for _ in 0..ts.uncertainty_range.max_end {
                         arrangement_column -= 1;
                         source_column += 1;
 
@@ -379,7 +381,7 @@ impl TsInnerArrangement {
                     // Add suffix to extend to min_start.
                     let mut arrangement_column = first_final_blank - 1usize;
                     let mut source_column = last_source_column;
-                    for _ in 0..-ts.equal_cost_range.min_start {
+                    for _ in 0..-ts.uncertainty_range.min_start {
                         arrangement_column += 1;
                         source_column -= 1;
 
@@ -392,7 +394,7 @@ impl TsInnerArrangement {
 
                     // Convert prefix to extend to min_end.
                     let mut arrangement_column = first_non_blank;
-                    for _ in 0..-ts.equal_cost_range.min_end {
+                    for _ in 0..-ts.uncertainty_range.min_end {
                         while !inner[arrangement_column].is_source_char() {
                             arrangement_column += 1;
                         }
@@ -403,7 +405,7 @@ impl TsInnerArrangement {
 
                     // Convert suffix to extend to max_start.
                     let mut arrangement_column = first_final_blank;
-                    for _ in 0..ts.equal_cost_range.max_start {
+                    for _ in 0..ts.uncertainty_range.max_start {
                         arrangement_column -= 1;
 
                         while !inner[arrangement_column].is_source_char() {

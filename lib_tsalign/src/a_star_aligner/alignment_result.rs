@@ -413,7 +413,7 @@ impl<Cost: AStarCost + From<u64>>
     }
 
     #[allow(clippy::too_many_lines)]
-    pub fn compute_ts_equal_cost_ranges<
+    pub fn compute_ts_uncertainty_ranges<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
@@ -443,14 +443,14 @@ impl<Cost: AStarCost + From<u64>>
             let alignment_type = alignment.inner_mut()[i].1;
 
             if let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
-                mut equal_cost_range,
+                mut uncertainty_range,
                 ..
             } = alignment_type
             {
-                equal_cost_range.min_start = 0;
-                equal_cost_range.max_start = 0;
-                equal_cost_range.min_end = 0;
-                equal_cost_range.max_end = 0;
+                uncertainty_range.min_start = 0;
+                uncertainty_range.max_start = 0;
+                uncertainty_range.min_end = 0;
+                uncertainty_range.max_end = 0;
 
                 // Keep track of the current cost, which might get less while extending but never increase
                 let mut current_cost = alignment.compute_cost(
@@ -488,7 +488,7 @@ impl<Cost: AStarCost + From<u64>>
                             break;
                         }
                         current_cost = new_cost;
-                        equal_cost_range.min_start -= 1;
+                        uncertainty_range.min_start -= 1;
                     }
                 }
 
@@ -518,7 +518,7 @@ impl<Cost: AStarCost + From<u64>>
                             break;
                         }
                         current_cost = new_cost;
-                        equal_cost_range.max_start += 1;
+                        uncertainty_range.max_start += 1;
                     }
                 }
 
@@ -546,7 +546,7 @@ impl<Cost: AStarCost + From<u64>>
                             break;
                         }
                         current_cost = new_cost;
-                        equal_cost_range.min_end -= 1;
+                        uncertainty_range.min_end -= 1;
                     }
                 }
 
@@ -574,18 +574,18 @@ impl<Cost: AStarCost + From<u64>>
                             break;
                         }
                         current_cost = new_cost;
-                        equal_cost_range.max_end += 1;
+                        uncertainty_range.max_end += 1;
                     }
                 }
 
                 let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
-                    equal_cost_range: alignment_equal_cost_range,
+                    uncertainty_range: alignment_uncertainty_range,
                     ..
                 } = &mut alignment.inner_mut()[i].1
                 else {
                     unreachable!()
                 };
-                *alignment_equal_cost_range = equal_cost_range;
+                *alignment_uncertainty_range = uncertainty_range;
             }
         }
     }

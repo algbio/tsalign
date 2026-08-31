@@ -277,6 +277,6 @@ where
     }
 
     info!("Extending template switches");
-    result.compute_ts_equal_cost_ranges(reference, query, &range, config);
+    result.compute_ts_uncertainty_ranges(reference, query, &range, config);
     result
 }

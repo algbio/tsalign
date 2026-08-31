@@ -1,31 +1,32 @@
-/// A heuristic range within which the start and end of the TS can be shifted without increasing cost.
+/// A heuristic range within which the start and end of the TS can be shifted.
+/// This can be without increasing cost, or without introducing mismatches, or possibly other criteria in the future.
 ///
 /// The range may not be maximal, but is required to be correct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct EqualCostRange {
-    /// How much the start of the TS can be shifted to the left without increasing cost.
+pub struct TSMUncertaintyRange {
+    /// How much the start of the TS can be shifted to the left.
     ///
     /// This number must not be positive.
     pub min_start: i8,
 
-    /// How much the start of the TS can be shifted to the right without increasing cost.
+    /// How much the start of the TS can be shifted to the right.
     ///
     /// This number must not be negative.
     pub max_start: i8,
 
-    /// How much the end of the TS can be shifted to the left without increasing cost.
+    /// How much the end of the TS can be shifted to the left.
     ///
     /// This number must not be positive.
     pub min_end: i8,
 
-    /// How much the end of the TS can be shifted to the right without increasing cost.
+    /// How much the end of the TS can be shifted to the right.
     ///
     /// This number must not be negative.
     pub max_end: i8,
 }
 
-impl EqualCostRange {
+impl TSMUncertaintyRange {
     pub const fn new_invalid() -> Self {
         Self {
             min_start: 1,

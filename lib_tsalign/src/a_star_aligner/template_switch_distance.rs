@@ -17,7 +17,7 @@ mod identifier;
 pub mod lower_bounds;
 pub mod strategies;
 
-pub use alignment_type::{AlignmentType, equal_cost_range::EqualCostRange};
+pub use alignment_type::{AlignmentType, tsm_uncertainty_range::TSMUncertaintyRange};
 pub use context::Context;
 pub use identifier::{
     GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
@@ -289,7 +289,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                                 descendant: *template_switch_descendant,
                                 ancestor: *template_switch_ancestor,
                                 direction: *template_switch_direction,
-                                equal_cost_range: EqualCostRange::new_invalid(),
+                                uncertainty_range: TSMUncertaintyRange::new_invalid(),
                                 first_offset: *template_switch_first_offset,
                             },
                             context,
@@ -341,7 +341,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 descendant: template_switch_descendant,
                 ancestor: template_switch_ancestor,
                 direction: template_switch_direction,
-                equal_cost_range: EqualCostRange::new_invalid(),
+                uncertainty_range: TSMUncertaintyRange::new_invalid(),
                 first_offset: successor_template_switch_first_offset,
             },
             context,

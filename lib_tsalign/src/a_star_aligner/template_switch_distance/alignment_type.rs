@@ -1,4 +1,4 @@
-use equal_cost_range::EqualCostRange;
+use tsm_uncertainty_range::TSMUncertaintyRange;
 
 use crate::a_star_aligner::{
     alignment_geometry::AlignmentCoordinates, alignment_result::IAlignmentType,
@@ -8,7 +8,7 @@ use super::identifier::{
     TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
 };
 
-pub mod equal_cost_range;
+pub mod tsm_uncertainty_range;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -48,7 +48,7 @@ pub enum AlignmentType {
     /// A template switch entrance.
     TemplateSwitchEntrance {
         first_offset: isize,
-        equal_cost_range: EqualCostRange,
+        uncertainty_range: TSMUncertaintyRange,
         descendant: TemplateSwitchDescendant,
         ancestor: TemplateSwitchAncestor,
         direction: TemplateSwitchDirection,
@@ -207,13 +207,13 @@ impl AlignmentType {
                 descendant,
                 ancestor,
                 direction,
-                equal_cost_range,
+                uncertainty_range,
                 first_offset,
             } => Self::TemplateSwitchEntrance {
                 descendant: descendant.inverted(),
                 ancestor: ancestor.inverted(),
                 direction: direction.inverted(),
-                equal_cost_range: *equal_cost_range,
+                uncertainty_range: *uncertainty_range,
                 first_offset: *first_offset,
             },
             Self::AlternativeStart {

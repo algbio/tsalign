@@ -68,16 +68,16 @@ pub struct SvgConfig {
     /// Restrict the context around the template switches to this many characters on each side.
     /// If `None`, the full sequences will be rendered.
     pub restrict_context: Option<usize>,
-    pub equal_cost_range_mode: EqualCostRangeMode,
+    pub uncertainty_range_mode: UncertaintyRangeMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum EqualCostRangeMode {
-    /// Do not render equal cost ranges.
+pub enum UncertaintyRangeMode {
+    /// Do not render TSM uncertainty ranges.
     None,
-    /// Render the equal cost ranges only on the inner sequences.
+    /// Render the TSM uncertainty ranges only on the inner sequences.
     InnerOnly,
-    /// Render the equal cost ranges on all sequences.
+    /// Render the TSM uncertainty ranges on all sequences.
     /// This may be messy if there are overlaps.
     Full,
 }
@@ -111,7 +111,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
-        config.equal_cost_range_mode,
+        config.uncertainty_range_mode,
     )?;
 
     if config.render_more_complement {
@@ -152,7 +152,7 @@ pub fn create_ts_svg(
                 reference.len(),
                 query.len(),
                 alignment.iter_flat_cloned(),
-                config.equal_cost_range_mode,
+                config.uncertainty_range_mode,
                 &mut Vec::new(),
             )
             .map(|mut no_ts_arrangement| {
@@ -199,7 +199,7 @@ pub fn create_ts_svg(
             sp3_ancestor,
             sp4_reference,
             sp4_query,
-            equal_cost_range,
+            uncertainty_range,
             ..
         },
     ) in ts_arrangement.template_switches()
@@ -261,14 +261,14 @@ pub fn create_ts_svg(
             match descendant {
                 TemplateSwitchDescendant::Reference => *sp1_reference,
                 TemplateSwitchDescendant::Query => *sp1_query,
-            } - usize::try_from(-equal_cost_range.min_start).unwrap(),
+            } - usize::try_from(-uncertainty_range.min_start).unwrap(),
             *descendant,
         );
 
         let descendant_sp4 = match descendant {
             TemplateSwitchDescendant::Reference => *sp4_reference,
             TemplateSwitchDescendant::Query => *sp4_query,
-        } + usize::try_from(equal_cost_range.max_end).unwrap();
+        } + usize::try_from(uncertainty_range.max_end).unwrap();
         let descendant_sp4_minus_one = descendant_sp4.checked_sub(1).map(|column| {
             ts_arrangement.descendant_arrangement_char_to_arrangement_column(column, *descendant)
                 + 1usize
@@ -1026,7 +1026,7 @@ fn legend(
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    if config.equal_cost_range_mode != EqualCostRangeMode::None {
+    if config.uncertainty_range_mode != UncertaintyRangeMode::None {
         let uncertainty_label = "BLUE CHARACTERS";
         result = result.add(svg_string(
             uncertainty_label
@@ -1071,8 +1071,8 @@ fn legend(
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    if config.equal_cost_range_mode != EqualCostRangeMode::None {
-        let uncertainty_explanation = "Equal-cost range of the TSM";
+    if config.uncertainty_range_mode != UncertaintyRangeMode::None {
+        let uncertainty_explanation = "Uncertainty range of the TSM";
         result = result.add(svg_string(
             uncertainty_explanation
                 .chars()

@@ -37,7 +37,7 @@ class TemplateSwitchEntranceOp:
     descendant: str    # "Reference" or "Query"
     ancestor: str  # "Reference" or "Query"
     direction: str  # "Forward" or "Reverse"
-    equal_cost_range: dict  # {min_start, max_start, min_end, max_end}
+    uncertainty_range: dict  # {min_start, max_start, min_end, max_end}
 
 
 @dataclass
@@ -63,7 +63,7 @@ def _parse_op(raw: object) -> AlignmentOp:
                 descendant=d["descendant"],
                 ancestor=d["ancestor"],
                 direction=d["direction"],
-                equal_cost_range=d["equal_cost_range"],
+                uncertainty_range=d["uncertainty_range"],
             )
         if "TemplateSwitchExit" in raw:
             return TemplateSwitchExitOp(
