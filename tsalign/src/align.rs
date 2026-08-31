@@ -57,7 +57,10 @@ use compact_genome::implementation::alphabets::rna_iupac_nucleic_acid_alphabet::
 use crate::align::{
     a_star_chain_ts::align_a_star_chain_ts,
     fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
-    template_switch_distance_type_selectors::TemplateSwitchDescendantStrategySelector,
+    template_switch_distance_type_selectors::{
+        TemplateSwitchDescendantStrategySelector,
+        TemplateSwitchUncertaintyRangeExtensionModeSelector,
+    },
 };
 
 mod a_star_chain_ts;
@@ -146,6 +149,10 @@ pub struct Cli {
         value_parser = BoolishValueParser::new().map(Ts14OutOfRangeStrategy::from),
     )]
     allow_ts_14_out_of_range: Ts14OutOfRangeStrategy,
+
+    /// Determines how the TSM uncertainty ranges are extended.
+    #[clap(long, default_value = "equal-cost-ignore-geometry")]
+    ts_uncertainty_range_extension_mode: TemplateSwitchUncertaintyRangeExtensionModeSelector,
 
     /// The maximum amount of successors to generate while processing a node during chaining.
     /// Can be tuned to optimise performance.

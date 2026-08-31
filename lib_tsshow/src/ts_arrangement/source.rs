@@ -3,7 +3,7 @@ use std::{cmp::Ordering, iter};
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
+        AlignmentType, TSMUncertaintyRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
         TemplateSwitchDirection,
     },
 };
@@ -15,7 +15,7 @@ use super::{
     index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn},
     template_switch::TemplateSwitch,
 };
-use crate::{error::Result, svg::EqualCostRangeMode};
+use crate::{error::Result, svg::UncertaintyRangeMode};
 
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
@@ -39,6 +39,8 @@ pub enum SourceChar {
     OptionalSource {
         column: SourceColumn,
         lower_case: bool,
+        /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
+        increases_inner: bool,
         copy_depth: Option<usize>,
     },
     Hidden {
@@ -64,7 +66,7 @@ impl TsSourceArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-        equal_cost_range_mode: EqualCostRangeMode,
+        uncertainty_range_mode: UncertaintyRangeMode,
         template_switches_out: &mut impl Extend<TemplateSwitch>,
     ) -> Result<Self> {
         let mut ts_index = 0;
@@ -151,7 +153,7 @@ impl TsSourceArrangement {
                     ancestor,
                     direction,
                     first_offset,
-                    equal_cost_range,
+                    uncertainty_range,
                     ..
                 } => {
                     template_switches_out.extend([result.align_ts(
@@ -160,8 +162,8 @@ impl TsSourceArrangement {
                         ancestor,
                         direction,
                         first_offset,
-                        equal_cost_range,
-                        equal_cost_range_mode,
+                        uncertainty_range,
+                        uncertainty_range_mode,
                         &mut alignment,
                         &mut current_reference_index,
                         &mut current_query_index,
@@ -231,8 +233,8 @@ impl TsSourceArrangement {
         ts_ancestor: TemplateSwitchAncestor,
         ts_direction: TemplateSwitchDirection,
         first_offset: isize,
-        equal_cost_range: EqualCostRange,
-        equal_cost_range_mode: EqualCostRangeMode,
+        uncertainty_range: TSMUncertaintyRange,
+        uncertainty_range_mode: UncertaintyRangeMode,
         mut alignment: impl Iterator<Item = AlignmentType>,
         current_reference_index: &mut ArrangementColumn,
         current_query_index: &mut ArrangementColumn,
@@ -376,12 +378,12 @@ impl TsSourceArrangement {
         // Insert spacers.
         let mut required_spacer_count = 4usize.saturating_sub(anti_descendant_inner_length);
 
-        let descendant_minimal_equal_cost_range_start =
+        let descendant_minimal_uncertainty_range_start =
             match ts_descendant {
                 TemplateSwitchDescendant::Reference => sp1_reference,
                 TemplateSwitchDescendant::Query => sp1_query,
-            } + usize::try_from(equal_cost_range.max_start).unwrap();
-        let descendant_minimal_equal_cost_range_end =
+            } + usize::try_from(uncertainty_range.max_start).unwrap();
+        let descendant_minimal_uncertainty_range_end =
             match ts_descendant {
                 TemplateSwitchDescendant::Reference => {
                     self.reference_arrangement_to_arrangement_char_column(*current_descendant_index)
@@ -389,23 +391,23 @@ impl TsSourceArrangement {
                 TemplateSwitchDescendant::Query => {
                     self.query_arrangement_to_arrangement_char_column(*current_descendant_index)
                 }
-            } - usize::try_from(-equal_cost_range.min_end).unwrap();
-        let (descendant_minimal_equal_cost_range_start, descendant_minimal_equal_cost_range_end) =
+            } - usize::try_from(-uncertainty_range.min_end).unwrap();
+        let (descendant_minimal_uncertainty_range_start, descendant_minimal_uncertainty_range_end) =
             match ts_descendant {
                 TemplateSwitchDescendant::Reference => (
                     self.reference_arrangement_char_to_arrangement_column(
-                        descendant_minimal_equal_cost_range_start,
+                        descendant_minimal_uncertainty_range_start,
                     ),
                     self.reference_arrangement_char_to_arrangement_column(
-                        descendant_minimal_equal_cost_range_end,
+                        descendant_minimal_uncertainty_range_end,
                     ),
                 ),
                 TemplateSwitchDescendant::Query => (
                     self.query_arrangement_char_to_arrangement_column(
-                        descendant_minimal_equal_cost_range_start,
+                        descendant_minimal_uncertainty_range_start,
                     ),
                     self.query_arrangement_char_to_arrangement_column(
-                        descendant_minimal_equal_cost_range_end,
+                        descendant_minimal_uncertainty_range_end,
                     ),
                 ),
             };
@@ -421,12 +423,12 @@ impl TsSourceArrangement {
                     .checked_sub(descendant_inner_length)
                     .unwrap();
 
-                if descendant_minimal_equal_cost_range_start
-                    <= descendant_minimal_equal_cost_range_end
+                if descendant_minimal_uncertainty_range_start
+                    <= descendant_minimal_uncertainty_range_end
                 {
                     descendant.splice(
-                        descendant_minimal_equal_cost_range_end
-                            ..descendant_minimal_equal_cost_range_end,
+                        descendant_minimal_uncertainty_range_end
+                            ..descendant_minimal_uncertainty_range_end,
                         iter::repeat_n(SourceChar::Blank, delta),
                     );
                 } else {
@@ -435,13 +437,13 @@ impl TsSourceArrangement {
                     let end_delta = delta - start_delta;
 
                     descendant.splice(
-                        descendant_minimal_equal_cost_range_start
-                            ..descendant_minimal_equal_cost_range_start,
+                        descendant_minimal_uncertainty_range_start
+                            ..descendant_minimal_uncertainty_range_start,
                         iter::repeat_n(SourceChar::Blank, start_delta),
                     );
                     descendant.splice(
-                        descendant_minimal_equal_cost_range_end
-                            ..descendant_minimal_equal_cost_range_end,
+                        descendant_minimal_uncertainty_range_end
+                            ..descendant_minimal_uncertainty_range_end,
                         iter::repeat_n(SourceChar::Blank, end_delta),
                     );
                 }
@@ -484,7 +486,7 @@ impl TsSourceArrangement {
             }
         };
 
-        if equal_cost_range_mode == EqualCostRangeMode::Full {
+        if uncertainty_range_mode == UncertaintyRangeMode::Full {
             let sp1_descendant = match ts_descendant {
                 TemplateSwitchDescendant::Reference => sp1_reference_arrangement_column,
                 TemplateSwitchDescendant::Query => sp1_query_arrangement_column,
@@ -500,24 +502,24 @@ impl TsSourceArrangement {
                 .take(usize::from(sp1_descendant))
                 .rev()
                 .filter(|c| c.is_char())
-                .take(usize::try_from(-equal_cost_range.min_start).unwrap())
-                .for_each(|c| c.make_optional());
+                .take(usize::try_from(-uncertainty_range.min_start).unwrap())
+                .for_each(|c| c.make_optional(true));
 
             // Mark characters right of SP4 as optional.
             descendant
                 .iter_values_mut()
                 .skip(usize::from(sp4_descendant))
                 .filter(|c| c.is_char())
-                .take(usize::try_from(equal_cost_range.max_end).unwrap())
-                .for_each(|c| c.make_optional());
+                .take(usize::try_from(uncertainty_range.max_end).unwrap())
+                .for_each(|c| c.make_optional(true));
 
             // Mark characters right of SP1 as optional.
             descendant
                 .iter_values_mut()
                 .skip(usize::from(sp1_descendant))
                 .filter(|c| c.is_char())
-                .take(usize::try_from(equal_cost_range.max_start).unwrap())
-                .for_each(|c| c.make_optional());
+                .take(usize::try_from(uncertainty_range.max_start).unwrap())
+                .for_each(|c| c.make_optional(false));
 
             // Mark characters left of SP4 as optional.
             descendant
@@ -525,8 +527,8 @@ impl TsSourceArrangement {
                 .take(usize::from(sp4_descendant))
                 .rev()
                 .filter(|c| c.is_char())
-                .take(usize::try_from(-equal_cost_range.min_end).unwrap())
-                .for_each(|c| c.make_optional());
+                .take(usize::try_from(-uncertainty_range.min_end).unwrap())
+                .for_each(|c| c.make_optional(false));
         }
 
         let sp4_reference =
@@ -545,7 +547,7 @@ impl TsSourceArrangement {
             sp3_ancestor,
             inner,
             inner_alignment,
-            equal_cost_range,
+            uncertainty_range,
         }
     }
 
@@ -1004,7 +1006,7 @@ impl SourceChar {
         }
     }
 
-    pub fn make_optional(&mut self) {
+    pub fn make_optional(&mut self, increases_inner: bool) {
         match self {
             Self::Source {
                 column, copy_depth, ..
@@ -1013,6 +1015,7 @@ impl SourceChar {
                 *self = Self::OptionalSource {
                     column: *column,
                     lower_case: false,
+                    increases_inner,
                     copy_depth: *copy_depth,
                 };
             }
@@ -1034,7 +1037,7 @@ impl SourceChar {
             },
             Self::OptionalSource {
                 column, copy_depth, ..
-            } => Self::OptionalSource {
+            } => Self::Source {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
@@ -1061,7 +1064,7 @@ impl SourceChar {
             },
             Self::OptionalSource {
                 column, copy_depth, ..
-            } => Self::OptionalSource {
+            } => Self::Source {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),

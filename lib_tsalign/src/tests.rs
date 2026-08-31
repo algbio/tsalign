@@ -11,6 +11,7 @@ use crate::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
         template_switch_distance::{
+            TSMUncertaintyRangeExtensionMode,
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
@@ -82,6 +83,7 @@ fn test_tsnax_disc1_473() {
         None,
         false,
         true,
+        TSMUncertaintyRangeExtensionMode::None,
         (),
     );
     assert_eq!(
@@ -128,6 +130,7 @@ fn test_tsnax_disc1_473() {
         None,
         false,
         true,
+        TSMUncertaintyRangeExtensionMode::None,
         (),
     );
     println!("{sample_alignment}");
@@ -164,6 +167,7 @@ fn test_tsnax_disc1_473() {
         None,
         false,
         true,
+        TSMUncertaintyRangeExtensionMode::None,
         (),
     );
     println!("{sample_alignment}");
@@ -200,6 +204,7 @@ fn test_tsnax_disc1_473() {
         None,
         false,
         true,
+        TSMUncertaintyRangeExtensionMode::None,
         (),
     );
     println!("{sample_alignment}");

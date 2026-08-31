@@ -21,7 +21,9 @@ fn test_panic() {
             &[],
             None,
             None,
-        true);
+            true,
+            TSMUncertaintyRangeExtensionMode::None,
+        );
     println!("{res:#?}");
     assert!(res.statistics().cost.is_sign_positive());
 }
@@ -37,5 +39,16 @@ fn test_193() {
     let mut costs = TemplateSwitchConfig::default();
     costs.base_cost.qrr = 4u64.into();
     tsa.set_costs(costs.clone());
-    let _tsa_res = tsa.align("ref", r, "qry", q, None, &[], None, None, false);
+    let _tsa_res = tsa.align(
+        "ref",
+        r,
+        "qry",
+        q,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        TSMUncertaintyRangeExtensionMode::None,
+    );
 }

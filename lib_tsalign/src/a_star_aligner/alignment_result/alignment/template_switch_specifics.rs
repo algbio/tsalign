@@ -604,6 +604,56 @@ impl Alignment<AlignmentType> {
     /// Compute the cost of an alignment.
     ///
     /// Flanks are not supported.
+    pub fn compute_complete_cost<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        Cost: AStarCost,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        reference_offset: usize,
+        query_offset: usize,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Cost {
+        self.compute_cost(
+            reference,
+            query,
+            reference_offset,
+            query_offset,
+            config,
+            false,
+        )
+    }
+
+    /// Compute the cost of an alignment, ignoring the cost of the TSM geometries.
+    ///
+    /// Flanks are not supported.
+    pub fn compute_cost_ignore_geometry<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        Cost: AStarCost,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        reference_offset: usize,
+        query_offset: usize,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Cost {
+        self.compute_cost(
+            reference,
+            query,
+            reference_offset,
+            query_offset,
+            config,
+            true,
+        )
+    }
+
+    /// Compute the cost of an alignment.
+    ///
+    /// Flanks are not supported.
     pub fn compute_cost<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -615,6 +665,7 @@ impl Alignment<AlignmentType> {
         reference_offset: usize,
         query_offset: usize,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
+        ignore_geometry_cost: bool,
     ) -> Cost {
         let mut cost = Cost::zero();
 
@@ -760,9 +811,13 @@ impl Alignment<AlignmentType> {
                     ancestor = ts_ancestor;
                     direction = ts_direction;
                     let base_cost = config.base_cost.get(descendant, ancestor, direction);
-                    let offset_cost = config
-                        .offset_costs(descendant, ancestor)
-                        .evaluate(&first_offset);
+                    let offset_cost = if ignore_geometry_cost {
+                        Cost::zero()
+                    } else {
+                        config
+                            .offset_costs(descendant, ancestor)
+                            .evaluate(&first_offset)
+                    };
                     let Some(cost_increment) = base_cost.checked_add(&offset_cost) else {
                         return Cost::max_value();
                     };
@@ -789,47 +844,53 @@ impl Alignment<AlignmentType> {
                         last_alignment_type,
                         Some(AlignmentType::TemplateSwitchExit { .. })
                     ));
-                    let length = match descendant {
-                        TemplateSwitchDescendant::Reference => {
-                            let length = descendant_index - reference_index;
-                            reference_index = descendant_index;
-                            query_index = usize::try_from(
-                                isize::try_from(query_index)
-                                    .unwrap()
-                                    .checked_add(anti_descendant_gap)
-                                    .unwrap(),
-                            )
-                            .unwrap();
-                            length
-                        }
-                        TemplateSwitchDescendant::Query => {
-                            let length = descendant_index - query_index;
-                            query_index = descendant_index;
-                            reference_index = usize::try_from(
-                                isize::try_from(reference_index)
-                                    .unwrap()
-                                    .checked_add(anti_descendant_gap)
-                                    .unwrap(),
-                            )
-                            .unwrap();
-                            length
-                        }
-                    };
-                    let length_difference = anti_descendant_gap - isize::try_from(length).unwrap();
-                    let cost_increment = config
-                        .anti_descendant_gap_costs(direction)
-                        .evaluate(&anti_descendant_gap);
-                    let Some(cost_increment) =
-                        cost_increment.checked_add(&config.length_costs.evaluate(&length))
-                    else {
-                        return Cost::max_value();
-                    };
-                    let Some(cost_increment) = cost_increment
-                        .checked_add(&config.length_difference_costs.evaluate(&length_difference))
-                    else {
-                        return Cost::max_value();
-                    };
-                    cost_increment
+
+                    if ignore_geometry_cost {
+                        Cost::zero()
+                    } else {
+                        let length = match descendant {
+                            TemplateSwitchDescendant::Reference => {
+                                let length = descendant_index - reference_index;
+                                reference_index = descendant_index;
+                                query_index = usize::try_from(
+                                    isize::try_from(query_index)
+                                        .unwrap()
+                                        .checked_add(anti_descendant_gap)
+                                        .unwrap(),
+                                )
+                                .unwrap();
+                                length
+                            }
+                            TemplateSwitchDescendant::Query => {
+                                let length = descendant_index - query_index;
+                                query_index = descendant_index;
+                                reference_index = usize::try_from(
+                                    isize::try_from(reference_index)
+                                        .unwrap()
+                                        .checked_add(anti_descendant_gap)
+                                        .unwrap(),
+                                )
+                                .unwrap();
+                                length
+                            }
+                        };
+                        let length_difference =
+                            anti_descendant_gap - isize::try_from(length).unwrap();
+                        let cost_increment = config
+                            .anti_descendant_gap_costs(direction)
+                            .evaluate(&anti_descendant_gap);
+                        let Some(cost_increment) =
+                            cost_increment.checked_add(&config.length_costs.evaluate(&length))
+                        else {
+                            return Cost::max_value();
+                        };
+                        let Some(cost_increment) = cost_increment.checked_add(
+                            &config.length_difference_costs.evaluate(&length_difference),
+                        ) else {
+                            return Cost::max_value();
+                        };
+                        cost_increment
+                    }
                 }
                 AlignmentType::AlternativeStart {
                     reference_index: reference_start,
@@ -883,8 +944,8 @@ mod tests {
         a_star_aligner::{
             alignment_result::alignment::Alignment,
             template_switch_distance::{
-                AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
-                TemplateSwitchDirection,
+                AlignmentType, TSMUncertaintyRange, TemplateSwitchAncestor,
+                TemplateSwitchDescendant, TemplateSwitchDirection,
             },
         },
         config::{BaseCost, TemplateSwitchConfig},
@@ -942,7 +1003,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -6,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -963,7 +1024,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -4,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -984,7 +1045,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: -2,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1005,7 +1066,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 0,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1027,7 +1088,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 2,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1096,7 +1157,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1117,7 +1178,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1138,7 +1199,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1159,7 +1220,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1181,7 +1242,7 @@ mod tests {
                 1,
                 AlignmentType::TemplateSwitchEntrance {
                     first_offset: 10,
-                    equal_cost_range: EqualCostRange::new_invalid(),
+                    uncertainty_range: TSMUncertaintyRange::new_invalid(),
                     descendant: TemplateSwitchDescendant::Reference,
                     ancestor: TemplateSwitchAncestor::Query,
                     direction: TemplateSwitchDirection::Reverse,
@@ -1289,7 +1350,8 @@ mod tests {
                 query.as_genome_subsequence(),
                 2,
                 2,
-                &CONFIG
+                &CONFIG,
+                false,
             ),
             START_COSTS[0]
         );
@@ -1311,7 +1373,8 @@ mod tests {
                     query.as_genome_subsequence(),
                     2,
                     2,
-                    &CONFIG
+                    &CONFIG,
+                    false,
                 ),
                 *expected_cost
             );
@@ -1329,7 +1392,8 @@ mod tests {
                 query.as_genome_subsequence(),
                 2,
                 2,
-                &CONFIG
+                &CONFIG,
+                false,
             ),
             *START_COSTS.last().unwrap()
         );
@@ -1354,7 +1418,8 @@ mod tests {
                     query.as_genome_subsequence(),
                     2,
                     2,
-                    &CONFIG
+                    &CONFIG,
+                    false,
                 ),
                 *expected_cost
             );
@@ -1372,7 +1437,8 @@ mod tests {
                 query.as_genome_subsequence(),
                 1,
                 1,
-                &CONFIG
+                &CONFIG,
+                false,
             ),
             *END_COSTS.last().unwrap()
         );
@@ -1394,7 +1460,8 @@ mod tests {
                     query.as_genome_subsequence(),
                     1,
                     1,
-                    &CONFIG
+                    &CONFIG,
+                    false,
                 ),
                 *expected_cost
             );
@@ -1412,7 +1479,8 @@ mod tests {
                 query.as_genome_subsequence(),
                 1,
                 1,
-                &CONFIG
+                &CONFIG,
+                false,
             ),
             *END_COSTS.first().unwrap()
         );
@@ -1432,7 +1500,8 @@ mod tests {
                     query.as_genome_subsequence(),
                     1,
                     1,
-                    &CONFIG
+                    &CONFIG,
+                    false,
                 ),
                 *expected_cost
             );

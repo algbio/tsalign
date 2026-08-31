@@ -23,7 +23,7 @@ use crate::{
     a_star_aligner::{
         alignment_result::alignment::Alignment,
         template_switch_distance::{
-            context::DynamicStrategies,
+            TSMUncertaintyRangeExtensionMode, context::DynamicStrategies,
             strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
         },
     },
@@ -222,6 +222,7 @@ pub fn template_switch_distance_a_star_align<
     memory_limit: Option<usize>,
     force_label_correcting: bool,
     extend_beyond_range: bool,
+    tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost>
 where
@@ -276,7 +277,35 @@ where
         info!("Alignment ranges after extension {range}");
     }
 
-    info!("Extending template switches");
-    result.compute_ts_equal_cost_ranges(reference, query, &range, config);
+    match tsm_uncertainty_range_extension_mode {
+        TSMUncertaintyRangeExtensionMode::None => {
+            debug!("TSM uncertainty range extension is disabled.")
+        }
+
+        TSMUncertaintyRangeExtensionMode::EqualCost => {
+            info!("Extending TSM uncertainty ranges without increasing cost");
+            result.compute_ts_uncertainty_ranges(
+                reference,
+                query,
+                &range,
+                config,
+                tsm_uncertainty_range_extension_mode,
+            );
+        }
+
+        TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry => {
+            info!(
+                "Extending TSM uncertainty ranges without increasing cost but ignoring cost increases due to TSM geometry",
+            );
+            result.compute_ts_uncertainty_ranges(
+                reference,
+                query,
+                &range,
+                config,
+                tsm_uncertainty_range_extension_mode,
+            );
+        }
+    }
+
     result
 }

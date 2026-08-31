@@ -5,7 +5,7 @@ use super::{
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{
-        AlignmentType, EqualCostRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
+        AlignmentType, TSMUncertaintyRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
     },
 };
 
@@ -22,7 +22,7 @@ pub struct TemplateSwitch {
     pub sp3_ancestor: SourceColumn,
     pub inner: Vec<SourceChar>,
     pub inner_alignment: Alignment<AlignmentType>,
-    pub equal_cost_range: EqualCostRange,
+    pub uncertainty_range: TSMUncertaintyRange,
 }
 
 impl TemplateSwitch {

@@ -15,7 +15,7 @@ use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
 use template_switch::TemplateSwitch;
 
-use crate::{error::Result, svg::EqualCostRangeMode};
+use crate::{error::Result, svg::UncertaintyRangeMode};
 
 pub mod character;
 pub mod complement;
@@ -38,7 +38,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-        equal_cost_range_mode: EqualCostRangeMode,
+        uncertainty_range_mode: UncertaintyRangeMode,
     ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
@@ -47,7 +47,7 @@ impl TsArrangement {
             reference_length,
             query_length,
             alignment,
-            equal_cost_range_mode,
+            uncertainty_range_mode,
             &mut template_switches,
         )?;
         let mut complement = TsComplementArrangement::new(&source);
@@ -55,7 +55,7 @@ impl TsArrangement {
             &mut source,
             &mut complement,
             template_switches,
-            equal_cost_range_mode,
+            uncertainty_range_mode,
         );
 
         Ok(Self {
@@ -234,6 +234,11 @@ impl TsArrangement {
         self.source.reference().len()
     }
 
+    /// Returns the first invalid column index right of the arrangement.
+    pub fn limit_column(&self) -> ArrangementColumn {
+        self.width().into()
+    }
+
     pub fn reference_arrangement_char_to_arrangement_column(
         &self,
         column: ArrangementCharColumn,
@@ -342,6 +347,22 @@ impl TsArrangement {
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
         self.inner.inner_last_non_blank_column(inner_identifier)
+    }
+
+    pub fn inner_first_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .inner_first_non_increasing_column(inner_identifier)
+    }
+
+    pub fn inner_last_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .inner_last_non_increasing_column(inner_identifier)
     }
 
     /// Returns the index of the first column that is related to a TSM.

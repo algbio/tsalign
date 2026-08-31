@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{
 use log::{trace, warn};
 use tagged_vec::TaggedVec;
 
-use crate::{svg::EqualCostRangeMode, ts_arrangement::character::Char};
+use crate::{svg::UncertaintyRangeMode, ts_arrangement::character::Char};
 
 use super::{
     complement::TsComplementArrangement,
@@ -36,6 +36,8 @@ pub enum InnerChar {
     OptionalInner {
         column: SourceColumn,
         lower_case: bool,
+        /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
+        increases_inner: bool,
         copy_depth: Option<usize>,
     },
     Gap {
@@ -49,7 +51,7 @@ impl TsInnerArrangement {
         source_arrangement: &mut TsSourceArrangement,
         complement_arrangement: &mut TsComplementArrangement,
         template_switches: Vec<TemplateSwitch>,
-        equal_cost_range_mode: EqualCostRangeMode,
+        uncertainty_range_mode: UncertaintyRangeMode,
     ) -> Self {
         let mut result = Self {
             inners: Default::default(),
@@ -320,12 +322,14 @@ impl TsInnerArrangement {
             inner.extend(suffix_blanks);
 
             if matches!(
-                equal_cost_range_mode,
-                EqualCostRangeMode::InnerOnly | EqualCostRangeMode::Full,
+                uncertainty_range_mode,
+                UncertaintyRangeMode::InnerOnly | UncertaintyRangeMode::Full,
             ) {
-                // Add characters to visualise TSM equal cost range.
+                // Add characters to visualise TSM uncertainty range.
                 if forward {
-                    warn!("TSM equal cost range visualisation is not implemented for forward TSMs.")
+                    warn!(
+                        "TSM uncertainty range visualisation is not implemented for forward TSMs."
+                    )
                 } else {
                     // Insert range characters before point 2.
 
@@ -365,13 +369,14 @@ impl TsInnerArrangement {
                     let mut arrangement_column =
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
-                    for _ in 0..ts.equal_cost_range.max_end {
+                    for _ in 0..ts.uncertainty_range.max_end {
                         arrangement_column -= 1;
                         source_column += 1;
 
                         inner[arrangement_column] = InnerChar::OptionalInner {
                             column: source_column,
                             lower_case: false,
+                            increases_inner: true,
                             copy_depth: None,
                         };
                     }
@@ -379,38 +384,39 @@ impl TsInnerArrangement {
                     // Add suffix to extend to min_start.
                     let mut arrangement_column = first_final_blank - 1usize;
                     let mut source_column = last_source_column;
-                    for _ in 0..-ts.equal_cost_range.min_start {
+                    for _ in 0..-ts.uncertainty_range.min_start {
                         arrangement_column += 1;
                         source_column -= 1;
 
                         inner[arrangement_column] = InnerChar::OptionalInner {
                             column: source_column,
                             lower_case: false,
+                            increases_inner: true,
                             copy_depth: None,
                         };
                     }
 
                     // Convert prefix to extend to min_end.
                     let mut arrangement_column = first_non_blank;
-                    for _ in 0..-ts.equal_cost_range.min_end {
+                    for _ in 0..-ts.uncertainty_range.min_end {
                         while !inner[arrangement_column].is_source_char() {
                             arrangement_column += 1;
                         }
 
-                        inner[arrangement_column].to_optional();
+                        inner[arrangement_column].to_optional(false);
                         arrangement_column += 1;
                     }
 
                     // Convert suffix to extend to max_start.
                     let mut arrangement_column = first_final_blank;
-                    for _ in 0..ts.equal_cost_range.max_start {
+                    for _ in 0..ts.uncertainty_range.max_start {
                         arrangement_column -= 1;
 
                         while !inner[arrangement_column].is_source_char() {
                             arrangement_column -= 1;
                         }
 
-                        inner[arrangement_column].to_optional();
+                        inner[arrangement_column].to_optional(false);
                     }
                 }
             }
@@ -500,6 +506,33 @@ impl TsInnerArrangement {
             .map(|(i, _)| i)
             .unwrap() // If None, would need to return -1 here, but return value is unsigned.
     }
+
+    pub fn inner_first_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
+        sequence
+            .iter(..)
+            .find(|(_, c)| !c.is_blank() && !c.is_increasing())
+            .map(|(i, _)| i)
+            .unwrap_or(sequence.len().into())
+    }
+
+    pub fn inner_last_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
+        sequence
+            .iter(..)
+            .rev()
+            .find(|(_, c)| !c.is_blank() && !c.is_increasing())
+            .map(|(i, _)| i)
+            .unwrap() // If None, would need to return -1 here, but return value is unsigned.
+    }
 }
 
 impl TsInner {
@@ -536,14 +569,9 @@ impl InnerChar {
         }
     }
 
-    pub fn to_optional(&mut self) {
+    pub fn to_optional(&mut self, increases_inner: bool) {
         match *self {
             Self::Inner {
-                column,
-                lower_case,
-                copy_depth,
-            }
-            | Self::OptionalInner {
                 column,
                 lower_case,
                 copy_depth,
@@ -551,11 +579,42 @@ impl InnerChar {
                 *self = Self::OptionalInner {
                     column,
                     lower_case,
+                    increases_inner,
+                    copy_depth,
+                }
+            }
+            Self::OptionalInner {
+                column,
+                lower_case,
+                copy_depth,
+                increases_inner: existing_increases_inner,
+            } => {
+                if increases_inner != existing_increases_inner {
+                    warn!(
+                        "Overwriting TSM uncertainty range membership properties of an InnerChar. This may indicate that the visualisation of the TSM uncertainty range is not correct."
+                    );
+                }
+
+                *self = Self::OptionalInner {
+                    column,
+                    lower_case,
+                    increases_inner,
                     copy_depth,
                 }
             }
             Self::Gap { .. } | Self::Blank => panic!("Not optionalisable"),
         }
+    }
+
+    /// Returns true if this character is optional increasing.
+    pub fn is_increasing(&self) -> bool {
+        matches!(
+            self,
+            Self::OptionalInner {
+                increases_inner: true,
+                ..
+            }
+        )
     }
 }
 
