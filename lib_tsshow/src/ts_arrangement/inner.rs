@@ -36,6 +36,8 @@ pub enum InnerChar {
     OptionalInner {
         column: SourceColumn,
         lower_case: bool,
+        /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
+        increases_inner: bool,
         copy_depth: Option<usize>,
     },
     Gap {
@@ -374,6 +376,7 @@ impl TsInnerArrangement {
                         inner[arrangement_column] = InnerChar::OptionalInner {
                             column: source_column,
                             lower_case: false,
+                            increases_inner: true,
                             copy_depth: None,
                         };
                     }
@@ -388,6 +391,7 @@ impl TsInnerArrangement {
                         inner[arrangement_column] = InnerChar::OptionalInner {
                             column: source_column,
                             lower_case: false,
+                            increases_inner: true,
                             copy_depth: None,
                         };
                     }
@@ -399,7 +403,7 @@ impl TsInnerArrangement {
                             arrangement_column += 1;
                         }
 
-                        inner[arrangement_column].to_optional();
+                        inner[arrangement_column].to_optional(false);
                         arrangement_column += 1;
                     }
 
@@ -412,7 +416,7 @@ impl TsInnerArrangement {
                             arrangement_column -= 1;
                         }
 
-                        inner[arrangement_column].to_optional();
+                        inner[arrangement_column].to_optional(false);
                     }
                 }
             }
@@ -502,6 +506,33 @@ impl TsInnerArrangement {
             .map(|(i, _)| i)
             .unwrap() // If None, would need to return -1 here, but return value is unsigned.
     }
+
+    pub fn inner_first_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
+        sequence
+            .iter(..)
+            .find(|(_, c)| !c.is_blank() && !c.is_increasing())
+            .map(|(i, _)| i)
+            .unwrap_or(sequence.len().into())
+    }
+
+    pub fn inner_last_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
+        sequence
+            .iter(..)
+            .rev()
+            .find(|(_, c)| !c.is_blank() && !c.is_increasing())
+            .map(|(i, _)| i)
+            .unwrap() // If None, would need to return -1 here, but return value is unsigned.
+    }
 }
 
 impl TsInner {
@@ -538,14 +569,9 @@ impl InnerChar {
         }
     }
 
-    pub fn to_optional(&mut self) {
+    pub fn to_optional(&mut self, increases_inner: bool) {
         match *self {
             Self::Inner {
-                column,
-                lower_case,
-                copy_depth,
-            }
-            | Self::OptionalInner {
                 column,
                 lower_case,
                 copy_depth,
@@ -553,11 +579,42 @@ impl InnerChar {
                 *self = Self::OptionalInner {
                     column,
                     lower_case,
+                    increases_inner,
+                    copy_depth,
+                }
+            }
+            Self::OptionalInner {
+                column,
+                lower_case,
+                copy_depth,
+                increases_inner: existing_increases_inner,
+            } => {
+                if increases_inner != existing_increases_inner {
+                    warn!(
+                        "Overwriting TSM uncertainty range membership properties of an InnerChar. This may indicate that the visualisation of the TSM uncertainty range is not correct."
+                    );
+                }
+
+                *self = Self::OptionalInner {
+                    column,
+                    lower_case,
+                    increases_inner,
                     copy_depth,
                 }
             }
             Self::Gap { .. } | Self::Blank => panic!("Not optionalisable"),
         }
+    }
+
+    /// Returns true if this character is optional increasing.
+    pub fn is_increasing(&self) -> bool {
+        matches!(
+            self,
+            Self::OptionalInner {
+                increases_inner: true,
+                ..
+            }
+        )
     }
 }
 

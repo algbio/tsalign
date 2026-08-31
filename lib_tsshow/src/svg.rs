@@ -44,10 +44,16 @@ mod numbers;
 
 const SVG_PADDING: f32 = 10.0;
 const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
-const OPTIONAL_INNER_COPY_COLORS: &[&str] = &["#88CC88", "#669966", "#446644", "#223322"];
-const OPTIONAL_SOURCE_COPY_COLORS: &[&str] = &["#0000FF66"];
-const OPTIONAL_INNER_COLOR: &str = "#0000FF";
-const OPTIONAL_SOURCE_COLOR: &str = "#0000FF66";
+const OPTIONAL_INNER_INCREASING_COPY_COLORS: &[&str] =
+    &["#88CC8866", "#66996666", "#44664466", "#22332266"];
+const OPTIONAL_INNER_DECREASING_COPY_COLORS: &[&str] =
+    &["#88CCCC", "#669999", "#446666", "#223333"];
+const OPTIONAL_SOURCE_INCREASING_COPY_COLORS: &[&str] = &["#B14DB1"];
+const OPTIONAL_SOURCE_DECREASING_COPY_COLORS: &[&str] = &["#0000FF66"];
+const OPTIONAL_INNER_INCREASING_COLOR: &str = "#B14DB166";
+const OPTIONAL_INNER_DECREASING_COLOR: &str = "#0000FF";
+const OPTIONAL_SOURCE_INCREASING_COLOR: &str = "#B14DB1";
+const OPTIONAL_SOURCE_DECREASING_COLOR: &str = "#0000FF66";
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 const TS_RUNNING_NUMBER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -199,7 +205,6 @@ pub fn create_ts_svg(
             sp3_ancestor,
             sp4_reference,
             sp4_query,
-            uncertainty_range,
             ..
         },
     ) in ts_arrangement.template_switches()
@@ -257,34 +262,40 @@ pub fn create_ts_svg(
             }
         }*/
 
-        let descendant_sp1 = ts_arrangement.descendant_arrangement_char_to_arrangement_column(
-            match descendant {
-                TemplateSwitchDescendant::Reference => *sp1_reference,
-                TemplateSwitchDescendant::Query => *sp1_query,
-            } - usize::try_from(-uncertainty_range.min_start).unwrap(),
-            *descendant,
-        );
+        let descendant_sp1 = match descendant {
+            TemplateSwitchDescendant::Reference => *sp1_reference,
+            TemplateSwitchDescendant::Query => *sp1_query,
+        };
+        /*let descendant_sp1 = if config.uncertainty_range_mode == UncertaintyRangeMode::Full {
+            descendant_sp1 - usize::try_from(-uncertainty_range.min_start).unwrap()
+        } else {
+            descendant_sp1
+        };*/
+        let descendant_sp1 = ts_arrangement
+            .descendant_arrangement_char_to_arrangement_column(descendant_sp1, *descendant);
 
         let descendant_sp4 = match descendant {
             TemplateSwitchDescendant::Reference => *sp4_reference,
             TemplateSwitchDescendant::Query => *sp4_query,
-        } + usize::try_from(uncertainty_range.max_end).unwrap();
+        };
+        /*let descendant_sp4 = if config.uncertainty_range_mode == UncertaintyRangeMode::Full {
+            descendant_sp4 + usize::try_from(uncertainty_range.max_end).unwrap()
+        } else {
+            descendant_sp4
+        };*/
         let descendant_sp4_minus_one = descendant_sp4.checked_sub(1).map(|column| {
             ts_arrangement.descendant_arrangement_char_to_arrangement_column(column, *descendant)
                 + 1usize
         });
+        let descendant_sp4_limit = ts_arrangement
+            .descendant_arrangement_char_to_arrangement_column(descendant_sp4, *descendant)
+            + 1usize;
         let descendant_sp4 = ts_arrangement
             .descendant(*descendant)
-            .iter(
-                descendant_sp4_minus_one.unwrap_or(0.into())
-                    ..ts_arrangement.descendant_arrangement_char_to_arrangement_column(
-                        descendant_sp4,
-                        *descendant,
-                    ) + 1usize,
-            )
+            .iter(descendant_sp4_minus_one.unwrap_or(0.into())..descendant_sp4_limit)
             .find(|(_, c)| !c.is_blank())
-            .unwrap()
-            .0;
+            .map(|(column, _)| column)
+            .unwrap_or_else(|| ts_arrangement.limit_column());
 
         let descendant_row = match descendant {
             TemplateSwitchDescendant::Reference => TsArrangementRow::Reference,
@@ -294,15 +305,15 @@ pub fn create_ts_svg(
         let forward = sp2_ancestor < sp3_ancestor;
         let (ancestor_limit, ancestor_offset, inner_row) = match ancestor {
             TemplateSwitchAncestor::Reference => (
-                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.inner_first_non_blank_column(inner_identifier),
+                ts_arrangement.inner_last_non_increasing_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_increasing_column(inner_identifier),
                 TsArrangementRow::Inner {
                     index: inner_identifier,
                 },
             ),
             TemplateSwitchAncestor::Query => (
-                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.inner_first_non_blank_column(inner_identifier),
+                ts_arrangement.inner_last_non_increasing_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_increasing_column(inner_identifier),
                 TsArrangementRow::Inner {
                     index: inner_identifier,
                 },
@@ -821,6 +832,7 @@ fn render_source_char(
         SourceChar::OptionalSource {
             column,
             lower_case,
+            increases_inner,
             copy_depth,
         } => {
             let c = source_sequence.char_at(column.into());
@@ -832,7 +844,14 @@ fn render_source_char(
 
             Character::new_char(
                 c,
-                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::Source)),
+                CharacterData::new_colored(copy_color(
+                    copy_depth,
+                    if *increases_inner {
+                        OptionalChar::SourceIncreasing
+                    } else {
+                        OptionalChar::SourceDecreasing
+                    },
+                )),
             )
         }
         SourceChar::Gap { copy_depth } => Character::new_char(
@@ -908,6 +927,7 @@ fn render_inner_char(
         InnerChar::OptionalInner {
             column,
             lower_case,
+            increases_inner,
             copy_depth,
         } => {
             let c = source_sequence.char_at(column.into());
@@ -918,7 +938,14 @@ fn render_inner_char(
             };
             Character::new_char(
                 c,
-                CharacterData::new_colored(copy_color(copy_depth, OptionalChar::Inner)),
+                CharacterData::new_colored(copy_color(
+                    copy_depth,
+                    if *increases_inner {
+                        OptionalChar::InnerIncreasing
+                    } else {
+                        OptionalChar::InnerDecreasing
+                    },
+                )),
             )
         }
         InnerChar::Gap { copy_depth } => Character::new_char(
@@ -935,26 +962,40 @@ fn render_label_char(c: char) -> Character<CharacterData> {
 
 enum OptionalChar {
     NotOptional,
-    Source,
-    Inner,
+    SourceIncreasing,
+    SourceDecreasing,
+    InnerIncreasing,
+    InnerDecreasing,
 }
 
 fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> impl ToString {
     if let Some(copy_depth) = copy_depth {
         match optional {
             OptionalChar::NotOptional => COPY_COLORS[copy_depth % COPY_COLORS.len()],
-            OptionalChar::Source => {
-                OPTIONAL_SOURCE_COPY_COLORS[copy_depth % OPTIONAL_SOURCE_COPY_COLORS.len()]
+            OptionalChar::SourceIncreasing => {
+                OPTIONAL_SOURCE_INCREASING_COPY_COLORS
+                    [copy_depth % OPTIONAL_SOURCE_INCREASING_COPY_COLORS.len()]
             }
-            OptionalChar::Inner => {
-                OPTIONAL_INNER_COPY_COLORS[copy_depth % OPTIONAL_INNER_COPY_COLORS.len()]
+            OptionalChar::SourceDecreasing => {
+                OPTIONAL_SOURCE_DECREASING_COPY_COLORS
+                    [copy_depth % OPTIONAL_SOURCE_DECREASING_COPY_COLORS.len()]
+            }
+            OptionalChar::InnerIncreasing => {
+                OPTIONAL_INNER_INCREASING_COPY_COLORS
+                    [copy_depth % OPTIONAL_INNER_INCREASING_COPY_COLORS.len()]
+            }
+            OptionalChar::InnerDecreasing => {
+                OPTIONAL_INNER_DECREASING_COPY_COLORS
+                    [copy_depth % OPTIONAL_INNER_DECREASING_COPY_COLORS.len()]
             }
         }
     } else {
         match optional {
             OptionalChar::NotOptional => "black",
-            OptionalChar::Source => OPTIONAL_SOURCE_COLOR,
-            OptionalChar::Inner => OPTIONAL_INNER_COLOR,
+            OptionalChar::SourceIncreasing => OPTIONAL_SOURCE_INCREASING_COLOR,
+            OptionalChar::SourceDecreasing => OPTIONAL_SOURCE_DECREASING_COLOR,
+            OptionalChar::InnerIncreasing => OPTIONAL_INNER_INCREASING_COLOR,
+            OptionalChar::InnerDecreasing => OPTIONAL_INNER_DECREASING_COLOR,
         }
     }
 }
@@ -1027,16 +1068,38 @@ fn legend(
         .max(sans_serif_mono::FONT.character_height);
 
     if config.uncertainty_range_mode != UncertaintyRangeMode::None {
-        let uncertainty_label = "BLUE CHARACTERS";
+        let uncertainty_increasing_label = "PURPLE-ISH CHARACTERS";
         result = result.add(svg_string(
-            uncertainty_label
-                .chars()
-                .map(|c| Character::new_char(c, CharacterData::new_colored(OPTIONAL_INNER_COLOR))),
+            uncertainty_increasing_label.chars().map(|c| {
+                Character::new_char(
+                    c,
+                    CharacterData::new_colored(OPTIONAL_INNER_INCREASING_COLOR),
+                )
+            }),
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
-        label_width = label_width
-            .max(uncertainty_label.chars().count() as f32 * typewriter::FONT.character_width);
+        label_width = label_width.max(
+            uncertainty_increasing_label.chars().count() as f32 * typewriter::FONT.character_width,
+        );
+        y += typewriter::FONT
+            .character_height
+            .max(sans_serif_mono::FONT.character_height);
+
+        let uncertainty_decreasing_label = "BLUE CHARACTERS";
+        result = result.add(svg_string(
+            uncertainty_decreasing_label.chars().map(|c| {
+                Character::new_char(
+                    c,
+                    CharacterData::new_colored(OPTIONAL_INNER_DECREASING_COLOR),
+                )
+            }),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        label_width = label_width.max(
+            uncertainty_decreasing_label.chars().count() as f32 * typewriter::FONT.character_width,
+        );
     }
 
     // Explanations.
@@ -1072,16 +1135,33 @@ fn legend(
         .max(sans_serif_mono::FONT.character_height);
 
     if config.uncertainty_range_mode != UncertaintyRangeMode::None {
-        let uncertainty_explanation = "Uncertainty range of the TSM";
+        let uncertainty_increasing_explanation = "Uncertainty range of the TSM, increasing part";
         result = result.add(svg_string(
-            uncertainty_explanation
+            uncertainty_increasing_explanation
                 .chars()
                 .map(Character::<CharacterData>::new_char_with_default),
             &SvgLocation { x: label_width, y },
             &sans_serif_mono::FONT,
         ));
         explanation_width = explanation_width.max(
-            uncertainty_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width,
+            uncertainty_increasing_explanation.chars().count() as f32
+                * sans_serif_mono::FONT.character_width,
+        );
+        y += typewriter::FONT
+            .character_height
+            .max(sans_serif_mono::FONT.character_height);
+
+        let uncertainty_decreasing_explanation = "Uncertainty range of the TSM, decreasing part";
+        result = result.add(svg_string(
+            uncertainty_decreasing_explanation
+                .chars()
+                .map(Character::<CharacterData>::new_char_with_default),
+            &SvgLocation { x: label_width, y },
+            &sans_serif_mono::FONT,
+        ));
+        explanation_width = explanation_width.max(
+            uncertainty_decreasing_explanation.chars().count() as f32
+                * sans_serif_mono::FONT.character_width,
         );
         y += typewriter::FONT
             .character_height

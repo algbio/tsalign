@@ -234,6 +234,11 @@ impl TsArrangement {
         self.source.reference().len()
     }
 
+    /// Returns the first invalid column index right of the arrangement.
+    pub fn limit_column(&self) -> ArrangementColumn {
+        self.width().into()
+    }
+
     pub fn reference_arrangement_char_to_arrangement_column(
         &self,
         column: ArrangementCharColumn,
@@ -342,6 +347,22 @@ impl TsArrangement {
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
         self.inner.inner_last_non_blank_column(inner_identifier)
+    }
+
+    pub fn inner_first_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .inner_first_non_increasing_column(inner_identifier)
+    }
+
+    pub fn inner_last_non_increasing_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .inner_last_non_increasing_column(inner_identifier)
     }
 
     /// Returns the index of the first column that is related to a TSM.

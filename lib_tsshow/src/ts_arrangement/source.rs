@@ -39,6 +39,8 @@ pub enum SourceChar {
     OptionalSource {
         column: SourceColumn,
         lower_case: bool,
+        /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
+        increases_inner: bool,
         copy_depth: Option<usize>,
     },
     Hidden {
@@ -501,7 +503,7 @@ impl TsSourceArrangement {
                 .rev()
                 .filter(|c| c.is_char())
                 .take(usize::try_from(-uncertainty_range.min_start).unwrap())
-                .for_each(|c| c.make_optional());
+                .for_each(|c| c.make_optional(true));
 
             // Mark characters right of SP4 as optional.
             descendant
@@ -509,7 +511,7 @@ impl TsSourceArrangement {
                 .skip(usize::from(sp4_descendant))
                 .filter(|c| c.is_char())
                 .take(usize::try_from(uncertainty_range.max_end).unwrap())
-                .for_each(|c| c.make_optional());
+                .for_each(|c| c.make_optional(true));
 
             // Mark characters right of SP1 as optional.
             descendant
@@ -517,7 +519,7 @@ impl TsSourceArrangement {
                 .skip(usize::from(sp1_descendant))
                 .filter(|c| c.is_char())
                 .take(usize::try_from(uncertainty_range.max_start).unwrap())
-                .for_each(|c| c.make_optional());
+                .for_each(|c| c.make_optional(false));
 
             // Mark characters left of SP4 as optional.
             descendant
@@ -526,7 +528,7 @@ impl TsSourceArrangement {
                 .rev()
                 .filter(|c| c.is_char())
                 .take(usize::try_from(-uncertainty_range.min_end).unwrap())
-                .for_each(|c| c.make_optional());
+                .for_each(|c| c.make_optional(false));
         }
 
         let sp4_reference =
@@ -1004,7 +1006,7 @@ impl SourceChar {
         }
     }
 
-    pub fn make_optional(&mut self) {
+    pub fn make_optional(&mut self, increases_inner: bool) {
         match self {
             Self::Source {
                 column, copy_depth, ..
@@ -1013,6 +1015,7 @@ impl SourceChar {
                 *self = Self::OptionalSource {
                     column: *column,
                     lower_case: false,
+                    increases_inner,
                     copy_depth: *copy_depth,
                 };
             }
@@ -1034,7 +1037,7 @@ impl SourceChar {
             },
             Self::OptionalSource {
                 column, copy_depth, ..
-            } => Self::OptionalSource {
+            } => Self::Source {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
@@ -1061,7 +1064,7 @@ impl SourceChar {
             },
             Self::OptionalSource {
                 column, copy_depth, ..
-            } => Self::OptionalSource {
+            } => Self::Source {
                 column: *column,
                 lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
