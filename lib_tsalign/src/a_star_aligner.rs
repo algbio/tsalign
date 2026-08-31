@@ -284,14 +284,26 @@ where
 
         TSMUncertaintyRangeExtensionMode::EqualCost => {
             info!("Extending TSM uncertainty ranges without increasing cost");
-            result.compute_ts_uncertainty_ranges(reference, query, &range, config);
+            result.compute_ts_uncertainty_ranges(
+                reference,
+                query,
+                &range,
+                config,
+                tsm_uncertainty_range_extension_mode,
+            );
         }
 
         TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry => {
             info!(
                 "Extending TSM uncertainty ranges without increasing cost but ignoring cost increases due to TSM geometry",
             );
-            todo!()
+            result.compute_ts_uncertainty_ranges(
+                reference,
+                query,
+                &range,
+                config,
+                tsm_uncertainty_range_extension_mode,
+            );
         }
     }
 

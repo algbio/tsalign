@@ -4,13 +4,14 @@ use a_star_sequences::SequencePair;
 use alignment::Alignment;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
 use crate::{
     a_star_aligner::{
-        alignment_geometry::AlignmentCoordinates, template_switch_distance::AlignmentType,
+        alignment_geometry::AlignmentCoordinates,
+        template_switch_distance::{AlignmentType, TSMUncertaintyRangeExtensionMode},
     },
     config::TemplateSwitchConfig,
 };
@@ -286,7 +287,7 @@ impl<Cost: AStarCost + From<u64>>
         }
 
         // Compute cost before extending.
-        let mut current_cost = alignment.compute_cost(
+        let mut current_cost = alignment.compute_complete_cost(
             reference,
             query,
             range.reference_offset(),
@@ -325,7 +326,7 @@ impl<Cost: AStarCost + From<u64>>
             }
 
             // Compute cost.
-            let new_cost = alignment.compute_cost(
+            let new_cost = alignment.compute_complete_cost(
                 reference,
                 query,
                 new_range.reference_offset(),
@@ -380,7 +381,7 @@ impl<Cost: AStarCost + From<u64>>
             }
 
             // Compute cost.
-            let new_cost = alignment.compute_cost(
+            let new_cost = alignment.compute_complete_cost(
                 reference,
                 query,
                 new_range.reference_offset(),
@@ -422,6 +423,7 @@ impl<Cost: AStarCost + From<u64>>
         query: &SubsequenceType,
         range: &AlignmentRange,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
+        mode: TSMUncertaintyRangeExtensionMode,
     ) {
         let Self::WithTarget {
             alignment,
@@ -431,6 +433,10 @@ impl<Cost: AStarCost + From<u64>>
             trace!("There is no alignment, therefore we cannot postprocess it.");
             return;
         };
+        if mode == TSMUncertaintyRangeExtensionMode::None {
+            debug!("TSM uncertainty range extension is disabled");
+            return;
+        }
         if config.left_flank_length > 0 || config.right_flank_length > 0 {
             warn!("TS extension does not support flanks");
             return;
@@ -438,6 +444,11 @@ impl<Cost: AStarCost + From<u64>>
 
         let reference_offset = range.reference_offset();
         let query_offset = range.query_offset();
+        let ignore_geometry_cost = match mode {
+            TSMUncertaintyRangeExtensionMode::None => unreachable!(),
+            TSMUncertaintyRangeExtensionMode::EqualCost => false,
+            TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry => true,
+        };
 
         for i in 0..alignment.inner_mut().len() {
             let alignment_type = alignment.inner_mut()[i].1;
@@ -459,6 +470,7 @@ impl<Cost: AStarCost + From<u64>>
                     reference_offset,
                     query_offset,
                     config,
+                    ignore_geometry_cost,
                 );
                 debug_assert_eq!(current_cost, (statistics.cost.round().raw() as u64).into());
 
@@ -480,6 +492,7 @@ impl<Cost: AStarCost + From<u64>>
                             reference_offset,
                             query_offset,
                             config,
+                            ignore_geometry_cost,
                         );
                         if new_cost > current_cost {
                             trace!(
@@ -510,6 +523,7 @@ impl<Cost: AStarCost + From<u64>>
                             reference_offset,
                             query_offset,
                             config,
+                            ignore_geometry_cost,
                         );
                         if new_cost > current_cost {
                             trace!(
@@ -538,6 +552,7 @@ impl<Cost: AStarCost + From<u64>>
                             reference_offset,
                             query_offset,
                             config,
+                            ignore_geometry_cost,
                         );
                         if new_cost > current_cost {
                             trace!(
@@ -566,6 +581,7 @@ impl<Cost: AStarCost + From<u64>>
                             reference_offset,
                             query_offset,
                             config,
+                            ignore_geometry_cost,
                         );
                         if new_cost > current_cost {
                             trace!(
