@@ -6,7 +6,7 @@ use lib_tsalign::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
         alignment_result::AlignmentResult,
         configurable_a_star_align::Aligner,
-        template_switch_distance::AlignmentType,
+        template_switch_distance::{AlignmentType, TSMUncertaintyRangeExtensionMode},
     },
     costs::U64Cost,
 };
@@ -140,6 +140,7 @@ impl TSAligner {
             cost_limit,
             memory_limit,
             true,
+            TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
         );
 
         match result {

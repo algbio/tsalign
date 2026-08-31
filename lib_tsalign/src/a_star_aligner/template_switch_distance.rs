@@ -17,7 +17,10 @@ mod identifier;
 pub mod lower_bounds;
 pub mod strategies;
 
-pub use alignment_type::{AlignmentType, tsm_uncertainty_range::TSMUncertaintyRange};
+pub use alignment_type::{
+    AlignmentType,
+    tsm_uncertainty_range::{TSMUncertaintyRange, TSMUncertaintyRangeExtensionMode},
+};
 pub use context::Context;
 pub use identifier::{
     GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,

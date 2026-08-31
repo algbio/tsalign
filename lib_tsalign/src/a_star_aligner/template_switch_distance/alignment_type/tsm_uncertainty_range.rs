@@ -1,3 +1,17 @@
+/// Determines how the TSM uncertainty ranges are extended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum TSMUncertaintyRangeExtensionMode {
+    /// Keep the TSM uncertainty range empty.
+    None,
+
+    /// Extend the TSM uncertainty range as far as possible without increasing cost.
+    EqualCost,
+
+    /// Extend the TSM uncertainty range as far as possible without increasing cost, but ignore cost increases caused by different TSM geometry.
+    EqualCostIgnoreGeometry,
+}
+
 /// A heuristic range within which the start and end of the TS can be shifted.
 /// This can be without increasing cost, or without introducing mismatches, or possibly other criteria in the future.
 ///

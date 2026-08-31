@@ -10,6 +10,7 @@ use traitsequence::interface::Sequence;
 use crate::{
     a_star_aligner::{
         template_switch_distance::{
+            TSMUncertaintyRangeExtensionMode,
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
@@ -138,6 +139,7 @@ struct QueryData<'a> {
     cost_limit: Option<u64>,
     memory_limit: Option<usize>,
     extend_beyond_range: bool,
+    tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -270,6 +272,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         cost_limit: Option<u64>,
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
+        tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
     ) -> AlignmentResult<AlignmentType, U64Cost> {
         let data = QueryData {
             reference_name,
@@ -281,6 +284,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             cost_limit,
             memory_limit,
             extend_beyond_range,
+            tsm_uncertainty_range_extension_mode,
         };
         self.align_select_min_length_strategy(data)
     }
@@ -484,6 +488,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             data.memory_limit,
             false,
             data.extend_beyond_range,
+            data.tsm_uncertainty_range_extension_mode,
             count_strategy_memory,
         )
     }

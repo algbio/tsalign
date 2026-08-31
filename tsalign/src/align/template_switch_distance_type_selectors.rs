@@ -6,6 +6,7 @@ use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::AlignmentRange,
         template_switch_distance::{
+            TSMUncertaintyRangeExtensionMode,
             context::DynamicStrategies,
             strategies::{
                 AlignmentStrategySelection,
@@ -83,6 +84,32 @@ pub enum TemplateSwitchTotalLengthStrategySelector {
 pub enum TemplateSwitchDescendantStrategySelector {
     AllowAny,
     AllowOnlyAllEqual,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchUncertaintyRangeExtensionModeSelector {
+    /// Keep the TSM uncertainty range empty.
+    None,
+
+    /// Extend the TSM uncertainty range as far as possible without increasing cost.
+    EqualCost,
+
+    /// Extend the TSM uncertainty range as far as possible without increasing cost, but ignore cost increases caused by different TSM geometry.
+    EqualCostIgnoreGeometry,
+}
+
+impl From<TemplateSwitchUncertaintyRangeExtensionModeSelector>
+    for TSMUncertaintyRangeExtensionMode
+{
+    fn from(mode: TemplateSwitchUncertaintyRangeExtensionModeSelector) -> Self {
+        match mode {
+            TemplateSwitchUncertaintyRangeExtensionModeSelector::None => Self::None,
+            TemplateSwitchUncertaintyRangeExtensionModeSelector::EqualCost => Self::EqualCost,
+            TemplateSwitchUncertaintyRangeExtensionModeSelector::EqualCostIgnoreGeometry => {
+                Self::EqualCostIgnoreGeometry
+            }
+        }
+    }
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -543,6 +570,7 @@ fn align_a_star_template_switch_distance_call<
         cli.memory_limit,
         cli.force_label_correcting,
         !cli.dont_extend_beyond_range,
+        cli.ts_uncertainty_range_extension_mode.into(),
         template_switch_count_memory,
     );
     info!("Finished aligning");
