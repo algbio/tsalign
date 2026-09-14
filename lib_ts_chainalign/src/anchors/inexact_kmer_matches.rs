@@ -28,7 +28,7 @@ pub fn compute_inexact_kmers<Store: KmerStore, Cost: AStarCost>(
     {
         for mutations in 0..=max_mutations {
             for (i, target_length) in
-                ((max_mutations - mutations) * 2..).zip(k.saturating_sub(mutations)..=k + mutations)
+                ((max_mutations - mutations)..).zip(k.saturating_sub(mutations)..=k + mutations)
             {
                 let insertion_count = target_length.saturating_sub(k);
                 let deletion_count = k.saturating_sub(target_length);
@@ -44,7 +44,7 @@ pub fn compute_inexact_kmers<Store: KmerStore, Cost: AStarCost>(
                     for (kmer, deletion_cost) in kmer_buffer.drain(..) {
                         generate_kmer_substitutions(
                             kmer,
-                            k,
+                            k - deletion_count,
                             substitution_count,
                             costs,
                             &mut ExtendMap::new(&mut kmers[i], |(kmer, substitution_cost)| {
@@ -88,6 +88,7 @@ pub fn compute_inexact_kmers<Store: KmerStore, Cost: AStarCost>(
         }
     }
 
+    // Sort and deduplicate k-mers, and filter suboptimal k-mers.
     for kmers in &mut kmers {
         kmers.sort_unstable();
         let mut previous = (Kmer::<Store>::default(), usize::MAX, Cost::max_value());
