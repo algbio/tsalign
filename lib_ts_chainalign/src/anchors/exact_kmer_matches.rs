@@ -5,6 +5,9 @@ use num_traits::bounds::LowerBounded;
 
 use crate::anchors::kmers::{Kmer, KmerStore};
 
+#[cfg(test)]
+mod tests;
+
 struct Cluster<Store> {
     indexes_a: Vec<usize>,
     indexes_b: Vec<usize>,
@@ -27,6 +30,17 @@ impl<Store> Cluster<Store> {
 
         iproduct!(indexes_a, indexes_b)
     }
+}
+
+pub fn compute_exact_kmers<Store: KmerStore>(
+    sequence: &[u8],
+    k: usize,
+) -> Vec<(Kmer<Store>, usize)> {
+    let mut kmers: Vec<_> = (0..(sequence.len() + 1).saturating_sub(k))
+        .map(|offset| (Kmer::<Store>::from(&sequence[offset..offset + k]), offset))
+        .collect();
+    kmers.sort_unstable();
+    kmers
 }
 
 pub fn find_exact_kmer_matches<Store: KmerStore>(
