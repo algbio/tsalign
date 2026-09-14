@@ -317,7 +317,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 ) => {
                     if anchors
                         .primary(from_index)
-                        .is_direct_predecessor_of(anchors.primary(to_index))
+                        .is_direct_free_predecessor_of(anchors.primary(to_index))
                     {
                         alignments.push(Alignment::from(vec![AlignmentType::Match]));
                         continue;

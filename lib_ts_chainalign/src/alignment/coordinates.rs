@@ -5,6 +5,8 @@ use crate::alignment::{
     ts_kind::{TsAncestor, TsDescendant, TsKind},
 };
 
+pub mod range;
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum AlignmentCoordinates {
     Primary(PrimaryAlignmentCoordinates),

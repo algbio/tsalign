@@ -1,5 +1,7 @@
 use crate::{
-    alignment::{sequences::AlignmentSequences, ts_kind::TsKind},
+    alignment::{
+        coordinates::range::PrimaryAlignmentRange, sequences::AlignmentSequences, ts_kind::TsKind,
+    },
     anchors::{Anchors, PrimaryAnchor, SecondaryAnchor},
 };
 
@@ -21,7 +23,11 @@ fn test_coordinates() {
     let anchors = Anchors::new_exact(&sequences, k, &rc_fn);
     assert_eq!(
         anchors.primary,
-        [(0, 0, 0), (2, 0, 0)].map(PrimaryAnchor::from)
+        [
+            (PrimaryAlignmentRange::new_from_ranges(0..2, 0..2), 0),
+            (PrimaryAlignmentRange::new_from_ranges(2..4, 0..2), 0)
+        ]
+        .map(PrimaryAnchor::from)
     );
     assert!(anchors.secondary_anchor_vec(TsKind::TS11).is_empty());
     assert_eq!(
@@ -46,7 +52,11 @@ fn test_coordinates_rev() {
     let anchors = Anchors::new_exact(&sequences, k, &rc_fn);
     assert_eq!(
         anchors.primary,
-        [(0, 0, 0), (0, 2, 0)].map(PrimaryAnchor::from)
+        [
+            (PrimaryAlignmentRange::new_from_ranges(0..2, 0..2), 0),
+            (PrimaryAlignmentRange::new_from_ranges(0..2, 2..4), 0)
+        ]
+        .map(PrimaryAnchor::from)
     );
     assert!(anchors.secondary_anchor_vec(TsKind::TS22).is_empty());
     assert_eq!(
