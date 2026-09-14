@@ -6,7 +6,10 @@ use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::{PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates},
+        coordinates::{
+            PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
+            range::PrimaryAlignmentRange,
+        },
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
@@ -89,7 +92,9 @@ impl<Cost> Anchors<Cost> {
         // Compute anchors.
         let mut primary: Vec<_> = find_exact_kmer_matches(&s1_kmers, &s2_kmers)
             .into_iter()
-            .map(|(seq1, seq2)| PrimaryAnchor::new(seq1, seq2, Cost::zero()))
+            .map(|(seq1, seq2)| {
+                PrimaryAnchor::new_from_ranges(seq1..seq1 + k, seq2..seq2 + k, Cost::zero())
+            })
             .collect();
         let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
@@ -218,15 +223,12 @@ impl<Cost> Anchors<Cost> {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
-    pub fn primary_index_from_start_coordinates(
-        &self,
-        start: PrimaryAlignmentCoordinates,
-    ) -> Option<AnchorIndex>
+    pub fn primary_index_from_range(&self, range: PrimaryAlignmentRange) -> Option<AnchorIndex>
     where
         Cost: Copy,
     {
         self.enumerate_primaries()
-            .filter_map(|(index, anchor)| (anchor.is_at(start)).then_some(index))
+            .filter_map(|(index, anchor)| (anchor.is_at(range)).then_some(index))
             .next()
     }
 
