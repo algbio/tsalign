@@ -140,7 +140,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             // Fill primary from from_index with exact values.
             additional_primary_targets_output.clear();
             primary_aligner.align_until_cost_limit(
-                from_anchor.end(k),
+                from_anchor.end(),
                 max_exact_cost_function_cost,
                 &mut additional_primary_targets_output,
                 &mut PanicOnExtend,
@@ -169,7 +169,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
 
             // Fill remaining primary with lower bound.
-            let (gap1, gap2) = from_anchor.chaining_gaps_to_end(end, k);
+            let (gap1, gap2) = from_anchor.chaining_gaps_to_end(end);
             if gap1 == 0 && gap2 == 0 {
                 // Allow last primary anchor to chain without gaps to end anchor.
                 primary[[from_index, primary_end_anchor_index]] = Cost::zero();
@@ -182,13 +182,13 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
             for (to_index, to_anchor) in anchors.enumerate_primaries() {
                 let to_index = to_index + 1;
-                if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor, k) {
+                if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor) {
                     primary[[from_index, to_index]] = chaining_lower_bounds
                         .primary_lower_bound(gap1, gap2)
                         .max(max_exact_cost_function_cost + Cost::from_usize(1))
                         .min(primary[[from_index, to_index]]);
                 }
-                if from_anchor.is_direct_predecessor_of(&to_anchor) {
+                if from_anchor.is_direct_free_predecessor_of(&to_anchor) {
                     debug_assert!(
                         primary[[from_index, to_index]].is_zero()
                             || primary[[from_index, to_index]] == Cost::max_value()
@@ -289,7 +289,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill 12-jumps with lower bound.
                 let mut eligible_anchors = Vec::new();
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
-                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
+                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind) {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
                         jump_12[[from_index, to_index]] = lower_bound.max(
                             max_exact_cost_function_cost
@@ -330,7 +330,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     let start = Instant::now();
                     total_12_jump_exact_evaluation_opened_nodes += ts_12_jump_aligner
                         .align_until_cost_limit(
-                            anchors.primary(from_index - 1).end(k),
+                            anchors.primary(from_index - 1).end(),
                             align_end,
                             max_exact_cost_function_cost
                                 + chaining_lower_bounds

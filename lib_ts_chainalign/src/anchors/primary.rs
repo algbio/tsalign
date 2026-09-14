@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Range};
 
 use crate::{
     alignment::{
-        coordinates::{AlignmentCoordinates, PrimaryAlignmentCoordinates},
+        coordinates::{PrimaryAlignmentCoordinates, range::PrimaryAlignmentRange},
         ts_kind::{TsDescendant, TsKind},
     },
     anchors::secondary::SecondaryAnchor,
@@ -15,48 +15,25 @@ use crate::{
 /// The anchor is ordered by its minimum ordinate first, then by its first ordinate and finally by its second ordinate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PrimaryAnchor<Cost> {
-    coordinates: PrimaryAlignmentCoordinates,
+    range: PrimaryAlignmentRange,
     cost: Cost,
 }
 
 impl<Cost> PrimaryAnchor<Cost> {
-    pub fn new(seq1: usize, seq2: usize, cost: Cost) -> Self {
-        Self::new_from_start(PrimaryAlignmentCoordinates::new(seq1, seq2), cost)
+    pub fn new(range: PrimaryAlignmentRange, cost: Cost) -> Self {
+        Self { range, cost }
     }
 
-    pub fn new_from_start(alignment_coordinates: PrimaryAlignmentCoordinates, cost: Cost) -> Self {
-        Self {
-            coordinates: alignment_coordinates,
-            cost,
-        }
-    }
-
-    pub fn new_from_end(
-        alignment_coordinates: &AlignmentCoordinates,
-        k: usize,
-        cost: Cost,
-    ) -> Self {
-        Self::new(
-            alignment_coordinates
-                .primary_ordinate_a()
-                .unwrap()
-                .checked_sub(k)
-                .unwrap(),
-            alignment_coordinates
-                .primary_ordinate_b()
-                .unwrap()
-                .checked_sub(k)
-                .unwrap(),
-            cost,
-        )
+    pub fn new_from_ranges(seq1: Range<usize>, seq2: Range<usize>, cost: Cost) -> Self {
+        Self::new(PrimaryAlignmentRange::new_from_ranges(seq1, seq2), cost)
     }
 
     pub fn start(&self) -> PrimaryAlignmentCoordinates {
-        self.coordinates
+        self.range.offset()
     }
 
-    pub fn end(&self, k: usize) -> PrimaryAlignmentCoordinates {
-        self.coordinates.increment_both(k)
+    pub fn end(&self) -> PrimaryAlignmentCoordinates {
+        self.range.limit()
     }
 
     pub fn cost(&self) -> Cost
@@ -66,16 +43,17 @@ impl<Cost> PrimaryAnchor<Cost> {
         self.cost
     }
 
-    pub fn is_at(&self, coordinates: PrimaryAlignmentCoordinates) -> bool {
-        self.coordinates == coordinates
+    pub fn is_at(&self, range: PrimaryAlignmentRange) -> bool {
+        self.range == range
     }
 
-    pub fn chaining_gaps(&self, second: &Self, k: usize) -> Option<(usize, usize)> {
-        let gap_start = self.end(k);
+    pub fn chaining_gaps(&self, second: &Self) -> Option<(usize, usize)> {
+        let gap_start = self.end();
         let gap_end = second.start();
         primary_chaining_gaps(gap_start, gap_end)
     }
 
+    /// Returns the gap between given start coordinates and the start of this anchor.
     pub fn chaining_gaps_from_start(&self, start: PrimaryAlignmentCoordinates) -> (usize, usize)
     where
         Cost: Display,
@@ -85,13 +63,13 @@ impl<Cost> PrimaryAnchor<Cost> {
             .unwrap_or_else(|| panic!("self: {self}, start: {start}"))
     }
 
-    pub fn chaining_gaps_to_end(&self, end: PrimaryAlignmentCoordinates, k: usize) -> (usize, usize)
+    /// Returns the gap between the end of this anchor and given end coordinates.
+    pub fn chaining_gaps_to_end(&self, end: PrimaryAlignmentCoordinates) -> (usize, usize)
     where
         Cost: Display,
     {
-        let gap_start = self.end(k);
-        primary_chaining_gaps(gap_start, end)
-            .unwrap_or_else(|| panic!("self: {self}, end: {end}, k: {k}"))
+        let gap_start = self.end();
+        primary_chaining_gaps(gap_start, end).unwrap_or_else(|| panic!("self: {self}, end: {end}"))
     }
 
     /// Returns the gap in the descendant for the 12-jump from this anchor to the given anchor.
@@ -99,9 +77,8 @@ impl<Cost> PrimaryAnchor<Cost> {
         &self,
         second: &SecondaryAnchor<Cost>,
         ts_kind: TsKind,
-        k: usize,
     ) -> Option<usize> {
-        let gap_start = self.end(k);
+        let gap_start = self.end();
         let gap_end = second.start();
 
         let gap_start = match ts_kind.descendant {
@@ -113,7 +90,9 @@ impl<Cost> PrimaryAnchor<Cost> {
         gap_end.checked_sub(gap_start)
     }
 
-    pub fn is_direct_predecessor_of(&self, successor: &Self) -> bool {
+    /// Returns true if this anchor preceedes the other anchor with an overlap of k-1 characters in both sequences.
+    pub fn is_direct_free_predecessor_of(&self, successor: &Self) -> bool {
+        // TODO how do we account for predecessors that are inexact anchors? do we need to?
         self.coordinates.increment_both(1) == successor.coordinates
     }
 }
@@ -130,24 +109,25 @@ fn primary_chaining_gaps(
 
 impl<Cost: Display> Display for PrimaryAnchor<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PA({}, {})", self.coordinates, self.cost)
+        write!(f, "PA({}, {})", self.range, self.cost)
     }
 }
 
-impl<Cost> From<(usize, usize, Cost)> for PrimaryAnchor<Cost> {
-    fn from(value: (usize, usize, Cost)) -> Self {
-        Self::new(value.0, value.1, value.2)
+impl<Cost> From<(PrimaryAlignmentRange, Cost)> for PrimaryAnchor<Cost> {
+    fn from(value: (PrimaryAlignmentRange, Cost)) -> Self {
+        Self::new(value.0, value.1)
     }
 }
 
 impl<Cost: Ord> Ord for PrimaryAnchor<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.coordinates
+        self.range
+            .offset()
             .a()
-            .min(self.coordinates.b())
-            .cmp(&other.coordinates.a().min(other.coordinates.b()))
-            .then_with(|| self.coordinates.a().cmp(&other.coordinates.a()))
-            .then_with(|| self.coordinates.b().cmp(&other.coordinates.b()))
+            .min(self.range.offset().b())
+            .cmp(&other.range.offset().a().min(other.range.offset().b()))
+            .then_with(|| self.range.offset().a().cmp(&other.range.offset().a()))
+            .then_with(|| self.range.offset().b().cmp(&other.range.offset().b()))
             .then_with(|| self.cost.cmp(&other.cost))
     }
 }
