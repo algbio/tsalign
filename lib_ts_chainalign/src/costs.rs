@@ -82,6 +82,14 @@ impl<Cost> GapAffineCosts<Cost> {
         }
         self.gap_open + self.gap_extend * Cost::from_usize(gap_length - 1)
     }
+
+    pub fn into_costs<ToCost: From<Cost>>(self) -> GapAffineCosts<ToCost> {
+        GapAffineCosts::new(
+            ToCost::from(self.substitution),
+            ToCost::from(self.gap_open),
+            ToCost::from(self.gap_extend),
+        )
+    }
 }
 
 impl TsLimits {

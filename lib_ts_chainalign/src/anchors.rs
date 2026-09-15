@@ -8,7 +8,9 @@ use crate::{
     alignment::{
         coordinates::{
             AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
-            range::{PrimaryAlignmentRange, SpecificSecondaryAlignmentRange},
+            range::{
+                AnySecondaryAlignmentRange, PrimaryAlignmentRange, SpecificSecondaryAlignmentRange,
+            },
         },
         sequences::AlignmentSequences,
         ts_kind::TsKind,
@@ -208,6 +210,8 @@ impl<Cost> Anchors<Cost> {
         let s2 = sequences.seq2();
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
+        let s1_rc = s1_rc.as_slice();
+        let s2_rc = s2_rc.as_slice();
 
         // Compute k-mers.
         let s1_inexact_kmers = compute_inexact_kmers::<Store, _>(
@@ -217,10 +221,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
             costs,
         );
-        let s1_exact_kmers: Vec<_> = compute_exact_kmers_range::<Store>(
-            &s1[sequences.primary_start().a()..sequences.primary_end().a()],
-            sequences.primary_start().a(),
-            &k_range,
+        let s2_inexact_kmers = compute_inexact_kmers::<Store, _>(
+            &s2[sequences.primary_start().b()..sequences.primary_end().b()],
+            sequences.primary_start().b(),
+            k,
+            max_mutations,
+            costs,
         );
         let s2_exact_kmers: Vec<_> = compute_exact_kmers_range(
             &s2[sequences.primary_start().b()..sequences.primary_end().b()],
@@ -228,14 +234,17 @@ impl<Cost> Anchors<Cost> {
             &k_range,
         );
 
+        let s1_rc_exact_kmers = compute_exact_kmers_range::<Store>(s1_rc, 0, &k_range);
+        let s2_rc_exact_kmers = compute_exact_kmers_range::<Store>(s2_rc, 0, &k_range);
+
         // Compute anchors.
         let mut primary: Vec<_> = k_range
             .clone()
             .zip(s1_inexact_kmers.iter().zip(s2_exact_kmers.iter()))
-            .flat_map(|(local_k, (s1, s2))| {
-                find_inexact_kmer_matches(s1, s2).into_iter().map(
-                    move |(offset1, offset2, cost)| {
-                        // TODO trim inexact anchors.
+            .flat_map(|(local_k, (s1_kmers, s2_kmers))| {
+                find_inexact_kmer_matches(s1_kmers, s2_kmers)
+                    .into_iter()
+                    .map(move |(offset1, offset2, cost)| {
                         PrimaryAnchor::new(
                             PrimaryAlignmentRange::new(
                                 PrimaryAlignmentCoordinates::new(offset1, offset2),
@@ -245,12 +254,160 @@ impl<Cost> Anchors<Cost> {
                             ),
                             cost,
                         )
-                    },
-                )
+                        .trim(s1, s2)
+                    })
+            })
+            .collect();
+        let secondary_11: Vec<_> = k_range
+            .clone()
+            .zip(s1_inexact_kmers.iter().zip(s1_rc_exact_kmers.iter()))
+            .flat_map(|(local_k, (s1_inexact_kmers, s1_rc_exact_kmers))| {
+                find_inexact_kmer_matches(s1_inexact_kmers, s1_rc_exact_kmers)
+                    .into_iter()
+                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                        SecondaryAnchor::new(
+                            AnySecondaryAlignmentRange::new(
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s1.len() - offset_ancestor,
+                                    offset_descendant,
+                                ),
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s1.len() - offset_ancestor - k,
+                                    offset_descendant + local_k,
+                                ),
+                            ),
+                            cost,
+                        )
+                        .trim(s1_rc, s1)
+                    })
+            })
+            .collect();
+        let secondary_12: Vec<_> = k_range
+            .clone()
+            .zip(s2_inexact_kmers.iter().zip(s1_rc_exact_kmers.iter()))
+            .flat_map(|(local_k, (s2_inexact_kmers, s1_rc_exact_kmers))| {
+                find_inexact_kmer_matches(s2_inexact_kmers, s1_rc_exact_kmers)
+                    .into_iter()
+                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                        SecondaryAnchor::new(
+                            AnySecondaryAlignmentRange::new(
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s1.len() - offset_ancestor,
+                                    offset_descendant,
+                                ),
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s1.len() - offset_ancestor - k,
+                                    offset_descendant + local_k,
+                                ),
+                            ),
+                            cost,
+                        )
+                        .trim(s1_rc, s2)
+                    })
+            })
+            .collect();
+        let secondary_21: Vec<_> = k_range
+            .clone()
+            .zip(s1_inexact_kmers.iter().zip(s2_rc_exact_kmers.iter()))
+            .flat_map(|(local_k, (s1_inexact_kmers, s2_rc_exact_kmers))| {
+                find_inexact_kmer_matches(s1_inexact_kmers, s2_rc_exact_kmers)
+                    .into_iter()
+                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                        SecondaryAnchor::new(
+                            AnySecondaryAlignmentRange::new(
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s2.len() - offset_ancestor,
+                                    offset_descendant,
+                                ),
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s2.len() - offset_ancestor - k,
+                                    offset_descendant + local_k,
+                                ),
+                            ),
+                            cost,
+                        )
+                        .trim(s2_rc, s1)
+                    })
+            })
+            .collect();
+        let secondary_22: Vec<_> = k_range
+            .clone()
+            .zip(s2_inexact_kmers.iter().zip(s2_rc_exact_kmers.iter()))
+            .flat_map(|(local_k, (s2_inexact_kmers, s2_rc_exact_kmers))| {
+                find_inexact_kmer_matches(s2_inexact_kmers, s2_rc_exact_kmers)
+                    .into_iter()
+                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                        SecondaryAnchor::new(
+                            AnySecondaryAlignmentRange::new(
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s2.len() - offset_ancestor,
+                                    offset_descendant,
+                                ),
+                                AnySecondaryAlignmentCoordinates::new(
+                                    s2.len() - offset_ancestor - k,
+                                    offset_descendant + local_k,
+                                ),
+                            ),
+                            cost,
+                        )
+                        .trim(s2_rc, s2)
+                    })
             })
             .collect();
 
-        todo!()
+        let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
+
+        // Sort anchors.
+        primary.sort_unstable();
+        for secondary in &mut secondaries {
+            secondary.sort_unstable();
+        }
+
+        // Deduplicate anchors and remove anchors with suboptimal cost.
+        let mut previous_primary =
+            PrimaryAnchor::new_exact(PrimaryAlignmentCoordinates::new(usize::MAX, usize::MAX), 0);
+        primary.retain(|primary| {
+            if primary.is_at(previous_primary.range()) {
+                debug_assert!(primary.cost() <= previous_primary.cost());
+                false
+            } else {
+                previous_primary = *primary;
+                true
+            }
+        });
+        for secondary in &mut secondaries {
+            let mut previous_secondary = SecondaryAnchor::new_exact(
+                AnySecondaryAlignmentCoordinates::new(usize::MAX, usize::MAX),
+                0,
+            );
+            secondary.retain(|secondary| {
+                if secondary.is_at(previous_secondary.range()) {
+                    debug_assert!(secondary.cost() <= previous_secondary.cost());
+                    false
+                } else {
+                    previous_secondary = *secondary;
+                    true
+                }
+            });
+        }
+
+        let duration = start_time.elapsed();
+
+        info!(
+            "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
+            primary.len() + secondaries.iter().map(Vec::len).sum::<usize>(),
+            primary.len(),
+            secondaries[0].len(),
+            secondaries[1].len(),
+            secondaries[2].len(),
+            secondaries[3].len(),
+            duration.as_secs_f64() * 1e3,
+        );
+
+        Self {
+            primary,
+            secondaries,
+        }
     }
 
     pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {

@@ -60,6 +60,14 @@ impl PrimaryAlignmentRange {
     pub fn limit(&self) -> PrimaryAlignmentCoordinates {
         self.limit
     }
+
+    pub fn len_a(&self) -> usize {
+        self.limit.a() - self.offset.a()
+    }
+
+    pub fn len_b(&self) -> usize {
+        self.limit.b() - self.offset.b()
+    }
 }
 
 impl AnySecondaryAlignmentRange {
@@ -100,6 +108,20 @@ impl AnySecondaryAlignmentRange {
 
     pub fn into_specific(self, ts_kind: TsKind) -> SpecificSecondaryAlignmentRange {
         SpecificSecondaryAlignmentRange::new(self.offset, self.limit, ts_kind)
+    }
+
+    pub fn len_ancestor(&self) -> usize {
+        self.offset
+            .ancestor()
+            .checked_sub(self.limit.ancestor())
+            .unwrap()
+    }
+
+    pub fn len_descendant(&self) -> usize {
+        self.limit
+            .descendant()
+            .checked_sub(self.offset.descendant())
+            .unwrap()
     }
 }
 
