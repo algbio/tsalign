@@ -40,6 +40,10 @@ impl<Cost> PrimaryAnchor<Cost> {
         )
     }
 
+    pub fn range(&self) -> PrimaryAlignmentRange {
+        self.range
+    }
+
     pub fn start(&self) -> PrimaryAlignmentCoordinates {
         self.range.offset()
     }
@@ -118,6 +122,38 @@ impl<Cost> PrimaryAnchor<Cost> {
             && self.cost.is_zero()
             && successor.cost.is_zero()
     }
+
+    /// Removes leading and trailing matches from the anchor, except if the anchor is only matches, then nothing is removed.
+    pub fn trim(self, s1: &[u8], s2: &[u8]) -> Self {
+        let leading_matches = s1[self.start().a()..self.end().a()]
+            .iter()
+            .zip(s2[self.start().b()..self.end().b()].iter())
+            .take_while(|(c1, c2)| c1 == c2)
+            .count();
+
+        if leading_matches == self.range.len_a() && leading_matches == self.range.len_b() {
+            return self;
+        }
+
+        let trailing_matches = s1[self.start().a()..self.end().a()]
+            .iter()
+            .zip(s2[self.start().b()..self.end().b()].iter())
+            .rev()
+            .take_while(|(c1, c2)| c1 == c2)
+            .count();
+
+        // TODO: what happens e.g. for trimming AAA vs AA? these assertions fail, and the trimming is ambiguous.
+        debug_assert!(leading_matches + trailing_matches <= self.range.len_a());
+        debug_assert!(leading_matches + trailing_matches <= self.range.len_b());
+
+        Self::new(
+            PrimaryAlignmentRange::new_from_ranges(
+                self.start().a() + leading_matches..self.end().a() - trailing_matches,
+                self.start().b() + leading_matches..self.end().b() - trailing_matches,
+            ),
+            self.cost,
+        )
+    }
 }
 
 fn primary_chaining_gaps(
@@ -151,6 +187,7 @@ impl<Cost: Ord> Ord for PrimaryAnchor<Cost> {
             .cmp(&other.range.offset().a().min(other.range.offset().b()))
             .then_with(|| self.range.offset().a().cmp(&other.range.offset().a()))
             .then_with(|| self.range.offset().b().cmp(&other.range.offset().b()))
+            .then_with(|| self.range.limit().cmp(&other.range.limit()))
             .then_with(|| self.cost.cmp(&other.cost))
     }
 }

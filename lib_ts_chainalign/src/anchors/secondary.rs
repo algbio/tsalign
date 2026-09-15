@@ -55,6 +55,10 @@ impl<Cost> SecondaryAnchor<Cost> {
         )
     }
 
+    pub fn range(&self) -> AnySecondaryAlignmentRange {
+        self.range
+    }
+
     pub fn start(&self) -> AnySecondaryAlignmentCoordinates {
         self.range.offset()
     }
@@ -164,6 +168,43 @@ impl<Cost> SecondaryAnchor<Cost> {
         (start.ancestor().checked_sub(end.ancestor()).unwrap())
             .max(end.descendant().checked_sub(start.descendant()).unwrap())
     }
+
+    /// Removes leading and trailing matches from the anchor, except if the anchor is only matches, then nothing is removed.
+    pub fn trim(self, ancestor_rc: &[u8], descendant: &[u8]) -> Self {
+        let leading_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
+            .iter()
+            .rev()
+            .zip(descendant[self.start().descendant()..self.end().descendant()].iter())
+            .take_while(|(c1, c2)| c1 == c2)
+            .count();
+
+        if leading_matches == self.range.len_ancestor()
+            && leading_matches == self.range.len_descendant()
+        {
+            return self;
+        }
+
+        let trailing_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
+            .iter()
+            .rev()
+            .zip(descendant[self.start().descendant()..self.end().descendant()].iter())
+            .rev()
+            .take_while(|(c1, c2)| c1 == c2)
+            .count();
+
+        debug_assert!(leading_matches + trailing_matches <= self.range.len_ancestor());
+        debug_assert!(leading_matches + trailing_matches <= self.range.len_descendant());
+
+        Self::new(
+            AnySecondaryAlignmentRange::new_from_ranges(
+                self.start().ancestor() - leading_matches,
+                self.end().ancestor() + trailing_matches,
+                self.start().descendant() + leading_matches
+                    ..self.end().descendant() - trailing_matches,
+            ),
+            self.cost,
+        )
+    }
 }
 
 impl<Cost: Display> Display for SecondaryAnchor<Cost> {
@@ -203,6 +244,7 @@ impl<Cost: Ord> Ord for SecondaryAnchor<Cost> {
                     .descendant()
                     .cmp(&other.range.offset().descendant())
             })
+            .then_with(|| self.range.limit().cmp(&other.range.limit()))
             .then_with(|| self.cost.cmp(&other.cost))
     }
 }
