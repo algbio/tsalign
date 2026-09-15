@@ -32,12 +32,22 @@ impl<Store> Cluster<Store> {
     }
 }
 
+/// Computes all k-mers of a sequence and returns them in alphabetical order.
+///
+/// * `applied_sequence_offset` is the offset to apply to the k-mer positions.
+///   If the sequence is for example a subsequence starting at position `i`, then `applied_sequence_offset` should be set to `i`.
 pub fn compute_exact_kmers<Store: KmerStore>(
     sequence: &[u8],
+    applied_sequence_offset: usize,
     k: usize,
 ) -> Vec<(Kmer<Store>, usize)> {
     let mut kmers: Vec<_> = (0..(sequence.len() + 1).saturating_sub(k))
-        .map(|offset| (Kmer::<Store>::from(&sequence[offset..offset + k]), offset))
+        .map(|offset| {
+            (
+                Kmer::<Store>::from(&sequence[offset..offset + k]),
+                applied_sequence_offset + offset,
+            )
+        })
         .collect();
     kmers.sort_unstable();
     kmers
