@@ -369,10 +369,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                             let first_anchor =
                                 &self.anchors.secondary(first_secondary_index, ts_kind);
-                            let ts_length = first_anchor.ts_length_until(
-                                self.anchors.secondary(successor_index, ts_kind),
-                                self.k,
-                            );
+                            let ts_length = first_anchor
+                                .ts_length_until(self.anchors.secondary(successor_index, ts_kind));
 
                             Some(generate_secondary_successors(
                                 successor_index,

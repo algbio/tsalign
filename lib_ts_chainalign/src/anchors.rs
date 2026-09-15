@@ -7,8 +7,8 @@ use num_traits::Zero;
 use crate::{
     alignment::{
         coordinates::{
-            PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
-            range::PrimaryAlignmentRange,
+            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+            range::{PrimaryAlignmentRange, SpecificSecondaryAlignmentRange},
         },
         sequences::AlignmentSequences,
         ts_kind::TsKind,
@@ -103,25 +103,37 @@ impl<Cost> Anchors<Cost> {
         let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| {
-                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s1.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
         let secondary_12: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| {
-                SecondaryAnchor::new(s1.len() - ancestor, descendant, Cost::zero())
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s1.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
         let secondary_21: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| {
-                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s2.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
         let secondary_22: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| {
-                SecondaryAnchor::new(s2.len() - ancestor, descendant, Cost::zero())
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s2.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
         let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
@@ -223,6 +235,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s1, s2))| {
                 find_inexact_kmer_matches(s1, s2).into_iter().map(
                     move |(offset1, offset2, cost)| {
+                        // TODO trim inexact anchors.
                         PrimaryAnchor::new(
                             PrimaryAlignmentRange::new(
                                 PrimaryAlignmentCoordinates::new(offset1, offset2),
@@ -294,9 +307,9 @@ impl<Cost> Anchors<Cost> {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
-    pub fn secondary_index_from_start_coordinates(
+    pub fn secondary_index_from_range(
         &self,
-        start: SpecificSecondaryAlignmentCoordinates,
+        start: SpecificSecondaryAlignmentRange,
     ) -> Option<AnchorIndex>
     where
         Cost: Copy,
