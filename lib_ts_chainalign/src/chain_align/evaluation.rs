@@ -266,7 +266,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 (Identifier::SecondaryToPrimary { index, ts_kind, .. }, Identifier::End) => {
                     let start = anchors
                         .secondary(index, ts_kind)
-                        .end(k)
+                        .end()
                         .into_specific(ts_kind);
                     if final_evaluation
                         || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
@@ -447,14 +447,14 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     assert_eq!(ts_kind, to_ts_kind);
                     if anchors
                         .secondary(from_index, ts_kind)
-                        .is_direct_predecessor_of(anchors.secondary(to_index, ts_kind))
+                        .is_direct_free_predecessor_of(anchors.secondary(to_index, ts_kind))
                     {
                         alignments.push(Alignment::from(vec![AlignmentType::Match]));
                         continue;
                     }
                     let start = anchors
                         .secondary(from_index, ts_kind)
-                        .end(k)
+                        .end()
                         .into_specific(ts_kind);
                     let end = anchors
                         .secondary(to_index, ts_kind)
@@ -515,7 +515,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 ) => {
                     let start = anchors
                         .secondary(from_index, ts_kind)
-                        .end(k)
+                        .end()
                         .into_specific(ts_kind);
                     let end = anchors.primary(to_index).start();
                     if final_evaluation

@@ -21,7 +21,7 @@ pub struct PrimaryAlignmentCoordinates {
 }
 
 /// Alignment coordinates in the secondary sequence space, without specifying which secondary sequence space.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct AnySecondaryAlignmentCoordinates {
     /// Ancestor right index in the forward sequence.
     ancestor: usize,
@@ -578,6 +578,10 @@ impl SpecificSecondaryAlignmentCoordinates {
         self.ts_kind
     }
 
+    pub fn into_any(self) -> AnySecondaryAlignmentCoordinates {
+        self.coordinates
+    }
+
     pub fn increment_ancestor(self) -> Self {
         Self {
             coordinates: self.coordinates.increment_ancestor(),
@@ -724,10 +728,10 @@ impl Display for SpecificSecondaryAlignmentCoordinates {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "S({}, {}, {})",
+            "S{}({}, {})",
+            self.ts_kind.digits(),
             self.ancestor(),
             self.descendant(),
-            self.ts_kind,
         )
     }
 }
@@ -765,5 +769,21 @@ impl From<&'_ SpecificSecondaryAlignmentCoordinates> for AlignmentCoordinates {
 impl From<&'_ SpecificSecondaryAlignmentCoordinates> for AnySecondaryAlignmentCoordinates {
     fn from(value: &SpecificSecondaryAlignmentCoordinates) -> Self {
         value.coordinates
+    }
+}
+
+impl Ord for AnySecondaryAlignmentCoordinates {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // In a standard TSM, the ancestor is read in reverse.
+        self.ancestor()
+            .cmp(&other.ancestor())
+            .reverse()
+            .then_with(|| self.descendant().cmp(&other.descendant()))
+    }
+}
+
+impl PartialOrd for AnySecondaryAlignmentCoordinates {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }

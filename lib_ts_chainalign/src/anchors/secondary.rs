@@ -1,8 +1,13 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Range};
+
+use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
+        coordinates::{
+            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+            range::AnySecondaryAlignmentRange,
+        },
         ts_kind::{TsDescendant, TsKind},
     },
     anchors::primary::PrimaryAnchor,
@@ -15,34 +20,47 @@ use crate::{
 /// The anchor is ordered by its minimum ordinate first, then by its ancestor ordinate and finally by its descendant ordinate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SecondaryAnchor<Cost> {
-    coordinates: AnySecondaryAlignmentCoordinates,
+    range: AnySecondaryAlignmentRange,
     pub(super) cost: Cost,
 }
 
 impl<Cost> SecondaryAnchor<Cost> {
-    pub fn new(ancestor: usize, descendant: usize, cost: Cost) -> Self {
-        Self::new_from_start(
-            AnySecondaryAlignmentCoordinates::new(ancestor, descendant),
+    pub fn new(range: AnySecondaryAlignmentRange, cost: Cost) -> Self {
+        Self { range, cost }
+    }
+
+    pub fn new_from_ranges(
+        ancestor_offset: usize,
+        ancestor_limit: usize,
+        descendant: Range<usize>,
+        cost: Cost,
+    ) -> Self {
+        Self::new(
+            AnySecondaryAlignmentRange::new_from_ranges(
+                ancestor_offset,
+                ancestor_limit,
+                descendant,
+            ),
             cost,
         )
     }
 
-    pub fn new_from_start(
-        alignment_coordinates: AnySecondaryAlignmentCoordinates,
-        cost: Cost,
-    ) -> Self {
-        Self {
-            coordinates: alignment_coordinates,
-            cost,
-        }
+    pub fn new_exact(offset: AnySecondaryAlignmentCoordinates, length: usize) -> Self
+    where
+        Cost: Zero,
+    {
+        Self::new(
+            AnySecondaryAlignmentRange::new_equal_length(offset, length),
+            Cost::zero(),
+        )
     }
 
     pub fn start(&self) -> AnySecondaryAlignmentCoordinates {
-        self.coordinates
+        self.range.offset()
     }
 
-    pub fn end(&self, k: usize) -> AnySecondaryAlignmentCoordinates {
-        self.coordinates.increment_both(k)
+    pub fn end(&self) -> AnySecondaryAlignmentCoordinates {
+        self.range.limit()
     }
 
     pub fn cost(&self) -> Cost
@@ -52,15 +70,15 @@ impl<Cost> SecondaryAnchor<Cost> {
         self.cost
     }
 
-    /// Returns true if the anchor is at the given coordinates.
+    /// Returns true if the anchor is at the given range.
     ///
-    /// Does not check the `ts_kind`, and will produce false positives if the coordinates given have the wrong `ts_kind`.
-    pub fn is_at(&self, coordinates: AnySecondaryAlignmentCoordinates) -> bool {
-        self.coordinates == coordinates
+    /// Does not check the `ts_kind`, and will produce false positives if the range given has the wrong `ts_kind`.
+    pub fn is_at(&self, range: AnySecondaryAlignmentRange) -> bool {
+        self.range == range
     }
 
-    pub fn chaining_gaps(&self, second: &Self, k: usize) -> Option<(usize, usize)> {
-        let gap_start = self.end(k);
+    pub fn chaining_gaps(&self, second: &Self) -> Option<(usize, usize)> {
+        let gap_start = self.end();
         let gap_end = second.start();
 
         let gap1 = gap_start.ancestor().checked_sub(gap_end.ancestor())?;
@@ -73,9 +91,8 @@ impl<Cost> SecondaryAnchor<Cost> {
         &self,
         second: &PrimaryAnchor<Cost>,
         ts_kind: TsKind,
-        k: usize,
     ) -> Option<usize> {
-        let gap_start = self.end(k);
+        let gap_start = self.end();
         let gap_end = second.start();
 
         let gap_start = gap_start.descendant();
@@ -110,9 +127,8 @@ impl<Cost> SecondaryAnchor<Cost> {
         &self,
         end: PrimaryAlignmentCoordinates,
         ts_kind: TsKind,
-        k: usize,
     ) -> usize {
-        let gap_start = self.end(k).descendant();
+        let gap_start = self.end().descendant();
         let gap_end = match ts_kind.descendant {
             TsDescendant::Seq1 => end.a(),
             TsDescendant::Seq2 => end.b(),
@@ -121,16 +137,29 @@ impl<Cost> SecondaryAnchor<Cost> {
         gap_end.checked_sub(gap_start).unwrap()
     }
 
-    pub fn is_direct_predecessor_of(&self, successor: &Self) -> bool {
-        self.coordinates.increment_both(1) == successor.coordinates
+    /// Returns true if this anchor preceedes the other anchor with an overlap of k-1 characters in both sequences.
+    /// Also returns true only if both anchors have zero cost.
+    #[deprecated(
+        note = "We need to redefine this based on how we want to chain things in the future."
+    )]
+    pub fn is_direct_free_predecessor_of(&self, successor: &Self) -> bool
+    where
+        Cost: Zero,
+    {
+        // TODO how do we account for predecessors that are inexact anchors? do we need to?
+        // Maybe trim the exact matches at the start and end of inexact anchors?
+        self.range.offset().increment_both(1) == successor.range.offset()
+            && self.range.limit().increment_both(1) == successor.range.limit()
+            && self.cost.is_zero()
+            && successor.cost.is_zero()
     }
 
     /// Returns the length of the 2-3 alignment of a TS that starts in `self` and ends in `until`.
     ///
     /// The length is the maximum of the difference of the two sequences.
-    pub fn ts_length_until(&self, until: &Self, k: usize) -> usize {
+    pub fn ts_length_until(&self, until: &Self) -> usize {
         let start = self.start();
-        let end = until.end(k);
+        let end = until.end();
 
         (start.ancestor().checked_sub(end.ancestor()).unwrap())
             .max(end.descendant().checked_sub(start.descendant()).unwrap())
@@ -139,36 +168,40 @@ impl<Cost> SecondaryAnchor<Cost> {
 
 impl<Cost: Display> Display for SecondaryAnchor<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SA({}, {})", self.coordinates, self.cost)
+        write!(f, "SA({}, {})", self.range, self.cost)
     }
 }
 
-impl<Cost> From<(usize, usize, Cost)> for SecondaryAnchor<Cost> {
-    fn from(value: (usize, usize, Cost)) -> Self {
-        Self::new(value.0, value.1, value.2)
+impl<Cost> From<(AnySecondaryAlignmentRange, Cost)> for SecondaryAnchor<Cost> {
+    fn from(value: (AnySecondaryAlignmentRange, Cost)) -> Self {
+        Self::new(value.0, value.1)
     }
 }
 
 impl<Cost: Ord> Ord for SecondaryAnchor<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.coordinates
+        self.range
+            .offset()
             .ancestor()
-            .min(self.coordinates.descendant())
+            .min(self.range.offset().descendant())
             .cmp(
                 &other
-                    .coordinates
+                    .range
+                    .offset()
                     .ancestor()
-                    .min(other.coordinates.descendant()),
+                    .min(other.range.offset().descendant()),
             )
             .then_with(|| {
-                self.coordinates
+                self.range
+                    .offset()
                     .ancestor()
-                    .cmp(&other.coordinates.ancestor())
+                    .cmp(&other.range.offset().ancestor())
             })
             .then_with(|| {
-                self.coordinates
+                self.range
+                    .offset()
                     .descendant()
-                    .cmp(&other.coordinates.descendant())
+                    .cmp(&other.range.offset().descendant())
             })
             .then_with(|| self.cost.cmp(&other.cost))
     }
