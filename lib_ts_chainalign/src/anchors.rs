@@ -17,7 +17,7 @@ use crate::{
         exact_kmer_matches::{compute_exact_kmers, find_exact_kmer_matches},
         index::AnchorIndex,
         inexact_kmer_matches::compute_inexact_kmers,
-        kmers::{Kmer, KmerStore},
+        kmers::KmerStore,
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
     },
@@ -77,14 +77,16 @@ impl<Cost> Anchors<Cost> {
         // Compute k-mers.
         let s1_kmers = compute_exact_kmers::<Store>(
             &s1[sequences.primary_start().a()..sequences.primary_end().a()],
+            sequences.primary_start().a(),
             k,
         );
         let s2_kmers = compute_exact_kmers::<Store>(
             &s2[sequences.primary_start().b()..sequences.primary_end().b()],
+            sequences.primary_start().a(),
             k,
         );
-        let s1_rc_kmers = compute_exact_kmers::<Store>(&s1_rc, k);
-        let s2_rc_kmers = compute_exact_kmers::<Store>(&s2_rc, k);
+        let s1_rc_kmers = compute_exact_kmers::<Store>(&s1_rc, 0, k);
+        let s2_rc_kmers = compute_exact_kmers::<Store>(&s2_rc, 0, k);
 
         trace!("s1_kmers: {s1_kmers:?}");
         trace!("s2_kmers: {s2_kmers:?}");
@@ -93,7 +95,7 @@ impl<Cost> Anchors<Cost> {
         let mut primary: Vec<_> = find_exact_kmer_matches(&s1_kmers, &s2_kmers)
             .into_iter()
             .map(|(seq1, seq2)| {
-                PrimaryAnchor::new_from_ranges(seq1..seq1 + k, seq2..seq2 + k, Cost::zero())
+                PrimaryAnchor::new_exact(PrimaryAlignmentCoordinates::new(seq1, seq2), k)
             })
             .collect();
         let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
@@ -193,9 +195,10 @@ impl<Cost> Anchors<Cost> {
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
 
         // Compute k-mers.
+        // TODO restruct to sequence range and apply offset.
         let s1_inexact_kmers = compute_inexact_kmers::<Store, _>(s1, k, max_mutations, costs);
         let s2_exact_kmers: Vec<_> = (k.saturating_sub(max_mutations)..=k + max_mutations)
-            .map(|k| compute_exact_kmers::<Store>(s2, k))
+            .map(|k| compute_exact_kmers::<Store>(s2, 0, k))
             .collect();
 
         // Compute anchors.
