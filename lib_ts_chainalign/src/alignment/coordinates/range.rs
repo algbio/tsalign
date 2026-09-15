@@ -24,6 +24,11 @@ impl PrimaryAlignmentRange {
         Self::new(offset, limit)
     }
 
+    pub fn new_equal_length(offset: PrimaryAlignmentCoordinates, length: usize) -> Self {
+        let limit = PrimaryAlignmentCoordinates::new(offset.a() + length, offset.b() + length);
+        Self::new(offset, limit)
+    }
+
     pub fn offset(&self) -> PrimaryAlignmentCoordinates {
         self.offset
     }
