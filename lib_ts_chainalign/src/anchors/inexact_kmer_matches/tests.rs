@@ -357,7 +357,7 @@ fn test_compute_inexact_kmers_0() {
     );
     let k = 4;
     let sequence = b"AAGACGTA";
-    let output = compute_inexact_kmers::<u16, _>(sequence, k, 0, &costs);
+    let output = compute_inexact_kmers::<u16, _>(sequence, 0, k, 0, &costs);
 
     let mut expected_output = vec![vec![
         (Kmer8::from(b"AAGA".as_slice()), 0, U16Cost::zero()),
@@ -384,7 +384,7 @@ fn test_compute_inexact_kmers_1() {
     );
     let k = 4;
     let sequence = b"AAGACGTA";
-    let output = compute_inexact_kmers::<u16, _>(sequence, k, 1, &costs);
+    let output = compute_inexact_kmers::<u16, _>(sequence, 0, k, 1, &costs);
 
     fn generate_insertions(kmer: &[u8]) -> Vec<Vec<u8>> {
         let mut result = Vec::new();
@@ -554,7 +554,7 @@ fn test_compute_inexact_kmers_2_2() {
     );
     let k = 2;
     let sequence = b"AAG";
-    let output = compute_inexact_kmers::<u16, _>(sequence, k, 2, &costs);
+    let output = compute_inexact_kmers::<u16, _>(sequence, 0, k, 2, &costs);
 
     let mut expected_output = vec![
         vec![
@@ -686,7 +686,7 @@ fn test_compute_inexact_kmers_2_3() {
     );
     let k = 3;
     let sequence = b"ATG";
-    let output = compute_inexact_kmers::<u16, _>(sequence, k, 2, &costs);
+    let output = compute_inexact_kmers::<u16, _>(sequence, 0, k, 2, &costs);
 
     let mut expected_output = vec![
         vec![
@@ -784,6 +784,155 @@ fn test_compute_inexact_kmers_2_3() {
             .collect(),
         // Ins Ins
         generate_double_insertion_tuples(b"ATG", 0, &costs),
+    ];
+
+    for vec in &mut expected_output {
+        vec.sort_unstable();
+        let mut previous_kmer = Kmer8::default();
+        let mut previous_offset = usize::MAX;
+        let mut previous_cost = U16Cost::max_value();
+        vec.retain(|(kmer, offset, cost)| {
+            if *kmer == previous_kmer && *offset == previous_offset {
+                debug_assert!(previous_cost <= *cost);
+                false
+            } else {
+                previous_kmer = *kmer;
+                previous_offset = *offset;
+                previous_cost = *cost;
+                true
+            }
+        });
+    }
+
+    assert_eq!(output, expected_output, "{}", {
+        use std::fmt::Write;
+        let mut result = String::new();
+        writeln!(result, "Output:").unwrap();
+        for (i, vec) in output.iter().enumerate() {
+            let k = k + i - 2;
+            for kmer in vec {
+                writeln!(result, "{}, {}, {}", kmer.0.to_string(k), kmer.1, kmer.2).unwrap()
+            }
+        }
+
+        writeln!(result, "Expected output:").unwrap();
+        for (i, vec) in expected_output.iter().enumerate() {
+            let k = k + i - 2;
+            for kmer in vec {
+                writeln!(result, "{}, {}, {}", kmer.0.to_string(k), kmer.1, kmer.2).unwrap()
+            }
+        }
+        result
+    });
+}
+
+#[test]
+fn test_compute_inexact_kmers_2_3_with_offset() {
+    let costs = GapAffineCosts::new(
+        U16Cost::from(2u16),
+        U16Cost::from(3u16),
+        U16Cost::from(1u16),
+    );
+    let k = 3;
+    let sequence = b"ATG";
+    let output = compute_inexact_kmers::<u16, _>(sequence, 1, k, 2, &costs);
+
+    let mut expected_output = vec![
+        vec![
+            // Del Del
+            (Kmer8::from(b"A".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"G".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"T".as_slice()), 1, U16Cost::from(6u16)),
+        ],
+        vec![
+            // Del
+            (Kmer8::from(b"AT".as_slice()), 1, U16Cost::from(3u16)),
+            (Kmer8::from(b"AG".as_slice()), 1, U16Cost::from(3u16)),
+            (Kmer8::from(b"TG".as_slice()), 1, U16Cost::from(3u16)),
+            // Del Sub
+            (Kmer8::from(b"CT".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"GT".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"TT".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AA".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AC".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"CG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"GG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"TG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AA".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AC".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AT".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"AG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"CG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"GG".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"TA".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"TC".as_slice()), 1, U16Cost::from(5u16)),
+            (Kmer8::from(b"TT".as_slice()), 1, U16Cost::from(5u16)),
+        ],
+        vec![
+            // Nothing
+            (Kmer8::from(b"ATG".as_slice()), 1, U16Cost::from(0u16)),
+            // Sub
+            (Kmer8::from(b"CTG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"GTG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"TTG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"AAG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"ACG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"AGG".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"ATA".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"ATC".as_slice()), 1, U16Cost::from(2u16)),
+            (Kmer8::from(b"ATT".as_slice()), 1, U16Cost::from(2u16)),
+            // Sub Sub
+            (Kmer8::from(b"CAG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"CCG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"CGG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GAG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GCG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GGG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TAG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TCG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TGG".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"CTA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"CTC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"CTT".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GTA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GTC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"GTT".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TTA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TTC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"TTT".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AAA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AAC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AAT".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"ACA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"ACC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"ACT".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AGA".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AGC".as_slice()), 1, U16Cost::from(4u16)),
+            (Kmer8::from(b"AGT".as_slice()), 1, U16Cost::from(4u16)),
+        ]
+        .into_iter()
+        // Del Ins
+        .chain(generate_insertion_tuples(b"TG", 1, 6))
+        .chain(generate_insertion_tuples(b"AG", 1, 6))
+        .chain(generate_insertion_tuples(b"AT", 1, 6))
+        .collect(),
+        // Ins
+        generate_insertion_tuples(b"ATG", 1, 3)
+            .into_iter()
+            // Sub Ins
+            .chain(generate_insertion_tuples(b"CTG", 1, 5))
+            .chain(generate_insertion_tuples(b"GTG", 1, 5))
+            .chain(generate_insertion_tuples(b"TTG", 1, 5))
+            .chain(generate_insertion_tuples(b"AAG", 1, 5))
+            .chain(generate_insertion_tuples(b"ACG", 1, 5))
+            .chain(generate_insertion_tuples(b"AGG", 1, 5))
+            .chain(generate_insertion_tuples(b"ATA", 1, 5))
+            .chain(generate_insertion_tuples(b"ATC", 1, 5))
+            .chain(generate_insertion_tuples(b"ATT", 1, 5))
+            .collect(),
+        // Ins Ins
+        generate_double_insertion_tuples(b"ATG", 1, &costs),
     ];
 
     for vec in &mut expected_output {
