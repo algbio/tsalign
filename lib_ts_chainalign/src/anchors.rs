@@ -16,7 +16,9 @@ use crate::{
     anchors::{
         exact_kmer_matches::{compute_exact_kmers, find_exact_kmer_matches},
         index::AnchorIndex,
-        inexact_kmer_matches::compute_inexact_kmers,
+        inexact_kmer_matches::{
+            compute_exact_kmers_range, compute_inexact_kmers, find_inexact_kmer_matches,
+        },
         kmers::KmerStore,
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
@@ -189,20 +191,51 @@ impl<Cost> Anchors<Cost> {
 
         let k = usize::try_from(k).unwrap();
         let max_mutations = usize::from(max_mutations);
+        let k_range = k.saturating_sub(max_mutations)..=k + max_mutations;
         let s1 = sequences.seq1();
         let s2 = sequences.seq2();
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
 
         // Compute k-mers.
-        // TODO restruct to sequence range and apply offset.
-        let s1_inexact_kmers = compute_inexact_kmers::<Store, _>(s1, k, max_mutations, costs);
-        let s2_exact_kmers: Vec<_> = (k.saturating_sub(max_mutations)..=k + max_mutations)
-            .map(|k| compute_exact_kmers::<Store>(s2, 0, k))
-            .collect();
+        let s1_inexact_kmers = compute_inexact_kmers::<Store, _>(
+            &s1[sequences.primary_start().a()..sequences.primary_end().a()],
+            sequences.primary_start().a(),
+            k,
+            max_mutations,
+            costs,
+        );
+        let s1_exact_kmers: Vec<_> = compute_exact_kmers_range::<Store>(
+            &s1[sequences.primary_start().a()..sequences.primary_end().a()],
+            sequences.primary_start().a(),
+            &k_range,
+        );
+        let s2_exact_kmers: Vec<_> = compute_exact_kmers_range(
+            &s2[sequences.primary_start().b()..sequences.primary_end().b()],
+            sequences.primary_start().b(),
+            &k_range,
+        );
 
         // Compute anchors.
-        //let primary: Vec<_> =
+        let mut primary: Vec<_> = k_range
+            .clone()
+            .zip(s1_inexact_kmers.iter().zip(s2_exact_kmers.iter()))
+            .flat_map(|(local_k, (s1, s2))| {
+                find_inexact_kmer_matches(s1, s2).into_iter().map(
+                    move |(offset1, offset2, cost)| {
+                        PrimaryAnchor::new(
+                            PrimaryAlignmentRange::new(
+                                PrimaryAlignmentCoordinates::new(offset1, offset2),
+                                // Inexact l-mers from sequence 1 are produced by transforming a k-mer and matched against an exact l-mer from sequence 2.
+                                // The anchor is with respect to the original sequences, and hence for sequence 1 we take k characters to get the k-mer that was transformed, and for sequence 2 we take local_k characters to get the l-mer that was matched.
+                                PrimaryAlignmentCoordinates::new(offset1 + k, offset2 + local_k),
+                            ),
+                            cost,
+                        )
+                    },
+                )
+            })
+            .collect();
 
         todo!()
     }
