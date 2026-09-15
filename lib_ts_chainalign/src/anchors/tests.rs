@@ -1,6 +1,8 @@
 use crate::{
     alignment::{
-        coordinates::range::PrimaryAlignmentRange, sequences::AlignmentSequences, ts_kind::TsKind,
+        coordinates::range::{AnySecondaryAlignmentRange, PrimaryAlignmentRange},
+        sequences::AlignmentSequences,
+        ts_kind::TsKind,
     },
     anchors::{Anchors, PrimaryAnchor, SecondaryAnchor},
 };
@@ -32,15 +34,28 @@ fn test_coordinates() {
     assert!(anchors.secondary_anchor_vec(TsKind::TS11).is_empty());
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS12),
-        &[(2, 2, 0), (4, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS21),
-        &[(4, 0, 0), (4, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 0..2), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS22),
-        &[(4, 0, 0), (3, 1, 0), (2, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 0..2), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(3, 1, 1..3), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
 }
 
@@ -61,14 +76,27 @@ fn test_coordinates_rev() {
     assert!(anchors.secondary_anchor_vec(TsKind::TS22).is_empty());
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS21),
-        &[(2, 2, 0), (4, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS12),
-        &[(4, 0, 0), (4, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 0..2), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS11),
-        &[(4, 0, 0), (3, 1, 0), (2, 2, 0)].map(SecondaryAnchor::from)
+        &[
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 0..2), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(3, 1, 1..3), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0)
+        ]
+        .map(SecondaryAnchor::from)
     );
 }
