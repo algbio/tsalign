@@ -3,7 +3,10 @@ use num_traits::{Bounded, Zero};
 
 use crate::{
     alignment::{
-        coordinates::{PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates},
+        coordinates::{
+            PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
+            range::PrimaryAlignmentRange,
+        },
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
@@ -80,7 +83,10 @@ fn test_start_anchor_direct() {
         cost_function
             .primary_from_start(
                 anchors
-                    .primary_index_from_start_coordinates(sequences.primary_start())
+                    .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                        sequences.primary_start(),
+                        5
+                    ))
                     .unwrap()
             )
             .is_zero()
@@ -102,7 +108,10 @@ fn test_anchor_end_direct() {
         cost_function
             .primary_to_end(
                 anchors
-                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(4, 4))
+                    .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                        PrimaryAlignmentCoordinates::new(4, 4),
+                        5
+                    ))
                     .unwrap()
             )
             .is_zero()
@@ -152,7 +161,10 @@ fn test_start_anchor_indirect() {
         !cost_function
             .primary_from_start(
                 anchors
-                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(2, 2))
+                    .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                        PrimaryAlignmentCoordinates::new(2, 2),
+                        5
+                    ))
                     .unwrap()
             )
             .is_zero()
@@ -174,7 +186,10 @@ fn test_anchor_end_indirect() {
         !cost_function
             .primary_to_end(
                 anchors
-                    .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(3, 3))
+                    .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                        PrimaryAlignmentCoordinates::new(3, 3),
+                        5
+                    ))
                     .unwrap()
             )
             .is_zero()
@@ -195,10 +210,16 @@ fn test_anchor_anchor_direct_primary() {
     assert_eq!(
         cost_function.primary(
             anchors
-                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(1, 1))
+                .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                    PrimaryAlignmentCoordinates::new(1, 1),
+                    3
+                ))
                 .unwrap(),
             anchors
-                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(4, 4))
+                .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                    PrimaryAlignmentCoordinates::new(4, 4),
+                    3
+                ))
                 .unwrap(),
         ),
         U32Cost::max_value(),
@@ -219,10 +240,16 @@ fn test_anchor_anchor_indirect_primary() {
     assert_eq!(
         cost_function.primary(
             anchors
-                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(1, 1))
+                .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                    PrimaryAlignmentCoordinates::new(1, 1),
+                    3
+                ))
                 .unwrap(),
             anchors
-                .primary_index_from_start_coordinates(PrimaryAlignmentCoordinates::new(5, 5))
+                .primary_index_from_range(PrimaryAlignmentRange::new_equal_length(
+                    PrimaryAlignmentCoordinates::new(5, 5),
+                    3
+                ))
                 .unwrap(),
         ),
         2u8.into(),
