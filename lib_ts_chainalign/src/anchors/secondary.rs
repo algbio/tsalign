@@ -91,14 +91,19 @@ impl<Cost> SecondaryAnchor<Cost> {
         &self,
         start: PrimaryAlignmentCoordinates,
         ts_kind: TsKind,
-    ) -> usize {
+    ) -> usize
+    where
+        Cost: Display,
+    {
         let gap_start = match ts_kind.descendant {
             TsDescendant::Seq1 => start.a(),
             TsDescendant::Seq2 => start.b(),
         };
         let gap_end = self.start().descendant();
 
-        gap_end.checked_sub(gap_start).unwrap()
+        gap_end
+            .checked_sub(gap_start)
+            .unwrap_or_else(|| panic!("self: {self}, start: {start}, ts_kind: {ts_kind}"))
     }
 
     pub fn chaining_jump_gap_to_end(

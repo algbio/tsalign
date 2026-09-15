@@ -230,7 +230,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         .saturating_add(&chaining_cost_function.jump_12_from_start(index, ts_kind));
                 }
                 (Identifier::PrimaryToPrimary { index, .. }, Identifier::End) => {
-                    let start = anchors.primary(index).end(k);
+                    let start = anchors.primary(index).end();
                     if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
                         self.additional_primary_targets_buffer.clear();
                         let (cost, alignment) = self.primary_aligner.align(
@@ -323,7 +323,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         continue;
                     }
 
-                    let start = anchors.primary(from_index).end(k);
+                    let start = anchors.primary(from_index).end();
                     let end = anchors.primary(to_index).start();
                     if final_evaluation
                         || !chaining_cost_function.is_primary_exact(from_index, to_index)
@@ -384,7 +384,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         ..
                     },
                 ) => {
-                    let start = anchors.primary(from_index).end(k);
+                    let start = anchors.primary(from_index).end();
                     let end = anchors
                         .secondary(to_index, ts_kind)
                         .start()

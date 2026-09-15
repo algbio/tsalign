@@ -1,5 +1,7 @@
 use std::{fmt::Display, ops::Range};
 
+use num_traits::Zero;
+
 use crate::{
     alignment::{
         coordinates::{PrimaryAlignmentCoordinates, range::PrimaryAlignmentRange},
@@ -26,6 +28,16 @@ impl<Cost> PrimaryAnchor<Cost> {
 
     pub fn new_from_ranges(seq1: Range<usize>, seq2: Range<usize>, cost: Cost) -> Self {
         Self::new(PrimaryAlignmentRange::new_from_ranges(seq1, seq2), cost)
+    }
+
+    pub fn new_exact(offset: PrimaryAlignmentCoordinates, length: usize) -> Self
+    where
+        Cost: Zero,
+    {
+        Self::new(
+            PrimaryAlignmentRange::new_equal_length(offset, length),
+            Cost::zero(),
+        )
     }
 
     pub fn start(&self) -> PrimaryAlignmentCoordinates {
@@ -93,7 +105,8 @@ impl<Cost> PrimaryAnchor<Cost> {
     /// Returns true if this anchor preceedes the other anchor with an overlap of k-1 characters in both sequences.
     pub fn is_direct_free_predecessor_of(&self, successor: &Self) -> bool {
         // TODO how do we account for predecessors that are inexact anchors? do we need to?
-        self.coordinates.increment_both(1) == successor.coordinates
+        // Maybe trim the exact matches at the start and end of inexact anchors?
+        self.range.offset().increment_both(1) == successor.range.offset()
     }
 }
 
