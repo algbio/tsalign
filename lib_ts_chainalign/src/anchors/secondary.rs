@@ -170,7 +170,14 @@ impl<Cost> SecondaryAnchor<Cost> {
     }
 
     /// Removes leading and trailing matches from the anchor, except if the anchor is only matches, then nothing is removed.
-    pub fn trim(self, ancestor_rc: &[u8], descendant: &[u8]) -> Self {
+    pub fn trim(
+        self,
+        ancestor_rc: &[u8],
+        descendant: &[u8],
+    ) -> impl use<Cost> + Iterator<Item = Self>
+    where
+        Cost: Copy,
+    {
         let leading_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
             .iter()
             .rev()
@@ -178,32 +185,38 @@ impl<Cost> SecondaryAnchor<Cost> {
             .take_while(|(c1, c2)| c1 == c2)
             .count();
 
-        if leading_matches == self.range.len_ancestor()
+        let (leading_trims, trailing_trim) = if leading_matches == self.range.len_ancestor()
             && leading_matches == self.range.len_descendant()
         {
-            return self;
-        }
+            (0..=0, 0)
+        } else {
+            let trailing_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
+                .iter()
+                .zip(
+                    descendant[self.start().descendant()..self.end().descendant()]
+                        .iter()
+                        .rev(),
+                )
+                .take_while(|(c1, c2)| c1 == c2)
+                .count();
+            let total_matches = leading_matches + trailing_matches;
+            let min_len = self.range.len_ancestor().min(self.range.len_descendant());
+            if total_matches <= min_len {
+                (leading_matches..=leading_matches, total_matches)
+            } else {
+                (min_len - trailing_matches..=leading_matches, min_len)
+            }
+        };
 
-        let trailing_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
-            .iter()
-            .rev()
-            .zip(descendant[self.start().descendant()..self.end().descendant()].iter())
-            .rev()
-            .take_while(|(c1, c2)| c1 == c2)
-            .count();
-
-        debug_assert!(leading_matches + trailing_matches <= self.range.len_ancestor());
-        debug_assert!(leading_matches + trailing_matches <= self.range.len_descendant());
-
-        Self::new(
-            AnySecondaryAlignmentRange::new_from_ranges(
-                self.start().ancestor() - leading_matches,
-                self.end().ancestor() + trailing_matches,
-                self.start().descendant() + leading_matches
-                    ..self.end().descendant() - trailing_matches,
-            ),
-            self.cost,
-        )
+        leading_trims.map(move |leading_trim| {
+            let trailing_trim = trailing_trim - leading_trim;
+            Self::new_from_ranges(
+                self.start().ancestor() - leading_trim,
+                self.end().ancestor() + trailing_trim,
+                self.start().descendant() + leading_trim..self.end().descendant() - trailing_trim,
+                self.cost,
+            )
+        })
     }
 }
 
