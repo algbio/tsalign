@@ -244,7 +244,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s1_kmers, s2_kmers))| {
                 find_inexact_kmer_matches(s1_kmers, s2_kmers)
                     .into_iter()
-                    .map(move |(offset1, offset2, cost)| {
+                    .flat_map(move |(offset1, offset2, cost)| {
                         PrimaryAnchor::new(
                             PrimaryAlignmentRange::new(
                                 PrimaryAlignmentCoordinates::new(offset1, offset2),
@@ -264,7 +264,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s1_inexact_kmers, s1_rc_exact_kmers))| {
                 find_inexact_kmer_matches(s1_inexact_kmers, s1_rc_exact_kmers)
                     .into_iter()
-                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                    .flat_map(move |(offset_descendant, offset_ancestor, cost)| {
                         SecondaryAnchor::new(
                             AnySecondaryAlignmentRange::new(
                                 AnySecondaryAlignmentCoordinates::new(
@@ -272,8 +272,8 @@ impl<Cost> Anchors<Cost> {
                                     offset_descendant,
                                 ),
                                 AnySecondaryAlignmentCoordinates::new(
-                                    s1.len() - offset_ancestor - k,
-                                    offset_descendant + local_k,
+                                    s1.len() - offset_ancestor - local_k,
+                                    offset_descendant + k,
                                 ),
                             ),
                             cost,
@@ -288,7 +288,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s2_inexact_kmers, s1_rc_exact_kmers))| {
                 find_inexact_kmer_matches(s2_inexact_kmers, s1_rc_exact_kmers)
                     .into_iter()
-                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                    .flat_map(move |(offset_descendant, offset_ancestor, cost)| {
                         SecondaryAnchor::new(
                             AnySecondaryAlignmentRange::new(
                                 AnySecondaryAlignmentCoordinates::new(
@@ -296,8 +296,10 @@ impl<Cost> Anchors<Cost> {
                                     offset_descendant,
                                 ),
                                 AnySecondaryAlignmentCoordinates::new(
-                                    s1.len() - offset_ancestor - k,
-                                    offset_descendant + local_k,
+                                    s1.len()
+                                    .checked_sub(offset_ancestor).unwrap_or_else(||panic!("s1.len(): {}; offset_ancestor: {offset_ancestor}; k: {k}; local_k: {local_k}", s1.len()))
+                                    .checked_sub(local_k).unwrap_or_else(||panic!("s1.len(): {}; offset_ancestor: {offset_ancestor}; k: {k}; local_k: {local_k}", s1.len())),
+                                    offset_descendant + k,
                                 ),
                             ),
                             cost,
@@ -312,7 +314,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s1_inexact_kmers, s2_rc_exact_kmers))| {
                 find_inexact_kmer_matches(s1_inexact_kmers, s2_rc_exact_kmers)
                     .into_iter()
-                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                    .flat_map(move |(offset_descendant, offset_ancestor, cost)| {
                         SecondaryAnchor::new(
                             AnySecondaryAlignmentRange::new(
                                 AnySecondaryAlignmentCoordinates::new(
@@ -320,8 +322,8 @@ impl<Cost> Anchors<Cost> {
                                     offset_descendant,
                                 ),
                                 AnySecondaryAlignmentCoordinates::new(
-                                    s2.len() - offset_ancestor - k,
-                                    offset_descendant + local_k,
+                                    s2.len() - offset_ancestor - local_k,
+                                    offset_descendant + k,
                                 ),
                             ),
                             cost,
@@ -336,7 +338,7 @@ impl<Cost> Anchors<Cost> {
             .flat_map(|(local_k, (s2_inexact_kmers, s2_rc_exact_kmers))| {
                 find_inexact_kmer_matches(s2_inexact_kmers, s2_rc_exact_kmers)
                     .into_iter()
-                    .map(move |(offset_descendant, offset_ancestor, cost)| {
+                    .flat_map(move |(offset_descendant, offset_ancestor, cost)| {
                         SecondaryAnchor::new(
                             AnySecondaryAlignmentRange::new(
                                 AnySecondaryAlignmentCoordinates::new(
@@ -344,8 +346,8 @@ impl<Cost> Anchors<Cost> {
                                     offset_descendant,
                                 ),
                                 AnySecondaryAlignmentCoordinates::new(
-                                    s2.len() - offset_ancestor - k,
-                                    offset_descendant + local_k,
+                                    s2.len() - offset_ancestor - local_k,
+                                    offset_descendant + k,
                                 ),
                             ),
                             cost,
