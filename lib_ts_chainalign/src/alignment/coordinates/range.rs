@@ -68,6 +68,13 @@ impl PrimaryAlignmentRange {
     pub fn len_b(&self) -> usize {
         self.limit.b() - self.offset.b()
     }
+
+    pub fn swap(self) -> Self {
+        Self {
+            offset: self.offset.swap(),
+            limit: self.limit.swap(),
+        }
+    }
 }
 
 impl AnySecondaryAlignmentRange {
