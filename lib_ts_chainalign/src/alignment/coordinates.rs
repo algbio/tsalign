@@ -360,6 +360,13 @@ impl PrimaryAlignmentCoordinates {
             )
         })
     }
+
+    pub fn swap(self) -> Self {
+        Self {
+            a: self.b,
+            b: self.a,
+        }
+    }
 }
 
 impl AnySecondaryAlignmentCoordinates {
