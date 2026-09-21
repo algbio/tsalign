@@ -412,6 +412,8 @@ impl<Cost: AStarCost + From<u64>>
         // Update statistics from updated range
         statistics.reference_offset = range.reference_offset();
         statistics.query_offset = range.query_offset();
+        statistics.reference_limit = range.reference_limit();
+        statistics.query_limit = range.query_limit();
         extension_steps
     }
 
