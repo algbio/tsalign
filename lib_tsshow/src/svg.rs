@@ -6,8 +6,8 @@ use std::{
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
 use clap::ValueEnum;
 use font::{
-    CharacterData, DEFAULT_COLOR, Font, embed_fonts, fonts, printable_characters, sans_serif,
-    sans_serif_mono, svg_phrase, svg_string, typewriter,
+    CharacterData, Color, DEFAULT_COLOR, Font, embed_fonts, fonts, printable_characters,
+    sans_serif, sans_serif_mono, svg_phrase, svg_string, typewriter,
 };
 use indexed_str::IndexedStr;
 use lib_tsalign::{
@@ -49,19 +49,32 @@ pub mod labelled_sequence;
 mod numbers;
 
 const SVG_PADDING: f32 = 10.0;
-const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
-const OPTIONAL_INNER_INCREASING_COPY_COLORS: &[&str] =
-    &["#88CC8866", "#66996666", "#44664466", "#22332266"];
-const OPTIONAL_INNER_DECREASING_COPY_COLORS: &[&str] =
-    &["#88CCCC", "#669999", "#446666", "#223333"];
-const OPTIONAL_SOURCE_INCREASING_COPY_COLORS: &[&str] = &["#B14DB1"];
-const OPTIONAL_SOURCE_DECREASING_COPY_COLORS: &[&str] = &["#0000FF66"];
-const OPTIONAL_INNER_INCREASING_COLOR: &str = "#B14DB166";
-const OPTIONAL_INNER_DECREASING_COLOR: &str = "#0000FF";
-const OPTIONAL_SOURCE_INCREASING_COLOR: &str = "#B14DB1";
-const OPTIONAL_SOURCE_DECREASING_COLOR: &str = "#0000FF66";
-const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
-const LABEL_COLOR: &str = "#555555";
+const COPY_COLORS: &[Color] = &[
+    Color::opaque("#00CC00"),
+    Color::opaque("#009900"),
+    Color::opaque("#006600"),
+    Color::opaque("#003300"),
+];
+const OPTIONAL_INNER_INCREASING_COPY_COLORS: &[Color] = &[
+    Color::new("#88CC88", 0.4),
+    Color::new("#669966", 0.4),
+    Color::new("#446644", 0.4),
+    Color::new("#223322", 0.4),
+];
+const OPTIONAL_INNER_DECREASING_COPY_COLORS: &[Color] = &[
+    Color::opaque("#88CCCC"),
+    Color::opaque("#669999"),
+    Color::opaque("#446666"),
+    Color::opaque("#223333"),
+];
+const OPTIONAL_SOURCE_INCREASING_COPY_COLORS: &[Color] = &[Color::opaque("#B14DB1")];
+const OPTIONAL_SOURCE_DECREASING_COPY_COLORS: &[Color] = &[Color::new("#0000FF", 0.4)];
+const OPTIONAL_INNER_INCREASING_COLOR: Color = Color::new("#B14DB1", 0.4);
+const OPTIONAL_INNER_DECREASING_COLOR: Color = Color::opaque("#0000FF");
+const OPTIONAL_SOURCE_INCREASING_COLOR: Color = Color::opaque("#B14DB1");
+const OPTIONAL_SOURCE_DECREASING_COLOR: Color = Color::new("#0000FF", 0.4);
+const COMPLEMENT_SOURCE_HIDDEN_COLOR: Color = Color::opaque("grey");
+const LABEL_COLOR: Color = Color::opaque("#555555");
 const TS_RUNNING_NUMBER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 struct SvgLocation {
@@ -994,7 +1007,7 @@ enum OptionalChar {
     InnerDecreasing,
 }
 
-fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> impl ToString {
+fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> Color {
     if let Some(copy_depth) = copy_depth {
         match optional {
             OptionalChar::NotOptional => COPY_COLORS[copy_depth % COPY_COLORS.len()],
@@ -1017,7 +1030,7 @@ fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> impl ToStri
         }
     } else {
         match optional {
-            OptionalChar::NotOptional => "black",
+            OptionalChar::NotOptional => DEFAULT_COLOR,
             OptionalChar::SourceIncreasing => OPTIONAL_SOURCE_INCREASING_COLOR,
             OptionalChar::SourceDecreasing => OPTIONAL_SOURCE_DECREASING_COLOR,
             OptionalChar::InnerIncreasing => OPTIONAL_INNER_INCREASING_COLOR,
