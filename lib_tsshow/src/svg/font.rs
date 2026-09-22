@@ -45,11 +45,34 @@ pub struct Font {
 }
 
 /// The colour used to render characters without an explicit colour.
-pub const DEFAULT_COLOR: &str = "black";
+pub const DEFAULT_COLOR: Color = Color::opaque("black");
+
+/// A fill colour with an opacity.
+///
+/// The opacity is kept separate from the colour, because Inkscape does not support
+/// `#RRGGBBAA` colours.
+#[derive(Debug, Clone, Copy)]
+pub struct Color {
+    pub fill: &'static str,
+    pub fill_opacity: f32,
+}
+
+impl Color {
+    pub const fn opaque(fill: &'static str) -> Self {
+        Self {
+            fill,
+            fill_opacity: 1.0,
+        }
+    }
+
+    pub const fn new(fill: &'static str, fill_opacity: f32) -> Self {
+        Self { fill, fill_opacity }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct CharacterData {
-    pub color: String,
+    pub color: Color,
 }
 
 impl Font {
@@ -254,11 +277,14 @@ where
         }
 
         let data: CharacterData = character.data().into();
-        group = group.add(
-            Text::new(c.to_string())
-                .set("x", index as f32 * font.character_width)
-                .set("fill", data.color),
-        );
+        let color = data.color;
+        let mut text = Text::new(c.to_string())
+            .set("x", index as f32 * font.character_width)
+            .set("fill", color.fill);
+        if color.fill_opacity < 1.0 {
+            text = text.set("fill-opacity", color.fill_opacity);
+        }
+        group = group.add(text);
     }
 
     group
@@ -270,7 +296,7 @@ where
 /// [`character_width`](Font::character_width) apart.
 pub fn svg_phrase(
     string: impl AsRef<str>,
-    color: impl ToString,
+    color: Color,
     location: &SvgLocation,
     font: &Font,
 ) -> Text {
@@ -279,7 +305,11 @@ pub fn svg_phrase(
         .set("y", location.y)
         .set("font-family", font.family.clone())
         .set("font-size", font.font_size)
-        .set("fill", color.to_string());
+        .set("fill", color.fill);
+
+    if color.fill_opacity < 1.0 {
+        text = text.set("fill-opacity", color.fill_opacity);
+    }
 
     if let Some(letter_spacing) = font.letter_spacing {
         text = text.set("letter-spacing", letter_spacing);
@@ -296,19 +326,16 @@ pub fn svg_text(text: impl AsRef<str>, location: &SvgLocation) -> Text {
 }
 
 impl CharacterData {
-    pub fn new_colored(color: impl ToString) -> Self {
+    pub fn new_colored(color: Color) -> Self {
         #[allow(clippy::needless_update)]
-        Self {
-            color: color.to_string(),
-            ..Default::default()
-        }
+        Self { color }
     }
 }
 
 impl Default for CharacterData {
     fn default() -> Self {
         Self {
-            color: DEFAULT_COLOR.to_string(),
+            color: DEFAULT_COLOR,
         }
     }
 }
