@@ -176,3 +176,25 @@ impl<Cost: Zero> AlignmentCosts<Cost> {
             || self.ts_base_cost.has_zero_cost()
     }
 }
+
+impl<Character: Eq, Cost> inexact_alignment_anchors::costs::AlignmentCost<Character, Cost>
+    for GapAffineCosts<Cost>
+where
+    Cost: AStarCost + Copy,
+{
+    fn cost(&self, a: &Character, b: &Character) -> Cost {
+        if a == b {
+            Cost::zero()
+        } else {
+            self.substitution
+        }
+    }
+
+    fn gap_open_cost(&self) -> Cost {
+        self.gap_open
+    }
+
+    fn gap_extend_cost(&self) -> Cost {
+        self.gap_extend
+    }
+}

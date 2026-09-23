@@ -1,6 +1,7 @@
 use std::{fmt::Display, time::Instant};
 
 use generic_a_star::cost::AStarCost;
+use inexact_alignment_anchors::generate_inexact_alignment_anchors_of_subsequences;
 use log::{info, trace};
 use num_traits::Zero;
 
@@ -205,7 +206,6 @@ impl<Cost> Anchors<Cost> {
 
         let k = usize::try_from(k).unwrap();
         let max_mutations = usize::from(max_mutations);
-        let k_range = k.saturating_sub(max_mutations)..=k + max_mutations;
         let s1 = sequences.seq1();
         let s2 = sequences.seq2();
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
@@ -213,51 +213,17 @@ impl<Cost> Anchors<Cost> {
         let s1_rc = s1_rc.as_slice();
         let s2_rc = s2_rc.as_slice();
 
-        // Compute k-mers.
-        let s1_inexact_kmers = compute_inexact_kmers::<Store, _>(
-            &s1[sequences.primary_start().a()..sequences.primary_end().a()],
-            sequences.primary_start().a(),
-            k,
-            max_mutations,
-            costs,
-        );
-        let s2_inexact_kmers = compute_inexact_kmers::<Store, _>(
-            &s2[sequences.primary_start().b()..sequences.primary_end().b()],
-            sequences.primary_start().b(),
-            k,
-            max_mutations,
-            costs,
-        );
-        let s2_exact_kmers: Vec<_> = compute_exact_kmers_range(
-            &s2[sequences.primary_start().b()..sequences.primary_end().b()],
-            sequences.primary_start().b(),
-            &k_range,
-        );
-
-        let s1_rc_exact_kmers = compute_exact_kmers_range::<Store>(s1_rc, 0, &k_range);
-        let s2_rc_exact_kmers = compute_exact_kmers_range::<Store>(s2_rc, 0, &k_range);
-
         // Compute anchors.
-        let mut primary: Vec<_> = k_range
-            .clone()
-            .zip(s1_inexact_kmers.iter().zip(s2_exact_kmers.iter()))
-            .flat_map(|(local_k, (s1_kmers, s2_kmers))| {
-                find_inexact_kmer_matches(s1_kmers, s2_kmers)
-                    .into_iter()
-                    .flat_map(move |(offset1, offset2, cost)| {
-                        PrimaryAnchor::new(
-                            PrimaryAlignmentRange::new(
-                                PrimaryAlignmentCoordinates::new(offset1, offset2),
-                                // Inexact l-mers from sequence 1 are produced by transforming a k-mer and matched against an exact l-mer from sequence 2.
-                                // The anchor is with respect to the original sequences, and hence for sequence 1 we take k characters to get the k-mer that was transformed, and for sequence 2 we take local_k characters to get the l-mer that was matched.
-                                PrimaryAlignmentCoordinates::new(offset1 + k, offset2 + local_k),
-                            ),
-                            cost,
-                        )
-                        .trim(s1, s2)
-                    })
-            })
-            .collect();
+        let mut primary: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            sequences.seq1(),
+            sequences.seq2(),
+            sequences.range1(),
+            sequences.range2(),
+            costs,
+            k,
+            max_mutations,
+        )
+        .collect();
         let secondary_11: Vec<_> = k_range
             .clone()
             .zip(s1_inexact_kmers.iter().zip(s1_rc_exact_kmers.iter()))
