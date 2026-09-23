@@ -38,7 +38,7 @@ pub fn align_a_star_chain_ts<
     let k = if let Some(k) = cli.k {
         k
     } else {
-        infer_tschain_k(reference.len(), query.len()).unwrap()
+        infer_tschain_k(reference.len(), query.len(), cli.max_anchor_mutations).unwrap()
     };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
