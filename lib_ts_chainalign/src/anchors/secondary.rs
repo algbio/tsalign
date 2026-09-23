@@ -161,17 +161,13 @@ impl<Cost> SecondaryAnchor<Cost> {
         gap_end.checked_sub(gap_start).unwrap()
     }
 
-    /// Returns true if this anchor preceedes the other anchor with an overlap of k-1 characters in both sequences.
-    /// Also returns true only if both anchors have zero cost.
-    #[deprecated(
-        note = "We need to redefine this based on how we want to chain things in the future."
-    )]
+    /// Returns true if
+    ///  * this anchor preceedes the other anchor with an overlap of k-1 characters in both sequences, and
+    ///  * both anchors have zero cost.
     pub fn is_direct_free_predecessor_of(&self, successor: &Self) -> bool
     where
         Cost: Zero,
     {
-        // TODO how do we account for predecessors that are inexact anchors? do we need to?
-        // Maybe trim the exact matches at the start and end of inexact anchors?
         self.range.offset().increment_both(1) == successor.range.offset()
             && self.range.limit().increment_both(1) == successor.range.limit()
             && self.cost.is_zero()

@@ -561,13 +561,6 @@ impl AnySecondaryAlignmentCoordinates {
                 )
             })
     }
-
-    pub fn swap(self) -> Self {
-        Self {
-            ancestor: self.descendant,
-            descendant: self.ancestor,
-        }
-    }
 }
 
 impl SpecificSecondaryAlignmentCoordinates {

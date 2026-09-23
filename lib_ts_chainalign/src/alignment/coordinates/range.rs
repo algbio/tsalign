@@ -133,8 +133,14 @@ impl AnySecondaryAlignmentRange {
 
     pub fn swap(self) -> Self {
         Self {
-            offset: self.offset.swap(),
-            limit: self.limit.swap(),
+            offset: AnySecondaryAlignmentCoordinates::new(
+                self.limit.descendant,
+                self.limit.ancestor,
+            ),
+            limit: AnySecondaryAlignmentCoordinates::new(
+                self.offset.descendant,
+                self.offset.ancestor,
+            ),
         }
     }
 }
