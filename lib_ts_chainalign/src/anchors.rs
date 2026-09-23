@@ -21,7 +21,7 @@ use crate::{
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
     },
-    costs::GapAffineCosts,
+    costs::AlignmentCosts,
 };
 
 pub mod exact_kmer_matches;
@@ -165,7 +165,7 @@ impl<Cost> Anchors<Cost> {
         sequences: &AlignmentSequences,
         k: u32,
         max_mutations: u8,
-        costs: &GapAffineCosts<Cost>,
+        costs: &AlignmentCosts<Cost>,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self
     where
@@ -188,7 +188,7 @@ impl<Cost> Anchors<Cost> {
             s2,
             sequences.range1(),
             sequences.range2(),
-            costs,
+            &costs.primary_costs,
             k,
             max_mutations,
         )
@@ -200,7 +200,7 @@ impl<Cost> Anchors<Cost> {
             s1,
             0..s1_rc.len(),
             sequences.range1(),
-            costs,
+            &costs.secondary_costs,
             k,
             max_mutations,
         )
@@ -212,7 +212,7 @@ impl<Cost> Anchors<Cost> {
             s2,
             0..s1_rc.len(),
             sequences.range2(),
-            costs,
+            &costs.secondary_costs,
             k,
             max_mutations,
         )
@@ -224,7 +224,7 @@ impl<Cost> Anchors<Cost> {
             s1,
             0..s2_rc.len(),
             sequences.range1(),
-            costs,
+            &costs.secondary_costs,
             k,
             max_mutations,
         )
@@ -236,7 +236,7 @@ impl<Cost> Anchors<Cost> {
             s2,
             0..s2_rc.len(),
             sequences.range2(),
-            costs,
+            &costs.secondary_costs,
             k,
             max_mutations,
         )

@@ -114,6 +114,12 @@ pub struct Cli {
     #[clap(short)]
     k: Option<u32>,
 
+    /// The maximum number of mutations allowed in an anchor.
+    ///
+    /// Higher values produce a more accurate alignment at the cost of increased runtime.
+    #[clap(long, default_value = "0")]
+    max_anchor_mutations: u8,
+
     #[clap(long, default_value = "anti-diagonal")]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
 

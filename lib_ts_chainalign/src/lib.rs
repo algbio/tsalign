@@ -60,6 +60,7 @@ pub fn preprocess(
 /// * `reference` is the reference string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `query` is the query string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
+/// * `max_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `performance_parameters` is a set of parameters for the aligner that only affect performance.
 /// * `rc_fn` is a function that maps a character to its reverse complement.
 /// * `reference_name` is the name of the reference string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
@@ -70,6 +71,7 @@ pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
+    max_mutations: u8,
     performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     reference_name: &str,
@@ -93,7 +95,17 @@ pub fn align<AlphabetType: Alphabet>(
     );
     let k = chaining_lower_bounds.max_match_run() + 1;
 
-    let anchors = Anchors::new_exact(&sequences, k, rc_fn);
+    let anchors = if max_mutations == 0 {
+        Anchors::new_exact(&sequences, k, rc_fn)
+    } else {
+        Anchors::new_inexact(
+            &sequences,
+            k,
+            max_mutations,
+            chaining_lower_bounds.alignment_costs(),
+            rc_fn,
+        )
+    };
     trace!("Anchors:\n{anchors}");
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
         chaining_lower_bounds,

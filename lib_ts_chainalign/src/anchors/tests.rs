@@ -5,6 +5,7 @@ use std::{
 
 use generic_a_star::cost::U16Cost;
 use itertools::Itertools;
+use num_traits::Zero;
 
 use crate::{
     alignment::{
@@ -13,7 +14,7 @@ use crate::{
         ts_kind::TsKind,
     },
     anchors::{Anchors, PrimaryAnchor, SecondaryAnchor},
-    costs::GapAffineCosts,
+    costs::{AlignmentCosts, GapAffineCosts, TsLimits},
 };
 
 fn rc_fn(c: u8) -> u8 {
@@ -115,6 +116,12 @@ fn test_coordinates_inexact_0() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors = Anchors::new_inexact(&sequences, k, 0, &costs, &rc_fn);
     assert_eq!(
@@ -185,6 +192,12 @@ fn test_coordinates_rev_inexact_0() {
     let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors = Anchors::new_inexact(&sequences, k, 0, &costs, &rc_fn);
     assert_eq!(
@@ -255,6 +268,12 @@ fn test_coordinates_inexact_1_symmetry_small() {
     let sequences = AlignmentSequences::new_complete(b"AC".to_vec(), b"AC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors = Anchors::new_inexact(&sequences, k, 1, &costs, &rc_fn);
     let primary: HashSet<_> = anchors.primary.iter().cloned().collect();
@@ -315,6 +334,12 @@ fn test_coordinates_inexact_1_symmetry() {
     let sequences_r = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors_f = Anchors::new_inexact(&sequences_f, k, 1, &costs, &rc_fn);
     let anchors_r = Anchors::new_inexact(&sequences_r, k, 1, &costs, &rc_fn);
@@ -394,6 +419,12 @@ fn test_coordinates_inexact_1() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors = Anchors::new_inexact(&sequences, k, 1, &costs, &rc_fn);
     let mut expected_primary = [
@@ -788,6 +819,12 @@ fn test_coordinates_inexact_1_rev() {
     let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
 
     let anchors = Anchors::new_inexact(&sequences, k, 1, &costs, &rc_fn);
     let mut expected_primary = [
