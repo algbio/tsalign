@@ -9,7 +9,7 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-generic_a_star = "7.0.3" 
+generic_a_star.workspace = true
 lib_tsalign = { version = "7.0.2", path = "../lib_tsalign" }
 ndarray = { version = "0.17.1", features = ["serde"] }
 num-traits.workspace = true

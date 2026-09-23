@@ -12,5 +12,5 @@ repository.workspace = true
 [dependencies]
 compact-genome.workspace = true
 log.workspace = true
-generic_a_star = "7.0.3"
+generic_a_star.workspace = true
 num-traits.workspace = true
