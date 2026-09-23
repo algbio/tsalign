@@ -47,7 +47,7 @@ pub fn infer_tschain_k(
     // Decrease k a little, because we can hopefully afford a few more anchors.
     let k = k.saturating_sub(3).max(2);
     // Increase k by the maximum number of mutations in the anchors.
-    let k = k.saturating_add(max_anchor_mutations.into());
+    let k = k.saturating_add(2 * u32::from(max_anchor_mutations));
     Ok(k)
 }
 
