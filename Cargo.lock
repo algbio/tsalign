@@ -562,6 +562,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic_a_star"
+version = "7.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53b32ae843c7bb4c076a6bdf04b253cdb1aacfda7951fcc00df8ebf5f58017a0"
+dependencies = [
+ "binary-heap-plus",
+ "compare",
+ "extend_map",
+ "log",
+ "num-traits",
+ "rustc-hash",
+]
+
+[[package]]
 name = "gif"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -655,6 +669,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "inexact-alignment-anchors"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cd25be9a5df1194f895010550f0f6475ad6e7502743810ec2ba58480a8d7f02"
+dependencies = [
+ "generic_a_star 7.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "integer-composition"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -738,8 +763,9 @@ dependencies = [
  "clap",
  "compact-genome",
  "extend_map",
- "generic_a_star",
+ "generic_a_star 7.0.2",
  "indicatif",
+ "inexact-alignment-anchors",
  "integer-composition",
  "itertools 0.15.0",
  "lib_tsalign",
@@ -757,7 +783,7 @@ dependencies = [
  "binary-heap-plus",
  "compact-genome",
  "extend_map",
- "generic_a_star",
+ "generic_a_star 7.0.2",
  "log",
  "ndarray",
  "noisy_float",
@@ -1250,7 +1276,7 @@ name = "seed_chain"
 version = "7.0.2"
 dependencies = [
  "compact-genome",
- "generic_a_star",
+ "generic_a_star 7.0.2",
  "log",
  "num-traits",
 ]
@@ -1642,7 +1668,7 @@ dependencies = [
  "bincode",
  "clap",
  "compact-genome",
- "generic_a_star",
+ "generic_a_star 7.0.2",
  "lib_ts_chainalign",
  "lib_tsalign",
  "lib_tsshow",
