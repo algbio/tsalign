@@ -231,8 +231,8 @@ impl<Cost: Ord> Ord for SecondaryAnchor<Cost> {
                     .descendant()
                     .cmp(&other.range.offset().descendant())
             })
-            .then_with(|| self.range.limit().cmp(&other.range.limit()))
             .then_with(|| self.cost.cmp(&other.cost))
+            .then_with(|| self.range.limit().cmp(&other.range.limit()))
     }
 }
 
