@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-    "generic_a_star",
     "seed_chain",
     "lib_tsalign",
     "lib_ts_chainalign",
@@ -22,6 +21,7 @@ package.rust-version = "1.85.1"
 package.repository = "https://github.com/sebschmi/template-switch-aligner"
 
 [workspace.dependencies]
+generic_a_star = "7.0.3"
 clap = { version = "4.6.6", features = ["derive"] }
 serde = "1.0.229"
 compact-genome = "12.5.0"
