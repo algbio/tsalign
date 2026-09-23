@@ -1,5 +1,3 @@
-use std::iter;
-
 use generic_a_star::cost::AStarCost;
 use log::trace;
 use num_traits::Zero;
@@ -17,7 +15,7 @@ use crate::{
     exact_chaining::{
         gap_affine::GapAffineAligner, ts_12_jump::Ts12JumpAligner, ts_34_jump::Ts34JumpAligner,
     },
-    panic_on_extend::PanicOnExtend,
+    panic_on_extend::{IgnoreExtend, PanicOnExtend},
 };
 
 pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
@@ -90,8 +88,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
-        let k = usize::try_from(max_match_run + 1).unwrap();
-
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
@@ -135,7 +131,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         gap_fill_alignment_count += 1;
 
                         trace!("Aligning from start to end costs {}", cost);
-                        if !final_evaluation {
+                        if final_evaluation {
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function.update_start_to_end(cost, true);
                             chaining_cost_function.update_additional_primary_targets_from_start(
                                 &mut self.additional_primary_targets_buffer,
@@ -143,7 +141,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(alignment);
                     }
                     current_upper_bound =
                         current_upper_bound.saturating_add(&chaining_cost_function.start_to_end());
@@ -173,7 +170,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.primary(index),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function.update_primary_from_start(index, cost, true);
                             chaining_cost_function.update_additional_primary_targets_from_start(
                                 &mut self.additional_primary_targets_buffer,
@@ -181,7 +180,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound
                         .saturating_add(&chaining_cost_function.primary_from_start(index));
@@ -214,7 +212,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.secondary(index, ts_kind),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function
                                 .update_jump_12_from_start(index, ts_kind, cost, true);
                             chaining_cost_function.update_additional_12_jump_targets_from_start(
@@ -224,7 +224,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound
                         .saturating_add(&chaining_cost_function.jump_12_from_start(index, ts_kind));
@@ -248,7 +247,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.primary(index),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.primary_aligner.align(
+                                    anchors.primary(index).start(),
+                                    anchors.primary(index).end(),
+                                    &mut IgnoreExtend,
+                                    &mut IgnoreExtend,
+                                );
+
+                            assert_eq!(anchor_alignment_cost, anchors.primary(index).cost());
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function.update_primary_to_end(index, cost, true);
                             chaining_cost_function.update_additional_primary_targets(
                                 index,
@@ -257,11 +268,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound
-                        .saturating_add(&chaining_cost_function.primary_to_end(index));
+                        .saturating_add(&chaining_cost_function.primary_to_end(index))
+                        .saturating_add(&anchors.primary(index).cost());
                 }
                 (Identifier::SecondaryToPrimary { index, ts_kind, .. }, Identifier::End) => {
                     let start = anchors
@@ -287,7 +297,28 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.secondary(index, ts_kind),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.secondary_aligner.align(
+                                    anchors
+                                        .secondary(index, ts_kind)
+                                        .start()
+                                        .into_specific(ts_kind),
+                                    anchors
+                                        .secondary(index, ts_kind)
+                                        .end()
+                                        .into_specific(ts_kind),
+                                    &mut IgnoreExtend,
+                                    &mut IgnoreExtend,
+                                );
+
+                            assert_eq!(
+                                anchor_alignment_cost,
+                                anchors.secondary(index, ts_kind).cost()
+                            );
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function
                                 .update_jump_34_to_end(index, ts_kind, cost, true);
                             chaining_cost_function.update_additional_34_jump_targets(
@@ -298,11 +329,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound
-                        .saturating_add(&chaining_cost_function.jump_34_to_end(index, ts_kind));
+                        .saturating_add(&chaining_cost_function.jump_34_to_end(index, ts_kind))
+                        .saturating_add(&anchors.secondary(index, ts_kind).cost());
                 }
                 (
                     Identifier::PrimaryToPrimary {
@@ -319,7 +349,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         .primary(from_index)
                         .is_direct_free_predecessor_of(anchors.primary(to_index))
                     {
-                        alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                        if final_evaluation {
+                            alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                        }
                         continue;
                     }
 
@@ -354,7 +386,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             );
                         }
 
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.primary_aligner.align(
+                                    anchors.primary(from_index).start(),
+                                    anchors.primary(from_index).end(),
+                                    &mut IgnoreExtend,
+                                    &mut IgnoreExtend,
+                                );
+
+                            assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function.update_primary(from_index, to_index, cost, true);
                             chaining_cost_function.update_additional_primary_targets(
                                 from_index,
@@ -363,11 +407,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound
-                        .saturating_add(&chaining_cost_function.primary(from_index, to_index));
+                        .saturating_add(&chaining_cost_function.primary(from_index, to_index))
+                        .saturating_add(&anchors.primary(from_index).cost());
                 }
                 (
                     Identifier::PrimaryToSecondary {
@@ -409,7 +452,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.secondary(to_index, ts_kind),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.primary_aligner.align(
+                                    anchors.primary(from_index).start(),
+                                    anchors.primary(from_index).end(),
+                                    &mut IgnoreExtend,
+                                    &mut IgnoreExtend,
+                                );
+
+                            assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function
                                 .update_jump_12(from_index, to_index, ts_kind, cost, true);
                             chaining_cost_function.update_additional_12_jump_targets(
@@ -420,12 +475,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
-                    current_upper_bound = current_upper_bound.saturating_add(
-                        &chaining_cost_function.jump_12(from_index, to_index, ts_kind),
-                    );
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(
+                            &chaining_cost_function.jump_12(from_index, to_index, ts_kind),
+                        )
+                        .saturating_add(&anchors.primary(from_index).cost());
                 }
                 (
                     Identifier::SecondaryToSecondary {
@@ -449,7 +504,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         .secondary(from_index, ts_kind)
                         .is_direct_free_predecessor_of(anchors.secondary(to_index, ts_kind))
                     {
-                        alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                        if final_evaluation {
+                            alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                        }
                         continue;
                     }
                     let start = anchors
@@ -482,7 +539,28 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             anchors.secondary(to_index, ts_kind),
                             cost
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.secondary_aligner.align(
+                                    anchors
+                                        .secondary(from_index, ts_kind)
+                                        .start()
+                                        .into_specific(ts_kind),
+                                    anchors
+                                        .secondary(from_index, ts_kind)
+                                        .end()
+                                        .into_specific(ts_kind),
+                                    &mut IgnoreExtend,
+                                    &mut PanicOnExtend,
+                                );
+
+                            assert_eq!(
+                                anchor_alignment_cost,
+                                anchors.secondary(from_index, ts_kind).cost()
+                            );
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function
                                 .update_secondary(from_index, to_index, ts_kind, cost, true);
                             chaining_cost_function.update_additional_secondary_targets(
@@ -493,12 +571,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
-                    current_upper_bound = current_upper_bound.saturating_add(
-                        &chaining_cost_function.secondary(from_index, to_index, ts_kind),
-                    );
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(
+                            &chaining_cost_function.secondary(from_index, to_index, ts_kind),
+                        )
+                        .saturating_add(&anchors.secondary(from_index, ts_kind).cost());
                 }
                 (
                     Identifier::SecondaryToPrimary {
@@ -540,7 +618,28 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                             end,
                             cost,
                         );
-                        if !final_evaluation {
+                        if final_evaluation {
+                            let (anchor_alignment_cost, anchor_alignment) =
+                                self.secondary_aligner.align(
+                                    anchors
+                                        .secondary(from_index, ts_kind)
+                                        .start()
+                                        .into_specific(ts_kind),
+                                    anchors
+                                        .secondary(from_index, ts_kind)
+                                        .end()
+                                        .into_specific(ts_kind),
+                                    &mut IgnoreExtend,
+                                    &mut PanicOnExtend,
+                                );
+
+                            assert_eq!(
+                                anchor_alignment_cost,
+                                anchors.secondary(from_index, ts_kind).cost()
+                            );
+                            alignments.push(anchor_alignment);
+                            alignments.push(alignment);
+                        } else {
                             chaining_cost_function
                                 .update_jump_34(from_index, to_index, ts_kind, cost, true);
                             chaining_cost_function.update_additional_34_jump_targets(
@@ -551,11 +650,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                        alignments.push(alignment);
                     }
                     current_upper_bound = current_upper_bound.saturating_add(
-                        &chaining_cost_function.jump_34(from_index, to_index, ts_kind),
+                        &chaining_cost_function
+                            .jump_34(from_index, to_index, ts_kind)
+                            .saturating_add(&anchors.secondary(from_index, ts_kind).cost()),
                     );
                 }
                 (Identifier::End, _)
