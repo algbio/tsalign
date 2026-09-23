@@ -81,6 +81,7 @@ pub fn align_a_star_chain_ts<
         reference,
         query,
         range,
+        cli.max_anchor_mutations,
         &performance_parameters,
         &|c| {
             AlphabetType::character_to_ascii(
