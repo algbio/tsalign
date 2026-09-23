@@ -51,6 +51,12 @@ pub struct Cli {
     #[clap(short)]
     k: Option<u32>,
 
+    /// The maximum number of mutations allowed in an anchor.
+    ///
+    /// Higher values produce a more accurate alignment at the cost of increased runtime.
+    #[clap(long, default_value = "0")]
+    max_anchor_mutations: u8,
+
     /// Maximum sequence length for which to preprocess.
     max_length: usize,
 }
@@ -136,7 +142,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
             let mut ks = BTreeSet::new();
             for max_n in next_max_n + 1..=current_max_n {
                 debug_assert_eq!(infer_tschain_max_n(max_n, max_n), current_max_n);
-                ks.insert(infer_tschain_k(max_n, max_n)?);
+                ks.insert(infer_tschain_k(max_n, max_n, cli.max_anchor_mutations)?);
             }
 
             for k in ks {
