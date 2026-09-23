@@ -256,7 +256,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.primary(index).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
@@ -307,7 +309,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.primary(index).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
@@ -362,7 +366,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.secondary(index, ts_kind).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
@@ -426,7 +432,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.secondary(index, ts_kind).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
