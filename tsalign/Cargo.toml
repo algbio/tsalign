@@ -22,7 +22,7 @@ strategy_total_length_maximise = []
 default = ["strategy_total_length_maximise", "alphabet_dna", "alphabet_dna_n"]
 
 [dependencies]
-generic_a_star = { version = "7.0.2", path = "../generic_a_star" }
+generic_a_star = "7.0.3"
 lib_tsalign = { version = "7.0.2", path = "../lib_tsalign", features = [
     "serde",
 ] }
