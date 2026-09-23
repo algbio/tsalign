@@ -32,7 +32,11 @@ pub fn infer_tschain_max_n(reference_length: usize, query_length: usize) -> usiz
     1 << (usize::BITS - (reference_length.max(query_length) - 1).leading_zeros())
 }
 
-pub fn infer_tschain_k(reference_length: usize, query_length: usize) -> Result<u32> {
+pub fn infer_tschain_k(
+    reference_length: usize,
+    query_length: usize,
+    max_anchor_mutations: u8,
+) -> Result<u32> {
     // This evaluates to ceil(log_2(length_sum)).
     // The motivation is that there are length_sum k-mers,
     // so for each to be different, k needs to be at least ceil(log_4(length_sum)).
@@ -41,7 +45,10 @@ pub fn infer_tschain_k(reference_length: usize, query_length: usize) -> Result<u
     // so we square that and arrive at ceil(log_2(length_sum)).
     let k = usize::BITS - ((reference_length + query_length) - 1).leading_zeros();
     // Decrease k a little, because we can hopefully afford a few more anchors.
-    Ok(k.saturating_sub(3).max(2))
+    let k = k.saturating_sub(3).max(2);
+    // Increase k by the maximum number of mutations in the anchors.
+    let k = k.saturating_add(max_anchor_mutations.into());
+    Ok(k)
 }
 
 pub fn tschain_preprocess_cache_file(
