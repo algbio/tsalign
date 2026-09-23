@@ -183,8 +183,8 @@ impl<Cost: Ord> Ord for PrimaryAnchor<Cost> {
             .cmp(&other.range.offset().a().min(other.range.offset().b()))
             .then_with(|| self.range.offset().a().cmp(&other.range.offset().a()))
             .then_with(|| self.range.offset().b().cmp(&other.range.offset().b()))
-            .then_with(|| self.range.limit().cmp(&other.range.limit()))
             .then_with(|| self.cost.cmp(&other.cost))
+            .then_with(|| self.range.limit().cmp(&other.range.limit()))
     }
 }
 
