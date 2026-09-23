@@ -15,7 +15,7 @@ use crate::{
 /// This is an anchor between the two sequences in forward direction.
 ///
 /// The anchor is ordered by its minimum ordinate first, then by its first ordinate and finally by its second ordinate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PrimaryAnchor<Cost> {
     range: PrimaryAlignmentRange,
     cost: Cost,
@@ -122,47 +122,6 @@ impl<Cost> PrimaryAnchor<Cost> {
             && self.cost.is_zero()
             && successor.cost.is_zero()
     }
-
-    /// Removes leading and trailing matches from the anchor, except if the anchor is only matches, then nothing is removed.
-    /// For anchors with ambiguous trimming, all possible trimmings are returned.
-    pub fn trim(self, s1: &[u8], s2: &[u8]) -> impl use<Cost> + Iterator<Item = Self>
-    where
-        Cost: Copy,
-    {
-        let leading_matches = s1[self.start().a()..self.end().a()]
-            .iter()
-            .zip(s2[self.start().b()..self.end().b()].iter())
-            .take_while(|(c1, c2)| c1 == c2)
-            .count();
-
-        let (leading_trims, total_trim) =
-            if leading_matches == self.range.len_a() && leading_matches == self.range.len_b() {
-                (0..=0, 0)
-            } else {
-                let trailing_matches = s1[self.start().a()..self.end().a()]
-                    .iter()
-                    .rev()
-                    .zip(s2[self.start().b()..self.end().b()].iter().rev())
-                    .take_while(|(c1, c2)| c1 == c2)
-                    .count();
-                let total_matches = leading_matches + trailing_matches;
-                let min_len = self.range.len_a().min(self.range.len_b());
-                if total_matches <= min_len {
-                    (leading_matches..=leading_matches, total_matches)
-                } else {
-                    (min_len - trailing_matches..=leading_matches, min_len)
-                }
-            };
-
-        leading_trims.map(move |leading_trim| {
-            let trailing_trim = total_trim - leading_trim;
-            Self::new_from_ranges(
-                self.start().a() + leading_trim..self.end().a() - trailing_trim,
-                self.start().b() + leading_trim..self.end().b() - trailing_trim,
-                self.cost,
-            )
-        })
-    }
 }
 
 fn primary_chaining_gaps(
@@ -192,6 +151,23 @@ impl<Cost: Display> Display for PrimaryAnchor<Cost> {
 impl<Cost> From<(PrimaryAlignmentRange, Cost)> for PrimaryAnchor<Cost> {
     fn from(value: (PrimaryAlignmentRange, Cost)) -> Self {
         Self::new(value.0, value.1)
+    }
+}
+
+impl<Cost> From<inexact_alignment_anchors::anchor::Anchor<Cost>> for PrimaryAnchor<Cost> {
+    fn from(
+        inexact_alignment_anchors::anchor::Anchor {
+            offset_a,
+            limit_a,
+            offset_b,
+            limit_b,
+            cost,
+        }: inexact_alignment_anchors::anchor::Anchor<Cost>,
+    ) -> Self {
+        Self::new(
+            PrimaryAlignmentRange::new_from_ranges(offset_a..limit_a, offset_b..limit_b),
+            cost,
+        )
     }
 }
 

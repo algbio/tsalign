@@ -47,7 +47,6 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
         let start = sequences.primary_start();
         let end = sequences.primary_end();
-        let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
         let primary_anchor_amount = anchors.primary_len() + 2;
         let primary_start_anchor_index = AnchorIndex::zero();
         let primary_end_anchor_index = primary_anchor_amount - 1;

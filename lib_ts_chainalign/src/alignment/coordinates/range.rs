@@ -130,6 +130,13 @@ impl AnySecondaryAlignmentRange {
             .checked_sub(self.offset.descendant())
             .unwrap()
     }
+
+    pub fn swap(self) -> Self {
+        Self {
+            offset: self.offset.swap(),
+            limit: self.limit.swap(),
+        }
+    }
 }
 
 impl SpecificSecondaryAlignmentRange {

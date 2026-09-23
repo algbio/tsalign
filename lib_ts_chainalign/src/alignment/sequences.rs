@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::alignment::{
     coordinates::{
         AlignmentCoordinates, PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
@@ -132,5 +134,13 @@ impl AlignmentSequences {
     /// Returns the name of sequence2.
     pub fn seq2_name(&self) -> &str {
         &self.seq2_name
+    }
+
+    pub fn range1(&self) -> Range<usize> {
+        self.start.a()..self.end.a()
+    }
+
+    pub fn range2(&self) -> Range<usize> {
+        self.start.b()..self.end.b()
     }
 }

@@ -18,7 +18,7 @@ use crate::{
 /// This is an anchor between the ancestor in reverse direction and the descendant in forward direction.
 ///
 /// The anchor is ordered by its minimum ordinate first, then by its ancestor ordinate and finally by its descendant ordinate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SecondaryAnchor<Cost> {
     range: AnySecondaryAlignmentRange,
     pub(super) cost: Cost,
@@ -52,6 +52,26 @@ impl<Cost> SecondaryAnchor<Cost> {
         Self::new(
             AnySecondaryAlignmentRange::new_equal_length(offset, length),
             Cost::zero(),
+        )
+    }
+
+    pub fn new_from_inexact_alignment_anchor(
+        inexact_alignment_anchors::anchor::Anchor {
+            offset_a,
+            limit_a,
+            offset_b,
+            limit_b,
+            cost,
+        }: inexact_alignment_anchors::anchor::Anchor<Cost>,
+        ancestor_len: usize,
+    ) -> Self {
+        Self::new(
+            AnySecondaryAlignmentRange::new_from_ranges(
+                ancestor_len - offset_a,
+                ancestor_len - limit_a,
+                offset_b..limit_b,
+            ),
+            cost,
         )
     }
 
@@ -168,61 +188,19 @@ impl<Cost> SecondaryAnchor<Cost> {
         (start.ancestor().checked_sub(end.ancestor()).unwrap())
             .max(end.descendant().checked_sub(start.descendant()).unwrap())
     }
-
-    /// Removes leading and trailing matches from the anchor, except if the anchor is only matches, then nothing is removed.
-    pub fn trim(
-        self,
-        ancestor_rc: &[u8],
-        descendant: &[u8],
-    ) -> impl use<Cost> + Iterator<Item = Self>
-    where
-        Cost: Copy,
-    {
-        let leading_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
-            .iter()
-            .rev()
-            .zip(descendant[self.start().descendant()..self.end().descendant()].iter())
-            .take_while(|(c1, c2)| c1 == c2)
-            .count();
-
-        let (leading_trims, trailing_trim) = if leading_matches == self.range.len_ancestor()
-            && leading_matches == self.range.len_descendant()
-        {
-            (0..=0, 0)
-        } else {
-            let trailing_matches = ancestor_rc[self.end().ancestor()..self.start().ancestor()]
-                .iter()
-                .zip(
-                    descendant[self.start().descendant()..self.end().descendant()]
-                        .iter()
-                        .rev(),
-                )
-                .take_while(|(c1, c2)| c1 == c2)
-                .count();
-            let total_matches = leading_matches + trailing_matches;
-            let min_len = self.range.len_ancestor().min(self.range.len_descendant());
-            if total_matches <= min_len {
-                (leading_matches..=leading_matches, total_matches)
-            } else {
-                (min_len - trailing_matches..=leading_matches, min_len)
-            }
-        };
-
-        leading_trims.map(move |leading_trim| {
-            let trailing_trim = trailing_trim - leading_trim;
-            Self::new_from_ranges(
-                self.start().ancestor() - leading_trim,
-                self.end().ancestor() + trailing_trim,
-                self.start().descendant() + leading_trim..self.end().descendant() - trailing_trim,
-                self.cost,
-            )
-        })
-    }
 }
 
 impl<Cost: Display> Display for SecondaryAnchor<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SA({}, {})", self.range, self.cost)
+        write!(
+            f,
+            "SA(({}, {}], [{}, {}), {})",
+            self.range.offset().ancestor(),
+            self.range.limit().ancestor(),
+            self.range.offset().descendant(),
+            self.range.limit().descendant(),
+            self.cost
+        )
     }
 }
 
