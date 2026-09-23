@@ -15,7 +15,7 @@ use crate::{
     exact_chaining::{
         gap_affine::GapAffineAligner, ts_12_jump::Ts12JumpAligner, ts_34_jump::Ts34JumpAligner,
     },
-    panic_on_extend::{IgnoreExtend, PanicOnExtend},
+    panic_on_extend::PanicOnExtend,
 };
 
 pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
@@ -249,11 +249,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_aligner.align(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(index).start(),
                                     anchors.primary(index).end(),
-                                    &mut IgnoreExtend,
-                                    &mut IgnoreExtend,
                                 );
 
                             assert_eq!(anchor_alignment_cost, anchors.primary(index).cost());
@@ -299,7 +297,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_aligner.align(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(index, ts_kind)
                                         .start()
@@ -308,8 +306,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .secondary(index, ts_kind)
                                         .end()
                                         .into_specific(ts_kind),
-                                    &mut IgnoreExtend,
-                                    &mut IgnoreExtend,
                                 );
 
                             assert_eq!(
@@ -388,11 +384,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_aligner.align(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(from_index).start(),
                                     anchors.primary(from_index).end(),
-                                    &mut IgnoreExtend,
-                                    &mut IgnoreExtend,
                                 );
 
                             assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
@@ -454,11 +448,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_aligner.align(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(from_index).start(),
                                     anchors.primary(from_index).end(),
-                                    &mut IgnoreExtend,
-                                    &mut IgnoreExtend,
                                 );
 
                             assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
@@ -541,7 +533,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_aligner.align(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(from_index, ts_kind)
                                         .start()
@@ -550,8 +542,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .secondary(from_index, ts_kind)
                                         .end()
                                         .into_specific(ts_kind),
-                                    &mut IgnoreExtend,
-                                    &mut PanicOnExtend,
                                 );
 
                             assert_eq!(
@@ -620,7 +610,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_aligner.align(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(from_index, ts_kind)
                                         .start()
@@ -629,8 +619,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .secondary(from_index, ts_kind)
                                         .end()
                                         .into_specific(ts_kind),
-                                    &mut IgnoreExtend,
-                                    &mut PanicOnExtend,
                                 );
 
                             assert_eq!(
