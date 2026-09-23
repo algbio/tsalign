@@ -228,4 +228,46 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 }),
         );
     }
+
+    /// Align an anchor from start to end.
+    ///
+    /// None of the restrictions typically imposed by this aligner imply, e.g. `max_match_run` is ignored.
+    pub fn align_anchor(
+        &mut self,
+        start: impl Into<AlignmentCoordinates>,
+        end: impl Into<AlignmentCoordinates>,
+    ) -> (Cost, Alignment) {
+        let start = start.into();
+        let end = end.into();
+
+        assert!(
+            start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
+        );
+
+        let context = Context::new(
+            self.cost_table,
+            self.sequences,
+            self.rc_fn,
+            start,
+            end,
+            true,
+            true,
+            u32::MAX,
+        );
+        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
+
+        a_star.initialise();
+        let (cost, alignment) = match a_star.search() {
+            AStarResult::FoundTarget { cost, .. } => {
+                let alignment = a_star.reconstruct_path().into();
+                (cost.0, alignment)
+            }
+            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
+            AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
+            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
+        };
+        self.a_star_buffers = Some(a_star.into_buffers());
+
+        (cost, alignment)
+    }
 }
