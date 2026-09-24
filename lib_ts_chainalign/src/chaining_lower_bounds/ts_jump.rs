@@ -17,12 +17,12 @@ pub struct TsJumpLowerBounds<Cost> {
 
 impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
     pub fn new(max_n: usize, max_match_run: u32, cost_table: &AlignmentCosts<Cost>) -> Self {
-        let primary_lower_bounds = GapAffineLowerBounds::new_allow_all_matches(
+        let primary_lower_bounds_12 = GapAffineLowerBounds::new_exact_anchors_allow_end_match(
             max_n,
             max_match_run,
             &cost_table.primary_costs,
         );
-        let secondary_lower_bounds = GapAffineLowerBounds::new_allow_all_matches(
+        let secondary_lower_bounds_12 = GapAffineLowerBounds::new_exact_anchors_allow_start_match(
             max_n,
             max_match_run,
             &cost_table.secondary_costs,
@@ -34,23 +34,37 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
             LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
         for primary_descendant_gap in 0..=max_n {
             for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
-                let lower_bound = primary_lower_bounds
+                let lower_bound = primary_lower_bounds_12
                     .variable_gap2_lower_bound(primary_descendant_gap)
                     + cost_table.ts_base_cost.min()
-                    + secondary_lower_bounds.variable_gap2_lower_bound(secondary_descendant_gap);
+                    + secondary_lower_bounds_12.variable_gap2_lower_bound(secondary_descendant_gap);
                 lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
                     lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
                         .min(lower_bound);
             }
         }
 
+        drop(primary_lower_bounds_12);
+        drop(secondary_lower_bounds_12);
+
+        let secondary_lower_bounds_34 = GapAffineLowerBounds::new_exact_anchors_allow_end_match(
+            max_n,
+            max_match_run,
+            &cost_table.secondary_costs,
+        );
+        let primary_lower_bounds_34 = GapAffineLowerBounds::new_exact_anchors_allow_start_match(
+            max_n,
+            max_match_run,
+            &cost_table.primary_costs,
+        );
+
         let mut lower_bounds_34 =
             LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
         for secondary_descendant_gap in 0..=max_n {
             for primary_descendant_gap in 0..=max_n - secondary_descendant_gap {
-                let lower_bound = secondary_lower_bounds
+                let lower_bound = secondary_lower_bounds_34
                     .variable_gap2_lower_bound(secondary_descendant_gap)
-                    + primary_lower_bounds.variable_gap2_lower_bound(primary_descendant_gap);
+                    + primary_lower_bounds_34.variable_gap2_lower_bound(primary_descendant_gap);
                 lower_bounds_34[[primary_descendant_gap + secondary_descendant_gap]] =
                     lower_bounds_34[[primary_descendant_gap + secondary_descendant_gap]]
                         .min(lower_bound);
@@ -87,12 +101,22 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
 impl<Cost: Copy> TsJumpLowerBounds<Cost> {
     /// A lower bound of the cost for chaining a primary anchor with a secondary anchor.
     ///
+    /// The lower bound is dependent only on the gap between the descendant side of the anchors,
+    /// as the ancestor gap is variable depending on the length of the 12-jump.
+    /// The lower bound chooses the optimal ancestor gap for the given descendant gap,
+    /// and hence is a lower bound for all possible ancestor gaps, and therefore also all possible 12-jumps.
+    ///
     /// This lower bound takes the template switch base cost into account.
     pub fn lower_bound_12(&self, descendant_gap: usize) -> Cost {
         self.lower_bounds_12[[descendant_gap]]
     }
 
     /// A lower bound of the cost for chaining a secondary anchor with a primary anchor.
+    ///
+    /// The lower bound is dependent only on the gap between the descendant side of the anchors,
+    /// as the ancestor gap is variable depending on the length of the 34-jump.
+    /// The lower bound chooses the optimal ancestor gap for the given descendant gap,
+    /// and hence is a lower bound for all possible ancestor gaps, and therefore also all possible 34-jumps.
     ///
     /// This lower bound does **not** take the template switch base cost into account.
     pub fn lower_bound_34(&self, descendant_gap: usize) -> Cost {

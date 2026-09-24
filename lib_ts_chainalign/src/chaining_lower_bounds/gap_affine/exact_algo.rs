@@ -1,11 +1,8 @@
+//! The algorithm for computing lower bounds for the case where the anchors are exact matches.
+
 use std::fmt::Display;
 
-use generic_a_star::{
-    AStarContext, AStarIdentifier, AStarNode,
-    cost::{AStarCost, OrderedPairCost, U32Cost},
-    reset::Reset,
-};
-use num_traits::Zero;
+use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
     alignment::{GapType, coordinates::AlignmentCoordinates},
@@ -16,29 +13,34 @@ pub struct Context<'a, Cost> {
     costs: &'a GapAffineCosts<Cost>,
     max_match_run: u32,
     max_n: usize,
+    allow_start_match: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Node<Cost> {
     pub identifier: Identifier,
     pub cost: Cost,
-    pub match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
-    /// True if this node was reached via at least one non-match.
-    pub has_non_match: bool,
+    pub match_run: u32,
     gap_type: GapType,
 }
 
 impl<'a, Cost> Context<'a, Cost> {
-    pub fn new(costs: &'a GapAffineCosts<Cost>, max_match_run: u32, max_n: usize) -> Self {
+    pub fn new(
+        costs: &'a GapAffineCosts<Cost>,
+        max_match_run: u32,
+        max_n: usize,
+        allow_start_match: bool,
+    ) -> Self {
         Self {
             costs,
             max_match_run,
             max_n,
+            allow_start_match,
         }
     }
 }
@@ -50,11 +52,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
         Node {
             identifier: Identifier {
                 coordinates: AlignmentCoordinates::new_primary(0, 0),
-                has_non_match: false,
+                // If we want to enfore the first alignment to be a non-match, we set the match run to u32::MAX.
+                match_run: if self.allow_start_match { 0 } else { u32::MAX },
                 gap_type: GapType::None,
             },
             cost: Cost::zero(),
-            match_run: 0,
         }
     }
 
@@ -63,11 +65,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             identifier:
                 Identifier {
                     coordinates,
-                    has_non_match,
+                    match_run,
                     gap_type,
                 },
             cost,
-            match_run,
         } = node;
         let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
 
@@ -78,12 +79,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
                 output.extend(std::iter::once(Node {
                     identifier: Identifier {
                         coordinates: coordinates.increment_both(),
-
-                        has_non_match: *has_non_match,
+                        match_run: match_run + 1,
                         gap_type: GapType::None,
                     },
                     cost: new_cost,
-                    match_run: match_run + 1,
                 }));
             }
 
@@ -92,11 +91,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_both(),
-                    has_non_match: true,
+                    match_run: 0,
                     gap_type: GapType::None,
                 },
                 cost: new_cost,
-                match_run: 0,
             }));
         }
 
@@ -110,11 +108,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_a(),
-                    has_non_match: true,
+                    match_run: 0,
                     gap_type: GapType::InB,
                 },
                 cost: new_cost,
-                match_run: 0,
             }));
         }
 
@@ -128,11 +125,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_b(),
-                    has_non_match: true,
+                    match_run: 0,
                     gap_type: GapType::InA,
                 },
                 cost: new_cost,
-                match_run: 0,
             }));
         }
     }
@@ -162,19 +158,18 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
     type EdgeType = ();
 
-    // Use match run as secondary cost
-    type Cost = OrderedPairCost<Cost, U32Cost>;
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
     fn cost(&self) -> Self::Cost {
-        OrderedPairCost(self.cost, U32Cost::from_primitive(self.match_run))
+        self.cost
     }
 
     fn a_star_lower_bound(&self) -> Self::Cost {
-        OrderedPairCost(Cost::zero(), U32Cost::zero())
+        Cost::zero()
     }
 
     fn secondary_maximisable_score(&self) -> usize {
@@ -194,7 +189,7 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}, {}", self.identifier, self.cost, self.match_run)
+        write!(f, "{}: {}", self.identifier, self.cost)
     }
 }
 
@@ -205,8 +200,8 @@ impl Display for Identifier {
             "({}, {}, {}, {})",
             self.coordinates.primary_ordinate_a().unwrap(),
             self.coordinates.primary_ordinate_b().unwrap(),
+            self.match_run,
             self.gap_type,
-            self.has_non_match
         )
     }
 }
@@ -219,9 +214,7 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost
-            .cmp(&other.cost)
-            .then_with(|| self.match_run.cmp(&other.match_run))
+        self.cost.cmp(&other.cost)
     }
 }
 

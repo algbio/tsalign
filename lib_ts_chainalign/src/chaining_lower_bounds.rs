@@ -31,12 +31,12 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     /// * `alignment_costs` is the cost function for the alignment.
     pub fn new(max_n: usize, max_match_run: u32, alignment_costs: AlignmentCosts<Cost>) -> Self {
         Self {
-            primary: GapAffineLowerBounds::new(
+            primary: GapAffineLowerBounds::new_exact_anchors(
                 max_n,
                 max_match_run,
                 &alignment_costs.primary_costs,
             ),
-            secondary: GapAffineLowerBounds::new(
+            secondary: GapAffineLowerBounds::new_exact_anchors(
                 max_n,
                 max_match_run,
                 &alignment_costs.secondary_costs,
