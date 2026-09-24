@@ -9,6 +9,7 @@ use crate::{
 };
 
 mod exact_algo;
+mod inexact_algo;
 #[cfg(test)]
 mod tests;
 
@@ -29,6 +30,13 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     /// Compute the lower bounds for the case that the anchors are exact matches.
     ///
     /// Disallow direct chaining between anchors and enforce that the alignment starts and ends with non-matches.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_n` is the maximum sequence length that the lower bounds should support.
+    /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
+    ///   Set this to `k-1`, if the anchors are `k`-mers.
+    /// * `cost_table` is the cost function for the alignment.
     pub fn new_exact_anchors(
         max_n: usize,
         max_match_run: u32,
@@ -48,6 +56,13 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     ///
     /// This is useful for computing the jump lower bounds before the jump, as the jump itself is a non-match operation,
     /// so there is no need to enforce non-matches right before the jump.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_n` is the maximum sequence length that the lower bounds should support.
+    /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
+    ///   Set this to `k-1`, if the anchors are `k`-mers.
+    /// * `cost_table` is the cost function for the alignment.
     pub(super) fn new_exact_anchors_allow_end_match(
         max_n: usize,
         max_match_run: u32,
@@ -67,6 +82,13 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     ///
     /// This is useful for computing the jump lower bounds after the jump, as the jump itself is a non-match operation,
     /// so there is no need to enforce non-matches right after the jump.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_n` is the maximum sequence length that the lower bounds should support.
+    /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
+    ///   Set this to `k-1`, if the anchors are `k`-mers.
+    /// * `cost_table` is the cost function for the alignment.
     pub(super) fn new_exact_anchors_allow_start_match(
         max_n: usize,
         max_match_run: u32,
@@ -80,31 +102,27 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         )
     }
 
-    /*/// Compute the lower bounds for the case that the anchors are inexact matches.
-    ///
-    /// Disallow direct chaining between anchors.
-    pub fn new_inexact_anchors(
-        max_n: usize,
-        max_match_run: u32,
-        max_mutations: u8,
-        cost_table: &GapAffineCosts<Cost>,
-    ) -> Self {
-        todo!("Self::compute_inexact(max_n, max_match_run, cost_table, false)")
-    }
-
     /// Compute the lower bounds for the case that the anchors are inexact matches.
     ///
-    /// Allow direct chaining between anchors.
-    /// This is useful for computing the jump lower bounds, as the jump itself is a non-match operation,
-    /// so there is no need to enforce non-matches before or after the jump.
-    pub(super) fn new_inexact_anchors_allow_direct_chaining(
+    /// Inexact anchors don't have any nice overlap-extension property where a match right after or right before an anchor `A` means that there is another anchor `B` that can be chained with `A`.
+    /// Therefore, we cannot assume that a gap starts or ends with a non-match, or even contains a non-match at all if the gap is at most `max_match_run` long.
+    /// Hence, the lower bound is computed only with the condition that no subalignment of the alignment can be an anchor,
+    /// so every subalignment where one of the sequences has length `k` must have at least `max_anchor_mutations + 1` mutations.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_n` is the maximum sequence length that the lower bounds should support.
+    /// * `anchor_k` is the length of the anchors.
+    /// * `max_anchor_mutations` is the maximum number of mutations that an anchor can have.
+    /// * `cost_table` is the cost function for the alignment.
+    pub fn new_inexact_anchors(
         max_n: usize,
-        max_match_run: u32,
-        max_mutations: u8,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        todo!("Self::compute_inexact(max_n, max_match_run, cost_table, true)")
-    }*/
+        todo!()
+    }
 
     /// Compute the lower bounds for the case that the anchors are exact matches.
     ///
@@ -114,11 +132,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
     ///   Set this to `k-1`, if the anchors are `k`-mers.
     /// * `cost_table` is the cost function for the alignment.
-    /// * `allow_direct_chaining` if true, allow direct chaining between anchors.
-    ///   If false, disallow this.
-    ///   This is set to true for computing the jump lower bounds, as the jump itself is a non-match operation,
-    ///   so there is no need to enforce a non-match before or after the jump.
-    ///
+    /// * `boundary_condition` determines if there must be non-matches at the start or end of the alignment, and if direct chaining (i.e. a length-zero alignment) between anchors is allowed.
     fn compute_exact(
         max_n: usize,
         max_match_run: u32,
