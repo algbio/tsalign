@@ -19,31 +19,42 @@ pub struct ChainingLowerBounds<Cost> {
     secondary: GapAffineLowerBounds<Cost>,
     jump: TsJumpLowerBounds<Cost>,
     alignment_costs: AlignmentCosts<Cost>,
-    max_match_run: u32,
+    anchor_k: u32,
+    max_anchor_mutations: u8,
 }
 
 impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     /// Compute chaining lower bounds.
     ///
     /// * `max_n` is the maximum sequence length that the lower bounds should support.
-    /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
-    ///   Set this to `k-1`, if the anchors are `k`-mers.
+    /// * `anchor_k` is the size of the anchors.
+    /// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
     /// * `alignment_costs` is the cost function for the alignment.
-    pub fn new(max_n: usize, max_match_run: u32, alignment_costs: AlignmentCosts<Cost>) -> Self {
-        Self {
-            primary: GapAffineLowerBounds::new_exact_anchors(
-                max_n,
-                max_match_run,
-                &alignment_costs.primary_costs,
-            ),
-            secondary: GapAffineLowerBounds::new_exact_anchors(
-                max_n,
-                max_match_run,
-                &alignment_costs.secondary_costs,
-            ),
-            jump: TsJumpLowerBounds::new(max_n, max_match_run, &alignment_costs),
-            alignment_costs,
-            max_match_run,
+    pub fn new(
+        max_n: usize,
+        anchor_k: u32,
+        max_anchor_mutations: u8,
+        alignment_costs: AlignmentCosts<Cost>,
+    ) -> Self {
+        if max_anchor_mutations == 0 {
+            Self {
+                primary: GapAffineLowerBounds::new_exact_anchors(
+                    max_n,
+                    anchor_k - 1,
+                    &alignment_costs.primary_costs,
+                ),
+                secondary: GapAffineLowerBounds::new_exact_anchors(
+                    max_n,
+                    anchor_k - 1,
+                    &alignment_costs.secondary_costs,
+                ),
+                jump: TsJumpLowerBounds::new_exact(max_n, anchor_k - 1, &alignment_costs),
+                alignment_costs,
+                anchor_k,
+                max_anchor_mutations,
+            }
+        } else {
+            todo!()
         }
     }
 
@@ -63,7 +74,8 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             bincode::error::EncodeError::Io { inner, .. } => inner,
             error => panic!("I/O error: {error}"),
         })?;
-        write.write_all(&self.max_match_run.to_ne_bytes())
+        write.write_all(&self.anchor_k.to_ne_bytes())?;
+        write.write_all(&self.max_anchor_mutations.to_ne_bytes())
     }
 
     pub fn read(mut read: impl Read) -> std::io::Result<Self>
@@ -83,14 +95,19 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
 
         let mut buffer = [0; std::mem::size_of::<u32>()];
         read.read_exact(&mut buffer)?;
-        let max_match_run = u32::from_ne_bytes(buffer);
+        let anchor_k = u32::from_ne_bytes(buffer);
+
+        let mut buffer = [0; std::mem::size_of::<u8>()];
+        read.read_exact(&mut buffer)?;
+        let max_anchor_mutations = u8::from_ne_bytes(buffer);
 
         Ok(Self {
             primary,
             secondary,
             jump,
             alignment_costs,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
         })
     }
 }
@@ -130,7 +147,11 @@ impl<Cost> ChainingLowerBounds<Cost> {
         &self.alignment_costs
     }
 
-    pub fn max_match_run(&self) -> u32 {
-        self.max_match_run
+    pub fn anchor_k(&self) -> u32 {
+        self.anchor_k
+    }
+
+    pub fn max_anchor_mutations(&self) -> u8 {
+        self.max_anchor_mutations
     }
 }

@@ -6,19 +6,25 @@ use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, 
 
 use crate::{
     alignment::{GapType, coordinates::AlignmentCoordinates},
-    chaining_lower_bounds::gap_affine::inexact_algo::history_graph::HistoryNodeIndex,
+    chaining_lower_bounds::gap_affine::inexact_algo::{
+        history_alignment_operations::AlignmentHistoryOperation,
+        history_graph::{HistoryGraph, HistoryNodeIndex},
+    },
     costs::GapAffineCosts,
 };
+
+pub use history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec};
 
 mod history_alignment_operations;
 mod history_graph;
 mod history_vec;
 
-pub struct Context<'a, Cost> {
-    max_n: usize,
+pub struct Context<'a, Cost, AlignmentHistoryVec> {
+    costs: &'a GapAffineCosts<Cost>,
     anchor_k: u8,
     max_anchor_mutations: u8,
-    cost_table: &'a GapAffineCosts<Cost>,
+    max_n: usize,
+    history_graph: HistoryGraph<AlignmentHistoryVec>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -34,31 +40,33 @@ pub struct Identifier {
     gap_type: GapType,
 }
 
-impl<'a, Cost> Context<'a, Cost> {
+impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, AlignmentHistoryVec> {
     pub fn new(
-        max_n: usize,
+        costs: &'a GapAffineCosts<Cost>,
         anchor_k: u8,
         max_anchor_mutations: u8,
-        cost_table: &'a GapAffineCosts<Cost>,
+        max_n: usize,
     ) -> Self {
         Self {
-            max_n,
+            costs,
             anchor_k,
             max_anchor_mutations,
-            cost_table,
+            max_n,
+            history_graph: HistoryGraph::new(),
         }
     }
 }
 
-impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
+impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
+    for Context<'_, Cost, AlignmentHistoryVec>
+{
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
         Node {
             identifier: Identifier {
                 coordinates: AlignmentCoordinates::new_primary(0, 0),
-                // If we want to enfore the first alignment to be a non-match, we set the match run to u32::MAX.
-                match_run: if self.allow_start_match { 0 } else { u32::MAX },
+                history: self.history_graph.empty_node_id(),
                 gap_type: GapType::None,
             },
             cost: Cost::zero(),
@@ -70,7 +78,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             identifier:
                 Identifier {
                     coordinates,
-                    match_run,
+                    history,
                     gap_type,
                 },
             cost,
@@ -78,63 +86,89 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
         let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
 
         if coordinates.can_increment_both(end, None) {
-            if *match_run < self.max_match_run {
+            if let Some(history) = self.history_graph.try_extend(
+                *history,
+                AlignmentHistoryOperation::Match,
+                self.anchor_k,
+                self.max_anchor_mutations,
+            ) {
                 // Match
                 let new_cost = *cost;
                 output.extend(std::iter::once(Node {
                     identifier: Identifier {
                         coordinates: coordinates.increment_both(),
-                        match_run: match_run + 1,
+                        history,
                         gap_type: GapType::None,
                     },
                     cost: new_cost,
                 }));
             }
 
-            // Substitution
-            let new_cost = *cost + self.costs.substitution;
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_both(),
-                    match_run: 0,
-                    gap_type: GapType::None,
-                },
-                cost: new_cost,
-            }));
+            if let Some(history) = self.history_graph.try_extend(
+                *history,
+                AlignmentHistoryOperation::Substitution,
+                self.anchor_k,
+                self.max_anchor_mutations,
+            ) {
+                // Substitution
+                let new_cost = *cost + self.costs.substitution;
+                output.extend(std::iter::once(Node {
+                    identifier: Identifier {
+                        coordinates: coordinates.increment_both(),
+                        history,
+                        gap_type: GapType::None,
+                    },
+                    cost: new_cost,
+                }));
+            }
         }
 
         if coordinates.can_increment_a_or_ancestor(end, None) {
-            // Gap in b
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InB => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_a(),
-                    match_run: 0,
-                    gap_type: GapType::InB,
-                },
-                cost: new_cost,
-            }));
+            if let Some(history) = self.history_graph.try_extend(
+                *history,
+                AlignmentHistoryOperation::GapInB,
+                self.anchor_k,
+                self.max_anchor_mutations,
+            ) {
+                // Gap in b
+                let new_cost = *cost
+                    + match gap_type {
+                        GapType::InB => self.costs.gap_extend,
+                        _ => self.costs.gap_open,
+                    };
+                output.extend(std::iter::once(Node {
+                    identifier: Identifier {
+                        coordinates: coordinates.increment_a(),
+                        history,
+                        gap_type: GapType::InB,
+                    },
+                    cost: new_cost,
+                }));
+            }
         }
 
         if coordinates.can_increment_b_or_descendant(end, None) {
-            // Gap in a
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InA => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_b(),
-                    match_run: 0,
-                    gap_type: GapType::InA,
-                },
-                cost: new_cost,
-            }));
+            if let Some(history) = self.history_graph.try_extend(
+                *history,
+                AlignmentHistoryOperation::GapInA,
+                self.anchor_k,
+                self.max_anchor_mutations,
+            ) {
+                // Gap in a
+                let new_cost = *cost
+                    + match gap_type {
+                        GapType::InA => self.costs.gap_extend,
+                        _ => self.costs.gap_open,
+                    };
+                output.extend(std::iter::once(Node {
+                    identifier: Identifier {
+                        coordinates: coordinates.increment_b(),
+                        history,
+                        gap_type: GapType::InA,
+                    },
+                    cost: new_cost,
+                }));
+            }
         }
     }
 
@@ -152,7 +186,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
     }
 }
 
-impl<Cost> Reset for Context<'_, Cost> {
+impl<Cost, AlignmentHistoryVec> Reset for Context<'_, Cost, AlignmentHistoryVec> {
     fn reset(&mut self) {
         unimplemented!()
     }
@@ -205,7 +239,7 @@ impl Display for Identifier {
             "({}, {}, {}, {})",
             self.coordinates.primary_ordinate_a().unwrap(),
             self.coordinates.primary_ordinate_b().unwrap(),
-            self.match_run,
+            self.history,
             self.gap_type,
         )
     }

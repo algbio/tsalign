@@ -1,10 +1,17 @@
-use std::hash::Hash;
+use std::{fmt::Display, hash::Hash, iter};
 
 use num_traits::{NumCast, PrimInt, Unsigned};
 
 use crate::chaining_lower_bounds::gap_affine::inexact_algo::history_alignment_operations::AlignmentHistoryOperation;
 
+/// Keeps track of the most recent alignments required to reach a DP node.
+///
+/// Only keeps track of enough state to prove that a DP node does not end on a possibly valid anchor,
+/// i.e. that when backtracking the node, at least `max_anchor_mutations + 1` mutations are required to create an anchor of lenght `anchor_k`.
 pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
+    /// Returns true if the alignment history has enough capacity for the given parameters.
+    fn has_enough_capacity(anchor_k: u8, max_anchor_mutations: u8) -> bool;
+
     /// Returns the length of the alignment history vector.
     fn len(&self) -> usize;
 
@@ -13,24 +20,15 @@ pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
         self.len() == 0
     }
 
-    /// Returns true if the alignment history vector can be extended with another alignment history operation without becoming a valid anchor.
-    fn can_extend(
-        &self,
-        alignment: AlignmentHistoryOperation,
-        anchor_k: u8,
-        max_anchor_mutations: u8,
-    ) -> bool;
-
-    /// Return the extension of this the alignment history vector with another alignment history operation.
+    /// If possible, returns the extension of this the alignment history vector with another alignment history operation.
     ///
-    /// This method panics in debug mode if the alignment history cannot be extended with the given alignment history operation.
-    /// In release mode, this error is silently ignored.
-    fn extend(
+    /// If the extension would result in a valid anchor, then None is returned.
+    fn try_extend(
         &self,
         alignment: AlignmentHistoryOperation,
         anchor_k: u8,
         max_anchor_mutations: u8,
-    ) -> Self;
+    ) -> Option<Self>;
 }
 
 pub trait HistoryInt: PrimInt + Unsigned + NumCast + Hash {
@@ -49,9 +47,7 @@ pub trait HistoryInt: PrimInt + Unsigned + NumCast + Hash {
 
     /// Returns the maximum length of the alignment history vector that can be stored in this integer type.
     fn max_len() -> usize {
-        (Self::HISTORY_BITS / Self::from(2u8).unwrap())
-            .to_usize()
-            .unwrap()
+        Self::HISTORY_BITS / 2
     }
 }
 
@@ -74,19 +70,10 @@ impl<UnsignedInt: HistoryInt> UnsignedIntAlignmentHistoryVec<UnsignedInt> {
         }
     }
 
-    /// Sets the length of the alignment history vector.
-    ///
-    /// Note that this does not alter the history, so the vector may become invalid.
-    fn set_len(&mut self, len: usize) {
-        debug_assert!(len <= UnsignedInt::max_len());
-
-        let len = UnsignedInt::from(len).unwrap();
-        self.data = (self.data & UnsignedInt::HISTORY_MASK) | (len & UnsignedInt::LEN_MASK);
-    }
-
     /// Adds an element at the end of the alignment history vector.
     ///
     /// If the vector is full, then the first element will be deleted and all previous elements will be shifted to the left by one index.
+    #[allow(dead_code)]
     fn push_back(self, alignment: AlignmentHistoryOperation) -> Self {
         let len = self.len();
         let alignment_bits = UnsignedInt::from(alignment.to_bits()).unwrap();
@@ -94,7 +81,8 @@ impl<UnsignedInt: HistoryInt> UnsignedIntAlignmentHistoryVec<UnsignedInt> {
         if len == UnsignedInt::max_len() {
             // Shift the history to the left by one index and add the new alignment operation at the end.
             let len = UnsignedInt::from(len).unwrap();
-            let data = (self.data >> 2) | (alignment_bits << (UnsignedInt::HISTORY_BITS - 2));
+            let data = (self.data >> 2)
+                | (alignment_bits << (UnsignedInt::HISTORY_BITS + UnsignedInt::LEN_BITS - 2));
             Self {
                 data: (data & UnsignedInt::HISTORY_MASK) | (len & UnsignedInt::LEN_MASK),
             }
@@ -112,33 +100,80 @@ impl<UnsignedInt: HistoryInt> UnsignedIntAlignmentHistoryVec<UnsignedInt> {
 
     /// Removes the element at the front of the alignment history vector and returns it.
     fn pop_front(self) -> Option<(Self, AlignmentHistoryOperation)> {
-        if self.is_empty() { None } else { todo!() }
+        if self.is_empty() {
+            None
+        } else {
+            let len = self.len();
+            let alignment_bits =
+                (self.data >> UnsignedInt::LEN_BITS) & UnsignedInt::from(0b11).unwrap();
+            let alignment =
+                AlignmentHistoryOperation::from_bits(alignment_bits.to_usize().unwrap()).unwrap();
+
+            let len = len - 1;
+            let data =
+                (self.data >> 2) & UnsignedInt::HISTORY_MASK | UnsignedInt::from(len).unwrap();
+
+            Some((Self { data }, alignment))
+        }
     }
 }
 
 impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVec<UnsignedInt> {
+    fn has_enough_capacity(anchor_k: u8, max_anchor_mutations: u8) -> bool {
+        let anchor_k = <usize as From<u8>>::from(anchor_k);
+        let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
+        let required_len = anchor_k + max_anchor_mutations / 2;
+        required_len <= UnsignedInt::max_len()
+    }
+
     fn len(&self) -> usize {
-        (self.data & UnsignedInt::LEN_MASK).try_into().ok().unwrap()
+        (self.data & UnsignedInt::LEN_MASK).to_usize().unwrap()
     }
 
-    fn can_extend(
+    fn try_extend(
         &self,
         alignment: AlignmentHistoryOperation,
         anchor_k: u8,
         max_anchor_mutations: u8,
-    ) -> bool {
-        todo!()
-    }
+    ) -> Option<Self> {
+        let anchor_k = <usize as From<u8>>::from(anchor_k);
+        let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
 
-    fn extend(
-        &self,
-        alignment: AlignmentHistoryOperation,
-        anchor_k: u8,
-        max_anchor_mutations: u8,
-    ) -> Self {
-        debug_assert!(self.can_extend(alignment, anchor_k, max_anchor_mutations));
+        let mut len_a = 0;
+        let mut len_b = 0;
+        let mut mutations = 0;
+        let mut previous_mutations = 0;
+        let extension: Self = iter::once(alignment)
+            .chain(*self)
+            .filter(|alignment| {
+                let result = if len_a < anchor_k && len_b < anchor_k {
+                    mutations += alignment.mutations();
+                    true
+                } else {
+                    false
+                };
 
-        todo!()
+                previous_mutations += alignment.mutations();
+                len_a += alignment.len_a();
+                len_b += alignment.len_b();
+
+                result
+            })
+            .collect();
+
+        let extension_is_full_length = len_a >= anchor_k || len_b >= anchor_k;
+
+        if extension_is_full_length {
+            // A full extension is valid if it has enough mutations.
+            if mutations > max_anchor_mutations {
+                Some(extension)
+            } else {
+                None
+            }
+        } else {
+            // An extension that is not yet full is always valid.
+            Some(extension)
+        }
     }
 }
 
@@ -146,4 +181,85 @@ impl<UnsignedInt: HistoryInt> Default for UnsignedIntAlignmentHistoryVec<Unsigne
     fn default() -> Self {
         Self::new()
     }
+}
+
+impl<UnsignedInt: HistoryInt> Iterator for UnsignedIntAlignmentHistoryVec<UnsignedInt> {
+    type Item = AlignmentHistoryOperation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_empty() {
+            None
+        } else {
+            let (vec, alignment) = self.pop_front().unwrap();
+            *self = vec;
+            Some(alignment)
+        }
+    }
+}
+
+impl<UnsignedInt: HistoryInt> FromIterator<AlignmentHistoryOperation>
+    for UnsignedIntAlignmentHistoryVec<UnsignedInt>
+{
+    fn from_iter<T: IntoIterator<Item = AlignmentHistoryOperation>>(iter: T) -> Self {
+        let mut iter = iter.into_iter();
+        let mut len = 0;
+        let mut data = UnsignedInt::zero();
+        for alignment in iter.by_ref().take(UnsignedInt::max_len()) {
+            let alignment_bits = UnsignedInt::from(alignment.to_bits()).unwrap();
+            data = data | (alignment_bits << (UnsignedInt::LEN_BITS + 2 * len));
+            len += 1;
+        }
+
+        assert!(
+            iter.next().is_none(),
+            "Alignment history vector is too long",
+        );
+
+        let data = data | UnsignedInt::from(len).unwrap();
+        Self { data }
+    }
+}
+
+impl<UnsignedInt: HistoryInt> Display for UnsignedIntAlignmentHistoryVec<UnsignedInt> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for alignment in *self {
+            write!(f, "{alignment}")?;
+        }
+        Ok(())
+    }
+}
+
+impl HistoryInt for u8 {
+    const LEN_BITS: usize = 2;
+    const HISTORY_BITS: usize = 6;
+    const LEN_MASK: Self = (1 << Self::LEN_BITS) - 1;
+    const HISTORY_MASK: Self = ((1 << Self::HISTORY_BITS) - 1) << Self::LEN_BITS;
+}
+
+impl HistoryInt for u16 {
+    const LEN_BITS: usize = 4;
+    const HISTORY_BITS: usize = 12;
+    const LEN_MASK: Self = (1 << Self::LEN_BITS) - 1;
+    const HISTORY_MASK: Self = ((1 << Self::HISTORY_BITS) - 1) << Self::LEN_BITS;
+}
+
+impl HistoryInt for u32 {
+    const LEN_BITS: usize = 4;
+    const HISTORY_BITS: usize = 28;
+    const LEN_MASK: Self = (1 << Self::LEN_BITS) - 1;
+    const HISTORY_MASK: Self = ((1 << Self::HISTORY_BITS) - 1) << Self::LEN_BITS;
+}
+
+impl HistoryInt for u64 {
+    const LEN_BITS: usize = 6;
+    const HISTORY_BITS: usize = 58;
+    const LEN_MASK: Self = (1 << Self::LEN_BITS) - 1;
+    const HISTORY_MASK: Self = ((1 << Self::HISTORY_BITS) - 1) << Self::LEN_BITS;
+}
+
+impl HistoryInt for u128 {
+    const LEN_BITS: usize = 6;
+    const HISTORY_BITS: usize = 122;
+    const LEN_MASK: Self = (1 << Self::LEN_BITS) - 1;
+    const HISTORY_MASK: Self = ((1 << Self::HISTORY_BITS) - 1) << Self::LEN_BITS;
 }
