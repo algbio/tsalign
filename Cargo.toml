@@ -33,6 +33,7 @@ binary-heap-plus = "0.5.0"
 itertools = "0.15.0"
 thiserror = "2.0.12"
 extend_map = "0.14.4"
+tagged-vec = "1.1.0"
 
 [profile.dev]
 debug = 1                    # or "line-tables-only" instead of full debug info
