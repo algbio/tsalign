@@ -4,7 +4,13 @@ use generic_a_star::{AStar, AStarNode, cost::AStarCost};
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
-    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::exact_algo::Context},
+    chaining_lower_bounds::{
+        cost_array::LowerBoundCostArray,
+        gap_affine::{
+            exact_algo::Context,
+            inexact_algo::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
+        },
+    },
     costs::GapAffineCosts,
 };
 
@@ -121,7 +127,98 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         max_anchor_mutations: u8,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        todo!()
+        if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(anchor_k, max_anchor_mutations)
+        {
+            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u8>>(
+                max_n,
+                anchor_k,
+                max_anchor_mutations,
+                cost_table,
+            )
+        } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
+            anchor_k,
+            max_anchor_mutations,
+        ) {
+            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u16>>(
+                max_n,
+                anchor_k,
+                max_anchor_mutations,
+                cost_table,
+            )
+        } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
+            anchor_k,
+            max_anchor_mutations,
+        ) {
+            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u32>>(
+                max_n,
+                anchor_k,
+                max_anchor_mutations,
+                cost_table,
+            )
+        } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
+            anchor_k,
+            max_anchor_mutations,
+        ) {
+            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u64>>(
+                max_n,
+                anchor_k,
+                max_anchor_mutations,
+                cost_table,
+            )
+        } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
+            anchor_k,
+            max_anchor_mutations,
+        ) {
+            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u128>>(
+                max_n,
+                anchor_k,
+                max_anchor_mutations,
+                cost_table,
+            )
+        } else {
+            panic!(
+                "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
+            );
+        }
+    }
+
+    fn new_inexact_anchors_with_history_type<AlignmentHistoryVec: AlignmentHistory>(
+        max_n: usize,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
+        cost_table: &GapAffineCosts<Cost>,
+    ) -> Self {
+        let mut lower_bounds =
+            LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
+
+        let context = inexact_algo::Context::<_, AlignmentHistoryVec>::new(
+            cost_table,
+            anchor_k,
+            max_anchor_mutations,
+            max_n,
+        );
+        let mut a_star = AStar::<_>::new(context);
+        a_star.initialise();
+        a_star.search_until(|_, node| {
+            let lower_bound = &mut lower_bounds[[
+                node.identifier.coordinates.primary_ordinate_a().unwrap(),
+                node.identifier.coordinates.primary_ordinate_b().unwrap(),
+            ]];
+            *lower_bound = (*lower_bound).min(node.cost());
+
+            false
+        });
+        let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
+            (0..=max_n)
+                .map(|gap2| lower_bounds[[gap1, gap2]])
+                .min()
+                .unwrap()
+        }));
+
+        Self {
+            lower_bounds,
+            variable_gap2_lower_bounds,
+        }
     }
 
     /// Compute the lower bounds for the case that the anchors are exact matches.
