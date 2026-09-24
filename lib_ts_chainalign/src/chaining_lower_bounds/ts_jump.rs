@@ -16,7 +16,7 @@ pub struct TsJumpLowerBounds<Cost> {
 }
 
 impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
-    pub fn new(max_n: usize, max_match_run: u32, cost_table: &AlignmentCosts<Cost>) -> Self {
+    pub fn new_exact(max_n: usize, max_match_run: u32, cost_table: &AlignmentCosts<Cost>) -> Self {
         let primary_lower_bounds_12 = GapAffineLowerBounds::new_exact_anchors_allow_end_match(
             max_n,
             max_match_run,
@@ -55,6 +55,76 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
         let primary_lower_bounds_34 = GapAffineLowerBounds::new_exact_anchors_allow_start_match(
             max_n,
             max_match_run,
+            &cost_table.primary_costs,
+        );
+
+        let mut lower_bounds_34 =
+            LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
+        for secondary_descendant_gap in 0..=max_n {
+            for primary_descendant_gap in 0..=max_n - secondary_descendant_gap {
+                let lower_bound = secondary_lower_bounds_34
+                    .variable_gap2_lower_bound(secondary_descendant_gap)
+                    + primary_lower_bounds_34.variable_gap2_lower_bound(primary_descendant_gap);
+                lower_bounds_34[[primary_descendant_gap + secondary_descendant_gap]] =
+                    lower_bounds_34[[primary_descendant_gap + secondary_descendant_gap]]
+                        .min(lower_bound);
+            }
+        }
+
+        Self {
+            lower_bounds_12,
+            lower_bounds_34,
+        }
+    }
+
+    pub fn new_inexact(
+        max_n: usize,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
+        cost_table: &AlignmentCosts<Cost>,
+    ) -> Self {
+        let primary_lower_bounds_12 = GapAffineLowerBounds::new_inexact_anchors(
+            max_n,
+            anchor_k,
+            max_anchor_mutations,
+            &cost_table.primary_costs,
+        );
+        let secondary_lower_bounds_12 = GapAffineLowerBounds::new_inexact_anchors(
+            max_n,
+            anchor_k,
+            max_anchor_mutations,
+            &cost_table.secondary_costs,
+        );
+
+        // This way of calculating the lower bound for the 12-jump does not take the shape limits of the template switch into account.
+        // However, most of the time these limits are gonna be big, so they should not have a big impact on the lower bound.
+        let mut lower_bounds_12 =
+            LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
+        for primary_descendant_gap in 0..=max_n {
+            for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
+                let lower_bound = primary_lower_bounds_12
+                    .variable_gap2_lower_bound(primary_descendant_gap)
+                    + cost_table.ts_base_cost.min()
+                    + secondary_lower_bounds_12.variable_gap2_lower_bound(secondary_descendant_gap);
+                lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
+                    lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
+                        .min(lower_bound);
+            }
+        }
+
+        drop(primary_lower_bounds_12);
+        drop(secondary_lower_bounds_12);
+
+        let secondary_lower_bounds_34 = GapAffineLowerBounds::new_inexact_anchors(
+            max_n,
+            anchor_k,
+            max_anchor_mutations,
+            &cost_table.secondary_costs,
+        );
+        let primary_lower_bounds_34 = GapAffineLowerBounds::new_inexact_anchors(
+            max_n,
+            anchor_k,
+            max_anchor_mutations,
             &cost_table.primary_costs,
         );
 
