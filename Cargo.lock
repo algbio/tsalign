@@ -760,6 +760,7 @@ dependencies = [
  "num-traits",
  "rustc-hash",
  "serde",
+ "tagged-vec",
 ]
 
 [[package]]
