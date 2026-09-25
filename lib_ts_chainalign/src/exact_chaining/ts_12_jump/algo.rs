@@ -1,11 +1,6 @@
 use std::fmt::Display;
 
-use generic_a_star::{
-    AStarContext, AStarIdentifier, AStarNode,
-    cost::{AStarCost, OrderedPairCost, U32Cost},
-    reset::Reset,
-};
-use num_traits::Zero;
+use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
     alignment::{
@@ -36,7 +31,6 @@ pub struct Node<Cost> {
     pub predecessor: Option<Identifier>,
     pub predecessor_alignment_type: Option<AlignmentType>,
     pub cost: Cost,
-    pub match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -45,6 +39,7 @@ pub enum Identifier {
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
+        match_run: u32,
     },
     Jump12 {
         coordinates: AnySecondaryAlignmentCoordinates,
@@ -54,6 +49,7 @@ pub enum Identifier {
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
+        match_run: u32,
     },
 }
 
@@ -92,20 +88,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 coordinates: self.start,
                 gap_type: GapType::None,
                 has_non_match: false,
+                match_run: 0,
             },
             predecessor: None,
             predecessor_alignment_type: None,
             cost: self.costs.ts_base_cost.get(self.end.ts_kind()),
-            match_run: 0,
         }
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let Node {
-            identifier,
-            cost,
-            match_run,
-            ..
+            identifier, cost, ..
         } = node;
         let predecessor = Some(*identifier);
 
@@ -121,6 +114,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 coordinates,
                 gap_type,
                 has_non_match,
+                match_run,
             } => {
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_secondary(self.end, Some(self.sequences)) {
@@ -130,7 +124,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if *match_run < self.max_match_run {
+                        if match_run < self.max_match_run {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -138,11 +132,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     coordinates.increment_both(1),
                                     GapType::None,
                                     has_non_match,
+                                    match_run + 1,
                                 ),
                                 predecessor,
                                 predecessor_alignment_type: Some(AlignmentType::Match),
                                 cost: new_cost,
-                                match_run: match_run + 1,
                             }));
                         }
                     } else {
@@ -153,11 +147,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 coordinates.increment_both(1),
                                 GapType::None,
                                 true,
+                                0,
                             ),
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::Substitution),
                             cost: new_cost,
-                            match_run: 0,
                         }));
                     }
                 }
@@ -174,11 +168,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             coordinates.increment_a(),
                             GapType::InB,
                             true,
+                            0,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapB),
                         cost: new_cost,
-                        match_run: 0,
                     }));
                 }
 
@@ -194,11 +188,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             coordinates.increment_b(),
                             GapType::InA,
                             true,
+                            0,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapA),
                         cost: new_cost,
-                        match_run: 0,
                     }));
                 }
 
@@ -222,7 +216,6 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 ts_kind: self.ts_kind(),
                             }),
                             cost: new_cost,
-                            match_run: 0,
                         }),
                 );
             }
@@ -237,6 +230,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             } => {
                 let coordinates = coordinates.into_specific(self.ts_kind());
                 let gap_type = identifier.gap_type();
+                let match_run = identifier.match_run();
 
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_secondary(self.end) {
@@ -246,7 +240,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if *match_run < self.max_match_run {
+                        if match_run < self.max_match_run {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -254,11 +248,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     coordinates.increment_both(1).into(),
                                     GapType::None,
                                     has_non_match,
+                                    match_run + 1,
                                 ),
                                 predecessor,
                                 predecessor_alignment_type: Some(AlignmentType::Match),
                                 cost: new_cost,
-                                match_run: match_run + 1,
                             }));
                         }
                     } else {
@@ -269,11 +263,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 coordinates.increment_both(1).into(),
                                 GapType::None,
                                 true,
+                                0,
                             ),
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::Substitution),
                             cost: new_cost,
-                            match_run: 0,
                         }));
                     }
                 }
@@ -290,11 +284,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             coordinates.increment_ancestor().into(),
                             GapType::InB,
                             true,
+                            0,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapB),
                         cost: new_cost,
-                        match_run: 0,
                     }));
                 }
 
@@ -310,11 +304,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             coordinates.increment_descendant().into(),
                             GapType::InA,
                             true,
+                            0,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapA),
                         cost: new_cost,
-                        match_run: 0,
                     }));
                 }
             }
@@ -350,19 +344,18 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
     type EdgeType = AlignmentType;
 
-    // Use match run as secondary cost
-    type Cost = OrderedPairCost<Cost, U32Cost>;
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
     fn cost(&self) -> Self::Cost {
-        OrderedPairCost(self.cost, U32Cost::from_primitive(self.match_run))
+        self.cost
     }
 
     fn a_star_lower_bound(&self) -> Self::Cost {
-        OrderedPairCost(Cost::zero(), U32Cost::zero())
+        Cost::zero()
     }
 
     fn secondary_maximisable_score(&self) -> usize {
@@ -383,11 +376,13 @@ impl Identifier {
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
+        match_run: u32,
     ) -> Self {
         Identifier::Primary {
             coordinates,
             gap_type,
             has_non_match,
+            match_run,
         }
     }
 
@@ -395,11 +390,13 @@ impl Identifier {
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
+        match_run: u32,
     ) -> Self {
         Identifier::Secondary {
             coordinates,
             gap_type,
             has_non_match,
+            match_run,
         }
     }
 
@@ -426,13 +423,21 @@ impl Identifier {
             Identifier::Secondary { has_non_match, .. } => *has_non_match,
         }
     }
+
+    pub fn match_run(&self) -> u32 {
+        match self {
+            Identifier::Primary { match_run, .. } => *match_run,
+            Identifier::Jump12 { .. } => 0,
+            Identifier::Secondary { match_run, .. } => *match_run,
+        }
+    }
 }
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}: {}, {}",
+            "{}{}: {}",
             self.identifier,
             if let Some(predecessor) = &self.predecessor {
                 format!("<-{predecessor}")
@@ -440,7 +445,6 @@ impl<Cost: Display> Display for Node<Cost> {
                 "".to_string()
             },
             self.cost,
-            self.match_run
         )
     }
 }
@@ -452,7 +456,12 @@ impl Display for Identifier {
                 coordinates,
                 gap_type,
                 has_non_match,
-            } => write!(f, "P({}, {}, {})", coordinates, gap_type, has_non_match),
+                match_run,
+            } => write!(
+                f,
+                "P({}, {}, {}, {})",
+                coordinates, gap_type, has_non_match, match_run
+            ),
             Self::Jump12 {
                 coordinates,
                 has_non_match,
@@ -461,7 +470,12 @@ impl Display for Identifier {
                 coordinates,
                 gap_type,
                 has_non_match,
-            } => write!(f, "S({}, {}, {})", coordinates, gap_type, has_non_match),
+                match_run,
+            } => write!(
+                f,
+                "S({}, {}, {}, {})",
+                coordinates, gap_type, has_non_match, match_run
+            ),
         }
     }
 }
@@ -474,9 +488,7 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost
-            .cmp(&other.cost)
-            .then_with(|| self.match_run.cmp(&other.match_run))
+        self.cost.cmp(&other.cost)
     }
 }
 

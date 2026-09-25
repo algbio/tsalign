@@ -97,7 +97,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
                 let alignment = a_star.reconstruct_path().into();
-                (cost.0, alignment)
+                (cost, alignment)
             }
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
@@ -260,7 +260,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
                 let alignment = a_star.reconstruct_path().into();
-                (cost.0, alignment)
+                (cost, alignment)
             }
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
