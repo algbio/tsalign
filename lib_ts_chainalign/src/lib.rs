@@ -42,15 +42,16 @@ pub fn dna_rc_fn(c: u8) -> u8 {
 /// Perform preprocessing for tschainalign.
 ///
 /// * `max_n` is the maximum sequence length that the lower bounds should support.
-/// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
-///   Set this to `k-1`, if the anchors are supposed to be `k`-mers.
+/// * `anchor_k` is the size of the anchors.
+/// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `alignment_costs` is the cost function for the alignment.
 pub fn preprocess(
     max_n: usize,
-    max_match_run: u32,
+    anchor_k: u32,
+    max_anchor_mutations: u8,
     alignment_costs: AlignmentCosts<U32Cost>,
 ) -> ChainingLowerBounds<U32Cost> {
-    ChainingLowerBounds::new(max_n, max_match_run + 1, 0, alignment_costs)
+    ChainingLowerBounds::new(max_n, anchor_k, max_anchor_mutations, alignment_costs)
 }
 
 /// Align two sequences.
