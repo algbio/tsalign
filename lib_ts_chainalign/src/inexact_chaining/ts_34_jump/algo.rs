@@ -1,11 +1,6 @@
 use std::fmt::Display;
 
-use generic_a_star::{
-    AStarContext, AStarIdentifier, AStarNode,
-    cost::{AStarCost, OrderedPairCost, U32Cost},
-    reset::Reset,
-};
-use num_traits::Zero;
+use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
     alignment::{
@@ -17,19 +12,25 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
+    alignment_history::{
+        extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
+        history_alignment_operations::AlignmentHistoryOperation,
+        history_vec::AlignmentHistory,
+    },
     costs::AlignmentCosts,
 };
 
 const DEBUG_EXACT_34_JUMP: bool = false;
 
-pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
+pub struct Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec> {
     costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
+    history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
     start: SpecificSecondaryAlignmentCoordinates,
     end: PrimaryAlignmentCoordinates,
-    enforce_non_match: bool,
-    max_match_run: u32,
+    anchor_k: u8,
+    max_anchor_mutations: u8,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -38,7 +39,6 @@ pub struct Node<Cost> {
     pub predecessor: Option<Identifier>,
     pub predecessor_alignment_type: Option<AlignmentType>,
     pub cost: Cost,
-    pub match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -46,37 +46,40 @@ pub enum Identifier {
     Secondary {
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
-        has_non_match: bool,
+        history: HistoryExtensionGraphNodeIndex,
     },
     Jump34 {
         coordinates: PrimaryAlignmentCoordinates,
-        has_non_match: bool,
     },
     Primary {
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
-        has_non_match: bool,
+        history: HistoryExtensionGraphNodeIndex,
     },
 }
 
-impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
+impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
+    Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
+{
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
+        history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
         start: SpecificSecondaryAlignmentCoordinates,
         end: PrimaryAlignmentCoordinates,
-        enforce_non_match: bool,
-        max_match_run: u32,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
     ) -> Self {
         Self {
             costs,
             sequences,
             rc_fn,
+            history_graph,
             start,
             end,
-            enforce_non_match,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
         }
     }
 
@@ -85,7 +88,9 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
     }
 }
 
-impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
+impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
+    for Context<'_, '_, '_, '_, Cost, AlignmentHistoryVec>
+{
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
@@ -93,21 +98,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             identifier: Identifier::Secondary {
                 coordinates: self.start.into(),
                 gap_type: GapType::None,
-                has_non_match: false,
+                history: self.history_graph.empty_node_id(),
             },
             predecessor: None,
             predecessor_alignment_type: None,
             cost: Cost::zero(),
-            match_run: 0,
         }
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let Node {
-            identifier,
-            cost,
-            match_run,
-            ..
+            identifier, cost, ..
         } = node;
         let predecessor = Some(*identifier);
 
@@ -122,7 +123,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             Identifier::Secondary {
                 coordinates,
                 gap_type,
-                has_non_match,
+                history,
             } => {
                 let coordinates = coordinates.into_specific(self.ts_kind());
 
@@ -132,78 +133,96 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     let is_match = ca == cb;
 
                     if is_match {
-                        // Disallow runs of matches longer than the maximum.
-                        // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if *match_run < self.max_match_run {
+                        if let Some(history) = self.history_graph.try_extend(
+                            history,
+                            AlignmentHistoryOperation::Match,
+                            self.anchor_k,
+                            self.max_anchor_mutations,
+                        ) {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
                                 identifier: Identifier::new_secondary(
                                     coordinates.increment_both(1).into(),
                                     GapType::None,
-                                    has_non_match,
+                                    history,
                                 ),
                                 predecessor,
                                 predecessor_alignment_type: Some(AlignmentType::Match),
                                 cost: new_cost,
-                                match_run: match_run + 1,
                             }));
                         }
-                    } else {
+                    } else if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::Substitution,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
                             identifier: Identifier::new_secondary(
                                 coordinates.increment_both(1).into(),
                                 GapType::None,
-                                true,
+                                history,
                             ),
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::Substitution),
                             cost: new_cost,
-                            match_run: 0,
                         }));
                     }
                 }
 
                 if coordinates.can_increment_ancestor_primary(Some(self.sequences)) {
-                    // Gap in b
-                    let new_cost = *cost
-                        + match gap_type {
-                            GapType::InB => gap_affine_costs.gap_extend,
-                            _ => gap_affine_costs.gap_open,
-                        };
-                    output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_secondary(
-                            coordinates.increment_ancestor().into(),
-                            GapType::InB,
-                            true,
-                        ),
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::GapB),
-                        cost: new_cost,
-                        match_run: 0,
-                    }));
+                    if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::GapInB,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
+                        // Gap in b
+                        let new_cost = *cost
+                            + match gap_type {
+                                GapType::InB => gap_affine_costs.gap_extend,
+                                _ => gap_affine_costs.gap_open,
+                            };
+                        output.extend(std::iter::once(Node {
+                            identifier: Identifier::new_secondary(
+                                coordinates.increment_ancestor().into(),
+                                GapType::InB,
+                                history,
+                            ),
+                            predecessor,
+                            predecessor_alignment_type: Some(AlignmentType::GapB),
+                            cost: new_cost,
+                        }));
+                    }
                 }
 
                 if coordinates.can_increment_descendant_primary(self.end, Some(self.sequences)) {
-                    // Gap in a
-                    let new_cost = *cost
-                        + match gap_type {
-                            GapType::InA => gap_affine_costs.gap_extend,
-                            _ => gap_affine_costs.gap_open,
-                        };
-                    output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_secondary(
-                            coordinates.increment_descendant().into(),
-                            GapType::InA,
-                            true,
-                        ),
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::GapA),
-                        cost: new_cost,
-                        match_run: 0,
-                    }));
+                    if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::GapInA,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
+                        // Gap in a
+                        let new_cost = *cost
+                            + match gap_type {
+                                GapType::InA => gap_affine_costs.gap_extend,
+                                _ => gap_affine_costs.gap_open,
+                            };
+                        output.extend(std::iter::once(Node {
+                            identifier: Identifier::new_secondary(
+                                coordinates.increment_descendant().into(),
+                                GapType::InA,
+                                history,
+                            ),
+                            predecessor,
+                            predecessor_alignment_type: Some(AlignmentType::GapA),
+                            cost: new_cost,
+                        }));
+                    }
                 }
 
                 // Generate jump successors.
@@ -219,29 +238,20 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             );
                         }
                         Node {
-                            identifier: Identifier::Jump34 {
-                                coordinates,
-                                has_non_match,
-                            },
+                            identifier: Identifier::Jump34 { coordinates },
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::TsEnd { jump }),
                             cost: new_cost,
-                            match_run: 0,
                         }
                     },
                 ));
             }
 
-            Identifier::Jump34 {
-                coordinates,
-                has_non_match,
-            }
-            | Identifier::Primary {
-                coordinates,
-                has_non_match,
-                ..
-            } => {
+            Identifier::Jump34 { coordinates } | Identifier::Primary { coordinates, .. } => {
                 let gap_type = identifier.gap_type();
+                let history = identifier
+                    .history()
+                    .unwrap_or_else(|| self.history_graph.empty_node_id());
 
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_primary(self.end) {
@@ -249,78 +259,96 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     let is_match = ca == cb;
 
                     if is_match {
-                        // Disallow runs of matches longer than the maximum.
-                        // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if *match_run < self.max_match_run {
+                        if let Some(history) = self.history_graph.try_extend(
+                            history,
+                            AlignmentHistoryOperation::Match,
+                            self.anchor_k,
+                            self.max_anchor_mutations,
+                        ) {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
                                 identifier: Identifier::new_primary(
                                     coordinates.increment_both(1),
                                     GapType::None,
-                                    has_non_match,
+                                    history,
                                 ),
                                 predecessor,
                                 predecessor_alignment_type: Some(AlignmentType::Match),
                                 cost: new_cost,
-                                match_run: match_run + 1,
                             }));
                         }
-                    } else {
+                    } else if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::Substitution,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
                             identifier: Identifier::new_primary(
                                 coordinates.increment_both(1),
                                 GapType::None,
-                                true,
+                                history,
                             ),
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::Substitution),
                             cost: new_cost,
-                            match_run: 0,
                         }));
                     }
                 }
 
                 if coordinates.can_increment_a_primary(self.end) {
-                    // Gap in b
-                    let new_cost = *cost
-                        + match gap_type {
-                            GapType::InB => gap_affine_costs.gap_extend,
-                            _ => gap_affine_costs.gap_open,
-                        };
-                    output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary(
-                            coordinates.increment_a(),
-                            GapType::InB,
-                            true,
-                        ),
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::GapB),
-                        cost: new_cost,
-                        match_run: 0,
-                    }));
+                    if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::GapInB,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
+                        // Gap in b
+                        let new_cost = *cost
+                            + match gap_type {
+                                GapType::InB => gap_affine_costs.gap_extend,
+                                _ => gap_affine_costs.gap_open,
+                            };
+                        output.extend(std::iter::once(Node {
+                            identifier: Identifier::new_primary(
+                                coordinates.increment_a(),
+                                GapType::InB,
+                                history,
+                            ),
+                            predecessor,
+                            predecessor_alignment_type: Some(AlignmentType::GapB),
+                            cost: new_cost,
+                        }));
+                    }
                 }
 
                 if coordinates.can_increment_b_primary(self.end) {
-                    // Gap in a
-                    let new_cost = *cost
-                        + match gap_type {
-                            GapType::InA => gap_affine_costs.gap_extend,
-                            _ => gap_affine_costs.gap_open,
-                        };
-                    output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary(
-                            coordinates.increment_b(),
-                            GapType::InA,
-                            true,
-                        ),
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::GapA),
-                        cost: new_cost,
-                        match_run: 0,
-                    }));
+                    if let Some(history) = self.history_graph.try_extend(
+                        history,
+                        AlignmentHistoryOperation::GapInA,
+                        self.anchor_k,
+                        self.max_anchor_mutations,
+                    ) {
+                        // Gap in a
+                        let new_cost = *cost
+                            + match gap_type {
+                                GapType::InA => gap_affine_costs.gap_extend,
+                                _ => gap_affine_costs.gap_open,
+                            };
+                        output.extend(std::iter::once(Node {
+                            identifier: Identifier::new_primary(
+                                coordinates.increment_b(),
+                                GapType::InA,
+                                history,
+                            ),
+                            predecessor,
+                            predecessor_alignment_type: Some(AlignmentType::GapA),
+                            cost: new_cost,
+                        }));
+                    }
                 }
             }
         }
@@ -328,7 +356,6 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
     fn is_target(&self, node: &Self::Node) -> bool {
         node.identifier.coordinates(self.ts_kind()) == self.end.into()
-            && (node.identifier.has_non_match() || !self.enforce_non_match)
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
@@ -344,7 +371,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 }
 
-impl<Cost> Reset for Context<'_, '_, '_, Cost> {
+impl<Cost, AlignmentHistoryVec> Reset for Context<'_, '_, '_, '_, Cost, AlignmentHistoryVec> {
     fn reset(&mut self) {
         unimplemented!()
     }
@@ -355,19 +382,18 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
     type EdgeType = AlignmentType;
 
-    // Use match run as secondary cost
-    type Cost = OrderedPairCost<Cost, U32Cost>;
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
     fn cost(&self) -> Self::Cost {
-        OrderedPairCost(self.cost, U32Cost::from_primitive(self.match_run))
+        self.cost
     }
 
     fn a_star_lower_bound(&self) -> Self::Cost {
-        OrderedPairCost(Cost::zero(), U32Cost::zero())
+        Self::Cost::zero()
     }
 
     fn secondary_maximisable_score(&self) -> usize {
@@ -387,24 +413,24 @@ impl Identifier {
     pub fn new_primary(
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
-        has_non_match: bool,
+        history: HistoryExtensionGraphNodeIndex,
     ) -> Self {
         Identifier::Primary {
             coordinates,
             gap_type,
-            has_non_match,
+            history,
         }
     }
 
     pub fn new_secondary(
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
-        has_non_match: bool,
+        history: HistoryExtensionGraphNodeIndex,
     ) -> Self {
         Identifier::Secondary {
             coordinates,
             gap_type,
-            has_non_match,
+            history,
         }
     }
 
@@ -424,11 +450,11 @@ impl Identifier {
         }
     }
 
-    pub fn has_non_match(&self) -> bool {
+    pub fn history(&self) -> Option<HistoryExtensionGraphNodeIndex> {
         match self {
-            Identifier::Primary { has_non_match, .. } => *has_non_match,
-            Identifier::Jump34 { has_non_match, .. } => *has_non_match,
-            Identifier::Secondary { has_non_match, .. } => *has_non_match,
+            Identifier::Primary { history, .. } => Some(*history),
+            Identifier::Jump34 { .. } => None,
+            Identifier::Secondary { history, .. } => Some(*history),
         }
     }
 }
@@ -437,7 +463,7 @@ impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}: {}, {}",
+            "{}{}: {}",
             self.identifier,
             if let Some(predecessor) = &self.predecessor {
                 format!("<-{predecessor}")
@@ -445,7 +471,6 @@ impl<Cost: Display> Display for Node<Cost> {
                 "".to_string()
             },
             self.cost,
-            self.match_run
         )
     }
 }
@@ -476,9 +501,7 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost
-            .cmp(&other.cost)
-            .then_with(|| self.match_run.cmp(&other.match_run))
+        self.cost.cmp(&other.cost)
     }
 }
 
