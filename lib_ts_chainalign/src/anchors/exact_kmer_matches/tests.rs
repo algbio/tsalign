@@ -1,7 +1,7 @@
 use crate::anchors::{exact_kmer_matches::compute_exact_kmers, kmers::Kmer8};
 
 #[test]
-fn compute_exact_kmers() {
+fn compute_exact_kmers_complete() {
     let k = 4;
     let sequence = b"AAGACGTA";
     let output = compute_exact_kmers(sequence, 0, k);

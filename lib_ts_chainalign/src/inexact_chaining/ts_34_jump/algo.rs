@@ -61,6 +61,7 @@ pub enum Identifier {
 impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
     Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
 {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
