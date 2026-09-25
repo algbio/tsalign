@@ -21,7 +21,7 @@ fn rc_fn(c: u8) -> u8 {
 }
 
 #[test]
-fn test_start_end() {
+fn start_end() {
     let seq1 = b"ACGT".to_vec();
     let seq2 = b"ACGTT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -41,7 +41,7 @@ fn test_start_end() {
 }
 
 #[test]
-fn test_partial_alignment() {
+fn partial_alignment() {
     let seq1 = b"ACCGT".to_vec();
     let seq2 = b"ACGGTT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -65,7 +65,7 @@ fn test_partial_alignment() {
 }
 
 #[test]
-fn test_gap_directions() {
+fn gap_directions() {
     let seq1 = b"ACGCCGTGTTCT".to_vec();
     let seq2 = b"ACGGTGTTAACT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -91,7 +91,7 @@ fn test_gap_directions() {
 }
 
 #[test]
-fn test_extremity_gaps() {
+fn extremity_gaps() {
     let seq1 = b"ACGCCGTGTTCT".to_vec();
     let seq2 = b"ACGGTGTTAACT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -115,7 +115,7 @@ fn test_extremity_gaps() {
 }
 
 #[test]
-fn test_extremity_substitutions() {
+fn extremity_substitutions() {
     let seq1 = b"AGGGA".to_vec();
     let seq2 = b"TGGGT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -139,7 +139,7 @@ fn test_extremity_substitutions() {
 }
 
 #[test]
-fn test_substitutions_as_gaps() {
+fn substitutions_as_gaps() {
     let seq1 = b"AAAAAAAAAAAAAAAAAAAA".to_vec();
     let seq2 = b"TTTTTTTTTTTTTTTTTTTT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -159,7 +159,7 @@ fn test_substitutions_as_gaps() {
 }
 
 #[test]
-fn test_max_match_run_0() {
+fn max_match_run_0() {
     let seq1 = b"AAAAAAAAAA".to_vec();
     let seq2 = b"AACAACCAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -179,7 +179,7 @@ fn test_max_match_run_0() {
 }
 
 #[test]
-fn test_max_match_run_1() {
+fn max_match_run_1() {
     let seq1 = b"AAAAAAAAAA".to_vec();
     let seq2 = b"AACAACCAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -208,7 +208,7 @@ fn test_max_match_run_1() {
 }
 
 #[test]
-fn test_max_match_run_2() {
+fn max_match_run_2() {
     let seq1 = b"AAAAAAAAAA".to_vec();
     let seq2 = b"AACAACCAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -234,7 +234,7 @@ fn test_max_match_run_2() {
 }
 
 #[test]
-fn test_secondary_12() {
+fn secondary_12() {
     let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -254,7 +254,7 @@ fn test_secondary_12() {
 }
 
 #[test]
-fn test_secondary_21() {
+fn secondary_21() {
     let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -274,7 +274,7 @@ fn test_secondary_21() {
 }
 
 #[test]
-fn test_start_end_direct() {
+fn start_end_direct() {
     let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -321,7 +321,7 @@ fn test_start_end_direct() {
 }
 
 #[test]
-fn test_start_anchor_direct() {
+fn start_anchor_direct() {
     let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -368,7 +368,7 @@ fn test_start_anchor_direct() {
 }
 
 #[test]
-fn test_anchor_end_direct() {
+fn anchor_end_direct() {
     let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -415,7 +415,7 @@ fn test_anchor_end_direct() {
 }
 
 #[test]
-fn test_start_end_indirect_lt_k() {
+fn start_end_indirect_lt_k() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -462,7 +462,7 @@ fn test_start_end_indirect_lt_k() {
 }
 
 #[test]
-fn test_start_end_indirect_geq_k() {
+fn start_end_indirect_geq_k() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -508,7 +508,7 @@ fn test_start_end_indirect_geq_k() {
 }
 
 #[test]
-fn test_start_anchor_indirect() {
+fn start_anchor_indirect() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -553,7 +553,7 @@ fn test_start_anchor_indirect() {
 }
 
 #[test]
-fn test_anchor_end_indirect() {
+fn anchor_end_indirect() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -600,7 +600,7 @@ fn test_anchor_end_indirect() {
 }
 
 #[test]
-fn test_anchor_anchor_direct_primary() {
+fn anchor_anchor_direct_primary() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -642,7 +642,7 @@ fn test_anchor_anchor_direct_primary() {
 }
 
 #[test]
-fn test_anchor_anchor_indirect_primary() {
+fn anchor_anchor_indirect_primary() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -683,7 +683,7 @@ fn test_anchor_anchor_indirect_primary() {
 }
 
 #[test]
-fn test_anchor_anchor_direct_secondary() {
+fn anchor_anchor_direct_secondary() {
     let seq1 = b"GAAAAAAAAG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -727,7 +727,7 @@ fn test_anchor_anchor_direct_secondary() {
 }
 
 #[test]
-fn test_anchor_anchor_indirect_secondary() {
+fn anchor_anchor_indirect_secondary() {
     let seq1 = b"GAAAAAAAAG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(

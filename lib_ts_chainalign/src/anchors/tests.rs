@@ -28,7 +28,7 @@ fn rc_fn(c: u8) -> u8 {
 }
 
 #[test]
-fn test_coordinates() {
+fn coordinates() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let k = 2;
 
@@ -70,7 +70,7 @@ fn test_coordinates() {
 }
 
 #[test]
-fn test_coordinates_rev() {
+fn coordinates_rev() {
     let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
 
@@ -112,7 +112,7 @@ fn test_coordinates_rev() {
 }
 
 #[test]
-fn test_coordinates_inexact_0() {
+fn coordinates_inexact_0() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
@@ -188,7 +188,7 @@ fn test_coordinates_inexact_0() {
 }
 
 #[test]
-fn test_coordinates_rev_inexact_0() {
+fn coordinates_rev_inexact_0() {
     let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
@@ -264,7 +264,7 @@ fn test_coordinates_rev_inexact_0() {
 }
 
 #[test]
-fn test_coordinates_inexact_1_symmetry_small() {
+fn coordinates_inexact_1_symmetry_small() {
     let sequences = AlignmentSequences::new_complete(b"AC".to_vec(), b"AC".to_vec());
     let k = 2;
     let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
@@ -329,7 +329,7 @@ fn test_coordinates_inexact_1_symmetry_small() {
 }
 
 #[test]
-fn test_coordinates_inexact_1_symmetry() {
+fn coordinates_inexact_1_symmetry() {
     let sequences_f = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let sequences_r = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let k = 2;
@@ -390,7 +390,7 @@ fn test_coordinates_inexact_1_symmetry() {
 }
 
 #[test]
-fn test_coordinates_inexact_1() {
+fn coordinates_inexact_1() {
     fn assert_slice_eq<Item: Eq + Debug + ToString>(
         context: impl Display,
         actual: &[Item],
@@ -790,7 +790,7 @@ fn test_coordinates_inexact_1() {
 }
 
 #[test]
-fn test_coordinates_inexact_1_rev() {
+fn coordinates_inexact_1_rev() {
     fn assert_slice_eq<Item: Eq + Debug + ToString>(
         context: impl Display,
         actual: &[Item],

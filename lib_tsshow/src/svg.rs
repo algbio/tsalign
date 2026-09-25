@@ -1232,7 +1232,7 @@ mod tests {
 
     /// The error SVG must embed the font it uses.
     #[test]
-    fn test_create_error_svg_embeds_its_font() {
+    fn create_error_svg_embeds_its_font() {
         let mut svg = Vec::new();
         create_error_svg(&mut svg, Error::ForwardTsNotSupported).unwrap();
         let svg = String::from_utf8(svg).unwrap();

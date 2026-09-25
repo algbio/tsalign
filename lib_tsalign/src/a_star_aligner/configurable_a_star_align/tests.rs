@@ -6,7 +6,7 @@ use super::*;
 
 /// This test case uses real data and used to panic.
 #[test]
-fn test_panic() {
+fn panic() {
     let mut aligner = Aligner::new();
     aligner.set_min_length_strategy(MinLengthStrategySelector::PreprocessFilter);
     let res = aligner.align(
@@ -29,7 +29,7 @@ fn test_panic() {
 }
 
 #[test]
-fn test_193() {
+fn issue_193() {
     //        [-- 10 --][-- 11 ---]1
     let r = b"AAAAAAAAAACCCCCCCCCCCC";
     let q = b"AAAAAAAAAATTTTTTTTTTTC";

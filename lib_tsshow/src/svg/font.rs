@@ -360,7 +360,7 @@ mod tests {
 
     /// The characters embedded into a font must be rendered exactly like by the original font.
     #[test]
-    fn test_embedded_fonts_contain_the_printable_characters() {
+    fn embedded_fonts_contain_the_printable_characters() {
         let characters: BTreeSet<char> = printable_characters().collect();
 
         for font in fonts() {
@@ -393,7 +393,7 @@ mod tests {
 
     /// Each font must be embedded exactly once, under the family used to render it.
     #[test]
-    fn test_embed_fonts_declares_each_font_once() {
+    fn embed_fonts_declares_each_font_once() {
         let characters: BTreeSet<char> = printable_characters().collect();
         let style = embed_fonts(fonts().chain(fonts()), &characters)
             .unwrap()
