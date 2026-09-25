@@ -4,13 +4,8 @@ use generic_a_star::{AStar, AStarNode, cost::AStarCost};
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
-    chaining_lower_bounds::{
-        cost_array::LowerBoundCostArray,
-        gap_affine::{
-            exact_algo::Context,
-            inexact_algo::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
-        },
-    },
+    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
+    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::exact_algo::Context},
     costs::GapAffineCosts,
 };
 
