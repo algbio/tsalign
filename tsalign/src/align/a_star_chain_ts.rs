@@ -42,7 +42,6 @@ pub fn align_a_star_chain_ts<
     };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
-    let max_match_run = k - 1;
     let cache_file =
         tschain_preprocess_cache_file(&alignment_costs, &cache_directory, k, max_n).unwrap();
 
@@ -60,7 +59,7 @@ pub fn align_a_star_chain_ts<
 
         info!("Preprocessing...");
         let chaining_lower_bounds =
-            lib_ts_chainalign::preprocess(max_n, max_match_run, alignment_costs);
+            lib_ts_chainalign::preprocess(max_n, k, cli.max_anchor_mutations, alignment_costs);
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
         let mut file = File::create(&cache_file).unwrap();

@@ -116,7 +116,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         let mut current_max_n = max_n;
         while current_max_n >= 1 && current_max_n >= k.try_into()? {
             info!("Preprocessing for max_n = {current_max_n}...");
-            let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
+            let lower_bounds =
+                preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
             let cache_file =
                 tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
             let mut file = File::create(&cache_file)
@@ -147,7 +148,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
 
             for k in ks {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
-                let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
+                let lower_bounds =
+                    preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
                 let cache_file =
                     tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
                 let mut file = File::create(&cache_file)
