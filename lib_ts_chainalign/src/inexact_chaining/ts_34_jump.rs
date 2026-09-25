@@ -8,8 +8,9 @@ use crate::{
             SpecificSecondaryAlignmentCoordinates,
         },
         sequences::AlignmentSequences,
-        ts_kind::{TsDescendant, TsKind},
+        ts_kind::TsKind,
     },
+    alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::AlignmentCosts,
     inexact_chaining::ts_34_jump::algo::{Context, Node},
 };
@@ -18,31 +19,40 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
+pub struct Ts34JumpAligner<
+    'sequences,
+    'alignment_costs,
+    'rc_fn,
+    Cost: AStarCost,
+    AlignmentHistoryVec,
+> {
     a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
+    history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
     sequences: &'sequences AlignmentSequences,
     alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-    max_match_run: u32,
+    anchor_k: u8,
+    max_anchor_mutations: u8,
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
-    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
+    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
         alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-        max_match_run: u32,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
     ) -> Self {
-        todo!("Not yet adapted to inexact anchors.");
-
         Self {
             a_star_buffers: Some(Default::default()),
+            history_graph: HistoryExtensionGraph::new(),
             sequences,
             alignment_costs,
             rc_fn,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
         }
     }
 
@@ -58,31 +68,21 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         end: PrimaryAlignmentCoordinates,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
-        // Enfore non-match if there is a gap between the anchors in the descendant.
-        // This is to match the lower-bound computation.
-        // It also discourages chains to deviate from the alignment geometry boundaries.
-        let descendant_end = match start.ts_kind().descendant {
-            TsDescendant::Seq1 => end.a(),
-            TsDescendant::Seq2 => end.b(),
-        };
-        let descendant_start = start.descendant();
-        let enforce_non_match = descendant_end != start.descendant();
-
         let context = Context::new(
             self.alignment_costs,
             self.sequences,
             self.rc_fn,
+            &mut self.history_graph,
             start,
             end,
-            enforce_non_match,
-            self.max_match_run,
+            self.anchor_k,
+            self.max_anchor_mutations,
         );
         let mut a_star = AStar::<_>::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
         a_star.initialise();
         let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
-                let cost = cost.0;
                 let alignment = a_star.reconstruct_path().into();
 
                 (cost, alignment)
@@ -93,12 +93,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         };
 
         a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
-        Self::fill_additional_targets(
-            &a_star,
-            descendant_start,
-            start.ts_kind(),
-            additional_primary_targets_output,
-        );
+        Self::fill_additional_targets(&a_star, start.ts_kind(), additional_primary_targets_output);
         self.a_star_buffers = Some(a_star.into_buffers());
 
         (cost, alignment)
@@ -120,53 +115,32 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             self.alignment_costs,
             self.sequences,
             self.rc_fn,
+            &mut self.history_graph,
             start,
             end,
-            true,
-            self.max_match_run,
+            self.anchor_k,
+            self.max_anchor_mutations,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
-        let descendant_start = start.descendant();
         let ts_kind = start.ts_kind();
-        Self::fill_additional_targets(
-            &a_star,
-            descendant_start,
-            ts_kind,
-            additional_primary_targets_output,
-        );
+        Self::fill_additional_targets(&a_star, ts_kind, additional_primary_targets_output);
         self.a_star_buffers = Some(a_star.into_buffers());
     }
 
     fn fill_additional_targets(
-        a_star: &AStar<Context<Cost>>,
-        descendant_start: usize,
+        a_star: &AStar<Context<Cost, AlignmentHistoryVec>>,
         ts_kind: TsKind,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) {
-        additional_primary_targets_output.extend(
-            a_star
-                .iter_closed_nodes()
-                .filter_map(|node| {
-                    if let AlignmentCoordinates::Primary(primary) =
-                        node.identifier.coordinates(ts_kind)
-                    {
-                        Some((primary, node.identifier.has_non_match(), node.cost))
-                    } else {
-                        None
-                    }
-                })
-                .filter(|(coordinates, has_non_match, _)| {
-                    *has_non_match
-                        != (descendant_start
-                            == match ts_kind.descendant {
-                                TsDescendant::Seq1 => coordinates.a(),
-                                TsDescendant::Seq2 => coordinates.b(),
-                            })
-                })
-                .map(|(coordinates, _, cost)| (coordinates, cost)),
-        );
+        additional_primary_targets_output.extend(a_star.iter_closed_nodes().filter_map(|node| {
+            if let AlignmentCoordinates::Primary(primary) = node.identifier.coordinates(ts_kind) {
+                Some((primary, node.cost))
+            } else {
+                None
+            }
+        }));
     }
 }
