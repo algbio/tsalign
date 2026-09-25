@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use generic_a_star::{AStar, AStarNode, cost::AStarCost};
+use log::{debug, trace};
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
@@ -183,8 +184,15 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         max_anchor_mutations: u8,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
+        debug!(
+            "Computing gap-affine inexact anchor lower bounds with max_n = {max_n}, anchor_k = {anchor_k}, max_anchor_mutations = {max_anchor_mutations} and alignment history vector type = {}",
+            std::any::type_name::<AlignmentHistoryVec>(),
+        );
+
         let mut lower_bounds =
             LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
+        let mut reached_lower_bounds = 0;
+        let total_lower_bounds = (max_n + 1) * (max_n + 1);
 
         let context = inexact_algo::Context::<_, AlignmentHistoryVec>::new(
             cost_table,
@@ -199,9 +207,19 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
                 node.identifier.coordinates.primary_ordinate_a().unwrap(),
                 node.identifier.coordinates.primary_ordinate_b().unwrap(),
             ]];
+
+            if *lower_bound == Cost::max_value() {
+                reached_lower_bounds += 1;
+                debug_assert!(node.cost() < Cost::max_value());
+                trace!(
+                    "Reached lower bound {reached_lower_bounds}/{total_lower_bounds} = {:.2}%",
+                    reached_lower_bounds as f64 / total_lower_bounds as f64 * 100.0
+                );
+            }
+
             *lower_bound = (*lower_bound).min(node.cost());
 
-            false
+            reached_lower_bounds >= total_lower_bounds
         });
         let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
             (0..=max_n)
@@ -209,6 +227,16 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
                 .min()
                 .unwrap()
         }));
+
+        debug_assert!({
+            for gap1 in 0..=max_n {
+                for gap2 in 0..=max_n {
+                    let lower_bound = lower_bounds[[gap1, gap2]];
+                    debug_assert!(lower_bound < Cost::max_value());
+                }
+            }
+            true
+        });
 
         Self {
             lower_bounds,
