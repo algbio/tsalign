@@ -123,7 +123,8 @@ pub fn align<AlphabetType: Alphabet>(
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
-        k - 1,
+        chaining_lower_bounds.anchor_k(),
+        chaining_lower_bounds.max_anchor_mutations(),
         &anchors,
         &mut chaining_cost_function,
     )

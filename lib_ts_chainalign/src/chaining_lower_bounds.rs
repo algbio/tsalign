@@ -54,7 +54,30 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
                 max_anchor_mutations,
             }
         } else {
-            todo!()
+            let anchor_k = u8::try_from(anchor_k).expect("anchor_k must be <= 255.");
+            Self {
+                primary: GapAffineLowerBounds::new_inexact_anchors(
+                    max_n,
+                    anchor_k,
+                    max_anchor_mutations,
+                    &alignment_costs.primary_costs,
+                ),
+                secondary: GapAffineLowerBounds::new_inexact_anchors(
+                    max_n,
+                    anchor_k,
+                    max_anchor_mutations,
+                    &alignment_costs.secondary_costs,
+                ),
+                jump: TsJumpLowerBounds::new_inexact(
+                    max_n,
+                    anchor_k,
+                    max_anchor_mutations,
+                    &alignment_costs,
+                ),
+                alignment_costs,
+                anchor_k: anchor_k.into(),
+                max_anchor_mutations,
+            }
         }
     }
 
