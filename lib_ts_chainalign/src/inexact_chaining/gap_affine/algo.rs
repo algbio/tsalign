@@ -101,8 +101,6 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
             let is_match = ca == cb;
 
             if is_match {
-                // Disallow runs of matches longer than the maximum.
-                // This is because we do not want the exact chaining to find new anchors (which actually already exist).
                 if let Some(history) = self.history_graph.try_extend(
                     history,
                     AlignmentHistoryOperation::Match,
