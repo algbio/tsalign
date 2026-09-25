@@ -286,7 +286,7 @@ mod tests {
     use super::AlignmentMatrix;
 
     #[test]
-    fn test_simple_alignments() {
+    fn simple_alignments() {
         let mut sequence_store = BitVectorSequenceStore::<DnaAlphabet>::new();
         let reference = sequence_store.add_from_slice_u8(b"ACG").unwrap();
         let query = sequence_store.add_from_slice_u8(b"ACCG").unwrap();

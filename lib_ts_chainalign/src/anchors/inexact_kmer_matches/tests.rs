@@ -62,7 +62,7 @@ fn generate_double_insertion_tuples(
 }
 
 #[test]
-fn test_generate_kmer_insertions_0() {
+fn generate_kmer_insertions_0() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -83,7 +83,7 @@ fn test_generate_kmer_insertions_0() {
 }
 
 #[test]
-fn test_generate_kmer_insertions_1() {
+fn generate_kmer_insertions_1() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -125,7 +125,7 @@ fn test_generate_kmer_insertions_1() {
 }
 
 #[test]
-fn test_generate_kmer_insertions_2() {
+fn generate_kmer_insertions_2() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -175,7 +175,7 @@ fn test_generate_kmer_insertions_2() {
 }
 
 #[test]
-fn test_generate_kmer_deletions_0() {
+fn generate_kmer_deletions_0() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -196,7 +196,7 @@ fn test_generate_kmer_deletions_0() {
 }
 
 #[test]
-fn test_generate_kmer_deletions_1() {
+fn generate_kmer_deletions_1() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -221,7 +221,7 @@ fn test_generate_kmer_deletions_1() {
 }
 
 #[test]
-fn test_generate_kmer_deletions_2() {
+fn generate_kmer_deletions_2() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -248,7 +248,7 @@ fn test_generate_kmer_deletions_2() {
 }
 
 #[test]
-fn test_generate_kmer_deletions_empty() {
+fn generate_kmer_deletions_empty() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -269,7 +269,7 @@ fn test_generate_kmer_deletions_empty() {
 }
 
 #[test]
-fn test_generate_kmer_substitutions_0() {
+fn generate_kmer_substitutions_0() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -290,7 +290,7 @@ fn test_generate_kmer_substitutions_0() {
 }
 
 #[test]
-fn test_generate_kmer_substitutions_1() {
+fn generate_kmer_substitutions_1() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -318,7 +318,7 @@ fn test_generate_kmer_substitutions_1() {
 }
 
 #[test]
-fn test_generate_kmer_substitutions_2() {
+fn generate_kmer_substitutions_2() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -349,7 +349,7 @@ fn test_generate_kmer_substitutions_2() {
 }
 
 #[test]
-fn test_compute_inexact_kmers_0() {
+fn compute_inexact_kmers_0() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -376,7 +376,7 @@ fn test_compute_inexact_kmers_0() {
 }
 
 #[test]
-fn test_compute_inexact_kmers_1() {
+fn compute_inexact_kmers_1() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -546,7 +546,7 @@ fn test_compute_inexact_kmers_1() {
 }
 
 #[test]
-fn test_compute_inexact_kmers_2_2() {
+fn compute_inexact_kmers_2_2() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -678,7 +678,7 @@ fn test_compute_inexact_kmers_2_2() {
 }
 
 #[test]
-fn test_compute_inexact_kmers_2_3() {
+fn compute_inexact_kmers_2_3() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),
@@ -827,7 +827,7 @@ fn test_compute_inexact_kmers_2_3() {
 }
 
 #[test]
-fn test_compute_inexact_kmers_2_3_with_offset() {
+fn compute_inexact_kmers_2_3_with_offset() {
     let costs = GapAffineCosts::new(
         U16Cost::from(2u16),
         U16Cost::from(3u16),

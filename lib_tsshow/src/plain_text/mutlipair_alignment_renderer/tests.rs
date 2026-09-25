@@ -7,7 +7,7 @@ use crate::plain_text::mutlipair_alignment_renderer::{
 use super::MultipairAlignmentRenderer;
 
 #[test]
-fn test_parallel_gaps() {
+fn parallel_gaps() {
     let mut renderer = MultipairAlignmentRenderer::new(
         "B".to_string(),
         "GGG"

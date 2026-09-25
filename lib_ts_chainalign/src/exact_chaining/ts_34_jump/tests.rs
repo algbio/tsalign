@@ -22,7 +22,7 @@ fn rc_fn(c: u8) -> u8 {
 }
 
 #[test]
-fn test_start_end() {
+fn start_end() {
     let seq1 = b"AAGG".to_vec();
     let seq2 = b"TTACG".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -66,7 +66,7 @@ fn test_start_end() {
 }
 
 #[test]
-fn test_partial_alignment() {
+fn partial_alignment() {
     let seq1 = b"AAGG".to_vec();
     let seq2 = b"TTACG".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -109,7 +109,7 @@ fn test_partial_alignment() {
 }
 
 #[test]
-fn test_gap_directions() {
+fn gap_directions() {
     let seq1 = b"CCCCCCACCAACAAAAAA".to_vec();
     let seq2 = b"AAAAAACAAGGGGGGAGG".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -159,7 +159,7 @@ fn test_gap_directions() {
 }
 
 #[test]
-fn test_max_match_run_0() {
+fn max_match_run_0() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"CCCCCCCCAAAAAAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -200,7 +200,7 @@ fn test_max_match_run_0() {
 }
 
 #[test]
-fn test_max_match_run_1() {
+fn max_match_run_1() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"CCCCCCCCAAAAAAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -249,7 +249,7 @@ fn test_max_match_run_1() {
 }
 
 #[test]
-fn test_max_match_run_2() {
+fn max_match_run_2() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"CCCCCCCCAAAAAAAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -299,7 +299,7 @@ fn test_max_match_run_2() {
 }
 
 #[test]
-fn test_only_jump() {
+fn only_jump() {
     let seq1 = b"ACATCTGCAA".to_vec();
     let seq2 = b"ACGCAGATAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -337,7 +337,7 @@ fn test_only_jump() {
 }
 
 #[test]
-fn test_only_jump_start() {
+fn only_jump_start() {
     let seq1 = b"ACATCTGCAA".to_vec();
     let seq2 = b"ACGCAGATAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
@@ -375,7 +375,7 @@ fn test_only_jump_start() {
 }
 
 #[test]
-fn test_only_jump_end() {
+fn only_jump_end() {
     let seq1 = b"ACATCTGCAA".to_vec();
     let seq2 = b"ACGCAGATAA".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
