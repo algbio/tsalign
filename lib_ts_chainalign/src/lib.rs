@@ -25,6 +25,7 @@ pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
 pub mod costs;
 pub mod exact_chaining;
+pub mod inexact_chaining;
 pub mod panic_on_extend;
 
 /// A reverse complement function for DNA alphabets.
