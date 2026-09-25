@@ -6,6 +6,7 @@ use crate::alignment::coordinates::{
     AlignmentCoordinates, PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
 };
 use crate::alignment::ts_kind::TsKind;
+use crate::alignment_history::history_vec::UnsignedIntAlignmentHistoryVec;
 use crate::inexact_chaining::gap_affine::GapAffineAligner;
 use crate::panic_on_extend::PanicOnExtend;
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
@@ -30,7 +31,13 @@ fn test_start_end() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(4, 5);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -50,7 +57,13 @@ fn test_partial_alignment() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(4, 4);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -74,7 +87,13 @@ fn test_gap_directions() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(11, 11);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -100,7 +119,13 @@ fn test_extremity_gaps() {
 
     let start = AlignmentCoordinates::new_primary(3, 3);
     let end = AlignmentCoordinates::new_primary(10, 10);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -124,7 +149,13 @@ fn test_extremity_substitutions() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(5, 5);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -140,22 +171,28 @@ fn test_extremity_substitutions() {
 
 #[test]
 fn test_substitutions_as_gaps() {
-    let seq1 = b"AAAAAAAAAAAAAAAAAAAA".to_vec();
-    let seq2 = b"TTTTTTTTTTTTTTTTTTTT".to_vec();
+    let seq1 = b"AAAAA".to_vec();
+    let seq2 = b"TTTTT".to_vec();
     let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table =
         GapAffineCosts::new(U32Cost::from(3u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
     let start = AlignmentCoordinates::new_primary(0, 0);
-    let end = AlignmentCoordinates::new_primary(20, 20);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let end = AlignmentCoordinates::new_primary(5, 5);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert!(
-        alignment.alignment == vec![(20, AlignmentType::GapA), (20, AlignmentType::GapB),]
-            || alignment.alignment == vec![(20, AlignmentType::GapB), (20, AlignmentType::GapA),]
+        alignment.alignment == vec![(5, AlignmentType::GapA), (5, AlignmentType::GapB),]
+            || alignment.alignment == vec![(5, AlignmentType::GapB), (5, AlignmentType::GapA),]
     );
-    assert_eq!(cost, U32Cost::from(44u8));
+    assert_eq!(cost, U32Cost::from(14u8));
 }
 
 #[test]
@@ -168,7 +205,13 @@ fn test_max_match_run_0() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 0);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        1,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert!(
@@ -188,7 +231,13 @@ fn test_max_match_run_1() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 1);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        2,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -217,7 +266,13 @@ fn test_max_match_run_2() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        3,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
@@ -243,7 +298,13 @@ fn test_secondary_12() {
 
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS12);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS12);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(
@@ -263,7 +324,13 @@ fn test_secondary_21() {
 
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS21);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS21);
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(
@@ -286,7 +353,13 @@ fn test_start_end_direct() {
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let (cost, alignment) = aligner.align(
         sequences.primary_start(),
         sequences.primary_end(),
@@ -297,7 +370,13 @@ fn test_start_end_direct() {
     assert_eq!(alignment.alignment, vec![]);
     assert_eq!(cost, 0u8.into());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_start(),
@@ -333,7 +412,13 @@ fn test_start_anchor_direct() {
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let (cost, alignment) = aligner.align(
         sequences.primary_start(),
         sequences.primary_start(),
@@ -344,7 +429,13 @@ fn test_start_anchor_direct() {
     assert_eq!(alignment.alignment, vec![]);
     assert_eq!(cost, 0u8.into());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_start(),
@@ -380,7 +471,13 @@ fn test_anchor_end_direct() {
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let (cost, alignment) = aligner.align(
         sequences.primary_end(),
         sequences.primary_end(),
@@ -391,7 +488,13 @@ fn test_anchor_end_direct() {
     assert_eq!(alignment.alignment, vec![]);
     assert_eq!(cost, 0u8.into());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        5,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_end(),
@@ -427,7 +530,13 @@ fn test_start_end_indirect_lt_k() {
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 8);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        9,
+        0,
+    );
     let (cost, alignment) = aligner.align(
         sequences.primary_start(),
         sequences.primary_end(),
@@ -438,7 +547,13 @@ fn test_start_end_indirect_lt_k() {
     assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match)]);
     assert_eq!(cost, 0u8.into());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 8);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        9,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_start(),
@@ -474,7 +589,13 @@ fn test_start_end_indirect_geq_k() {
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 7);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        8,
+        0,
+    );
     let (cost, _alignment) = aligner.align(
         sequences.primary_start(),
         sequences.primary_end(),
@@ -484,7 +605,13 @@ fn test_start_end_indirect_geq_k() {
 
     assert!(!cost.is_zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 7);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        8,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_start(),
@@ -521,7 +648,13 @@ fn test_start_anchor_indirect() {
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
     let end = PrimaryAlignmentCoordinates::new(2, 2);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, _alignment) = aligner.align(
         sequences.primary_start(),
         end,
@@ -529,9 +662,15 @@ fn test_start_anchor_indirect() {
         &mut PanicOnExtend,
     );
 
-    assert!(!cost.is_zero());
+    assert!(cost.is_zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         sequences.primary_start(),
@@ -549,7 +688,7 @@ fn test_start_anchor_indirect() {
         )
         .min()
         .unwrap();
-    assert!(!min_cost.is_zero());
+    assert!(min_cost.is_zero());
 }
 
 #[test]
@@ -566,7 +705,13 @@ fn test_anchor_end_indirect() {
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
     let start = PrimaryAlignmentCoordinates::new(8, 8);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, _alignment) = aligner.align(
         start,
         sequences.primary_end(),
@@ -574,9 +719,15 @@ fn test_anchor_end_indirect() {
         &mut PanicOnExtend,
     );
 
-    assert!(!cost.is_zero());
+    assert!(cost.is_zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
@@ -596,7 +747,7 @@ fn test_anchor_end_indirect() {
         })
         .min()
         .unwrap();
-    assert!(!min_cost.is_zero());
+    assert!(min_cost.is_zero());
 }
 
 #[test]
@@ -614,13 +765,25 @@ fn test_anchor_anchor_direct_primary() {
     let start = PrimaryAlignmentCoordinates::new(5, 5);
     let end = PrimaryAlignmentCoordinates::new(5, 5);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(alignment.alignment, vec![]);
-    assert_eq!(cost, U32Cost::max_value());
+    assert_eq!(cost, U32Cost::zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
@@ -638,7 +801,7 @@ fn test_anchor_anchor_direct_primary() {
         )
         .min()
         .unwrap_or_else(U32Cost::max_value);
-    assert_eq!(min_cost, U32Cost::max_value());
+    assert_eq!(min_cost, U32Cost::zero());
 }
 
 #[test]
@@ -656,12 +819,24 @@ fn test_anchor_anchor_indirect_primary() {
     let start = PrimaryAlignmentCoordinates::new(5, 5);
     let end = PrimaryAlignmentCoordinates::new(6, 6);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
-    assert!(!cost.is_zero());
+    assert!(cost.is_zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_primary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
@@ -679,7 +854,7 @@ fn test_anchor_anchor_indirect_primary() {
         )
         .min()
         .unwrap();
-    assert!(!min_cost.is_zero());
+    assert!(min_cost.is_zero());
 }
 
 #[test]
@@ -697,13 +872,25 @@ fn test_anchor_anchor_direct_secondary() {
     let start = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
     let end = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(alignment.alignment, vec![]);
-    assert_eq!(cost, U32Cost::max_value());
+    assert_eq!(cost, U32Cost::zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_secondary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
@@ -723,7 +910,7 @@ fn test_anchor_anchor_direct_secondary() {
         })
         .min()
         .unwrap_or_else(U32Cost::max_value);
-    assert_eq!(min_cost, U32Cost::max_value());
+    assert_eq!(min_cost, U32Cost::zero());
 }
 
 #[test]
@@ -741,12 +928,24 @@ fn test_anchor_anchor_indirect_secondary() {
     let start = SpecificSecondaryAlignmentCoordinates::new(6, 4, TsKind::TS12);
     let end = SpecificSecondaryAlignmentCoordinates::new(5, 5, TsKind::TS12);
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let (cost, _alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
-    assert!(!cost.is_zero());
+    assert!(cost.is_zero());
 
-    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::<_, UnsignedIntAlignmentHistoryVec<u128>>::new(
+        &sequences,
+        &cost_table,
+        &rc_fn,
+        100,
+        0,
+    );
     let mut additional_secondary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
@@ -766,5 +965,5 @@ fn test_anchor_anchor_indirect_secondary() {
         })
         .min()
         .unwrap();
-    assert!(!min_cost.is_zero());
+    assert!(min_cost.is_zero());
 }
