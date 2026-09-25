@@ -78,7 +78,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
         a_star.initialise();
         let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => (cost.0, a_star.reconstruct_path().into()),
+            AStarResult::FoundTarget { cost, .. } => (cost, a_star.reconstruct_path().into()),
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
