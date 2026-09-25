@@ -6,25 +6,20 @@ use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, 
 
 use crate::{
     alignment::{GapType, coordinates::AlignmentCoordinates},
-    chaining_lower_bounds::gap_affine::inexact_algo::{
+    alignment_history::{
+        extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
         history_alignment_operations::AlignmentHistoryOperation,
-        history_graph::{HistoryGraph, HistoryNodeIndex},
+        history_vec::AlignmentHistory,
     },
     costs::GapAffineCosts,
 };
-
-pub use history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec};
-
-mod history_alignment_operations;
-mod history_graph;
-mod history_vec;
 
 pub struct Context<'a, Cost, AlignmentHistoryVec> {
     costs: &'a GapAffineCosts<Cost>,
     anchor_k: u8,
     max_anchor_mutations: u8,
     max_n: usize,
-    history_graph: HistoryGraph<AlignmentHistoryVec>,
+    history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -36,7 +31,7 @@ pub struct Node<Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
-    pub history: HistoryNodeIndex,
+    pub history: HistoryExtensionGraphNodeIndex,
     gap_type: GapType,
 }
 
@@ -52,7 +47,7 @@ impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, Alignmen
             anchor_k,
             max_anchor_mutations,
             max_n,
-            history_graph: HistoryGraph::new(),
+            history_graph: HistoryExtensionGraph::new(),
         }
     }
 }
