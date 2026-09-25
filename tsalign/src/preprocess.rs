@@ -118,8 +118,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
             info!("Preprocessing for max_n = {current_max_n}...");
             let lower_bounds =
                 preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
-            let cache_file =
-                tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
+            let cache_file = tschain_preprocess_cache_file(
+                &costs,
+                &cache_directory,
+                k,
+                cli.max_anchor_mutations,
+                current_max_n,
+            )?;
             let mut file = File::create(&cache_file)
                 .with_context(|| format!("Creating cache file {cache_file:?}"))?;
             lower_bounds.write(&mut file)?;
@@ -150,8 +155,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
                 let lower_bounds =
                     preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
-                let cache_file =
-                    tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
+                let cache_file = tschain_preprocess_cache_file(
+                    &costs,
+                    &cache_directory,
+                    k,
+                    cli.max_anchor_mutations,
+                    current_max_n,
+                )?;
                 let mut file = File::create(&cache_file)
                     .with_context(|| format!("Creating cache file {cache_file:?}"))?;
                 lower_bounds.write(&mut file)?;
