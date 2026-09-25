@@ -2,7 +2,7 @@ use std::{fmt::Display, hash::Hash, iter};
 
 use num_traits::{NumCast, PrimInt, Unsigned};
 
-use crate::chaining_lower_bounds::gap_affine::inexact_algo::history_alignment_operations::AlignmentHistoryOperation;
+use crate::alignment_history::history_alignment_operations::AlignmentHistoryOperation;
 
 #[cfg(test)]
 mod tests;

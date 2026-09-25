@@ -1,6 +1,4 @@
-use crate::chaining_lower_bounds::gap_affine::inexact_algo::{
-    AlignmentHistory, UnsignedIntAlignmentHistoryVec,
-};
+use crate::alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec};
 
 #[test]
 fn required_capacity() {

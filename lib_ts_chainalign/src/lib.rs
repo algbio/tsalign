@@ -18,6 +18,7 @@ use crate::{
 };
 
 pub mod alignment;
+pub mod alignment_history;
 pub mod anchors;
 pub mod chain_align;
 pub mod chaining_cost_function;

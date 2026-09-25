@@ -2,56 +2,56 @@ use std::fmt::Display;
 
 use tagged_vec::TaggedVec;
 
-use crate::chaining_lower_bounds::gap_affine::inexact_algo::{
+use crate::alignment_history::{
     history_alignment_operations::AlignmentHistoryOperation, history_vec::AlignmentHistory,
 };
 
-pub struct HistoryGraph<AlignmentHistoryVec> {
-    nodes: TaggedVec<HistoryNodeIndex, HistoryNode<AlignmentHistoryVec>>,
+pub struct HistoryExtensionGraph<AlignmentHistoryVec> {
+    nodes: TaggedVec<HistoryExtensionGraphNodeIndex, HistoryNode<AlignmentHistoryVec>>,
 }
 
 pub struct HistoryNode<AlignmentHistoryVec> {
     history: AlignmentHistoryVec,
 
     /// The successor of this node if the next alignment operation is a match.
-    match_successor: HistoryNodeIndex,
+    match_successor: HistoryExtensionGraphNodeIndex,
 
     /// The successor of this node if the next alignment operation is a substitution.
-    substitution_successor: HistoryNodeIndex,
+    substitution_successor: HistoryExtensionGraphNodeIndex,
 
     /// The successor of this node if the next alignment operation is a gap in a, i.e. sequence a misses a character.
-    gap_in_a_successor: HistoryNodeIndex,
+    gap_in_a_successor: HistoryExtensionGraphNodeIndex,
 
     /// The successor of this node if the next alignment operation is a gap in b, i.e. sequence b misses a character.
-    gap_in_b_successor: HistoryNodeIndex,
+    gap_in_b_successor: HistoryExtensionGraphNodeIndex,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct HistoryNodeIndex(pub usize);
+pub struct HistoryExtensionGraphNodeIndex(pub usize);
 
-impl<AlignmentHistoryVec: AlignmentHistory> HistoryGraph<AlignmentHistoryVec> {
+impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHistoryVec> {
     pub fn new() -> Self {
         let mut nodes = TaggedVec::new();
         nodes.push(HistoryNode {
             history: AlignmentHistoryVec::default(),
-            match_successor: HistoryNodeIndex(usize::MAX),
-            substitution_successor: HistoryNodeIndex(usize::MAX),
-            gap_in_a_successor: HistoryNodeIndex(usize::MAX),
-            gap_in_b_successor: HistoryNodeIndex(usize::MAX),
+            match_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
+            substitution_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
+            gap_in_a_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
+            gap_in_b_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
         });
         Self { nodes }
     }
 
     /// Returns the id of the node that represents the empty history.
-    pub fn empty_node_id(&self) -> HistoryNodeIndex {
-        HistoryNodeIndex(0)
+    pub fn empty_node_id(&self) -> HistoryExtensionGraphNodeIndex {
+        HistoryExtensionGraphNodeIndex(0)
     }
 
     /// Returns true if the alignment history vector can be extended with another alignment history operation without becoming a valid anchor.
     #[allow(dead_code)]
     pub fn can_extend(
         &mut self,
-        node_id: HistoryNodeIndex,
+        node_id: HistoryExtensionGraphNodeIndex,
         alignment: AlignmentHistoryOperation,
         anchor_k: u8,
         max_anchor_mutations: u8,
@@ -66,11 +66,11 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryGraph<AlignmentHistoryVec> {
     #[allow(dead_code)]
     pub fn extend(
         &mut self,
-        node_id: HistoryNodeIndex,
+        node_id: HistoryExtensionGraphNodeIndex,
         alignment: AlignmentHistoryOperation,
         anchor_k: u8,
         max_anchor_mutations: u8,
-    ) -> HistoryNodeIndex {
+    ) -> HistoryExtensionGraphNodeIndex {
         if let Some(extension_index) =
             self.try_extend(node_id, alignment, anchor_k, max_anchor_mutations)
         {
@@ -87,11 +87,11 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryGraph<AlignmentHistoryVec> {
     /// Returns `Some` with the index of the new node if the extension is possible, or `None` if it would result in a valid anchor.
     pub fn try_extend(
         &mut self,
-        node_id: HistoryNodeIndex,
+        node_id: HistoryExtensionGraphNodeIndex,
         alignment: AlignmentHistoryOperation,
         anchor_k: u8,
         max_anchor_mutations: u8,
-    ) -> Option<HistoryNodeIndex> {
+    ) -> Option<HistoryExtensionGraphNodeIndex> {
         let nodes_len = self.nodes.len();
         let node = &mut self.nodes[node_id];
         let cache = match alignment {
@@ -126,7 +126,7 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryGraph<AlignmentHistoryVec> {
 
                 Some(new_node_id)
             } else {
-                *cache = HistoryNodeIndex::new_dead_end();
+                *cache = HistoryExtensionGraphNodeIndex::new_dead_end();
                 None
             }
         } else {
@@ -139,15 +139,15 @@ impl<AlignmentHistoryVec> HistoryNode<AlignmentHistoryVec> {
     pub fn new(history: AlignmentHistoryVec) -> Self {
         Self {
             history,
-            match_successor: HistoryNodeIndex::new_unknown(),
-            substitution_successor: HistoryNodeIndex::new_unknown(),
-            gap_in_a_successor: HistoryNodeIndex::new_unknown(),
-            gap_in_b_successor: HistoryNodeIndex::new_unknown(),
+            match_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
+            substitution_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
+            gap_in_a_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
+            gap_in_b_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
         }
     }
 }
 
-impl HistoryNodeIndex {
+impl HistoryExtensionGraphNodeIndex {
     /// Creates a history node index that implies that the extendability into this node is unknown.
     pub fn new_unknown() -> Self {
         Self(usize::MAX)
@@ -169,20 +169,26 @@ impl HistoryNodeIndex {
     }
 }
 
-impl From<usize> for HistoryNodeIndex {
+impl From<usize> for HistoryExtensionGraphNodeIndex {
     fn from(value: usize) -> Self {
         Self(value)
     }
 }
 
-impl From<HistoryNodeIndex> for usize {
-    fn from(value: HistoryNodeIndex) -> Self {
+impl From<HistoryExtensionGraphNodeIndex> for usize {
+    fn from(value: HistoryExtensionGraphNodeIndex) -> Self {
         value.0
     }
 }
 
-impl Display for HistoryNodeIndex {
+impl Display for HistoryExtensionGraphNodeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl<AlignmentHistoryVec: AlignmentHistory> Default for HistoryExtensionGraph<AlignmentHistoryVec> {
+    fn default() -> Self {
+        Self::new()
     }
 }
