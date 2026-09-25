@@ -29,10 +29,11 @@ use std::{
 
 use crate::{
     alignment::{AlignmentType, sequences::AlignmentSequences},
+    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
     anchors::Anchors,
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
-        evaluation::ChainEvaluator,
+        evaluation::{ChainEvaluator, exact::ExactChainEvaluator, inexact::InexactChainEvaluator},
         performance_parameters::{
             AlignmentPerformanceParameters, ChainingClosedList, ChainingOpenList,
         },
@@ -45,12 +46,14 @@ mod chainer;
 mod evaluation;
 pub mod performance_parameters;
 
+#[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
+    anchor_k: u32,
+    max_anchor_mutations: u8,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
@@ -61,7 +64,8 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                anchor_k,
+                max_anchor_mutations,
                 anchors,
                 chaining_cost_function,
             )
@@ -71,13 +75,15 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
             performance_parameters,
             alignment_costs,
             rc_fn,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
             anchors,
             chaining_cost_function,
         ),
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn choose_closed_list<
     AlphabetType: Alphabet,
     Cost: AStarCost,
@@ -87,7 +93,8 @@ pub fn choose_closed_list<
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
+    anchor_k: u32,
+    max_anchor_mutations: u8,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
@@ -98,7 +105,8 @@ pub fn choose_closed_list<
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                anchor_k,
+                max_anchor_mutations,
                 anchors,
                 chaining_cost_function,
             )
@@ -109,7 +117,8 @@ pub fn choose_closed_list<
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                anchor_k,
+                max_anchor_mutations,
                 anchors,
                 chaining_cost_function,
             )
@@ -117,6 +126,7 @@ pub fn choose_closed_list<
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn actually_align<
     AlphabetType: Alphabet,
     Cost: AStarCost,
@@ -127,7 +137,8 @@ fn actually_align<
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
+    anchor_k: u32,
+    max_anchor_mutations: u8,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
@@ -139,7 +150,7 @@ fn actually_align<
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
 
-    let k = usize::try_from(max_match_run + 1).unwrap();
+    let k = usize::try_from(anchor_k).unwrap();
     let context = Context::new(
         anchors,
         chaining_cost_function,
@@ -149,7 +160,87 @@ fn actually_align<
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
 
-    let mut chain_evaluator = ChainEvaluator::new(sequences, alignment_costs, rc_fn, max_match_run);
+    let mut chain_evaluator: Box<dyn ChainEvaluator<_>> = if max_anchor_mutations == 0 {
+        Box::new(ExactChainEvaluator::new(
+            sequences,
+            alignment_costs,
+            rc_fn,
+            anchor_k - 1,
+        ))
+    } else if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
+        anchor_k.try_into().expect("anchor_k must be <= 255."),
+        max_anchor_mutations,
+    ) {
+        Box::new(
+            InexactChainEvaluator::<_, UnsignedIntAlignmentHistoryVec<u8>>::new(
+                sequences,
+                alignment_costs,
+                rc_fn,
+                anchor_k.try_into().expect("anchor_k must be <= 255."),
+                max_anchor_mutations,
+            ),
+        )
+    } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
+        anchor_k.try_into().expect("anchor_k must be <= 255."),
+        max_anchor_mutations,
+    ) {
+        Box::new(InexactChainEvaluator::<
+            _,
+            UnsignedIntAlignmentHistoryVec<u16>,
+        >::new(
+            sequences,
+            alignment_costs,
+            rc_fn,
+            anchor_k.try_into().expect("anchor_k must be <= 255."),
+            max_anchor_mutations,
+        ))
+    } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
+        anchor_k.try_into().expect("anchor_k must be <= 255."),
+        max_anchor_mutations,
+    ) {
+        Box::new(InexactChainEvaluator::<
+            _,
+            UnsignedIntAlignmentHistoryVec<u32>,
+        >::new(
+            sequences,
+            alignment_costs,
+            rc_fn,
+            anchor_k.try_into().expect("anchor_k must be <= 255."),
+            max_anchor_mutations,
+        ))
+    } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
+        anchor_k.try_into().expect("anchor_k must be <= 255."),
+        max_anchor_mutations,
+    ) {
+        Box::new(InexactChainEvaluator::<
+            _,
+            UnsignedIntAlignmentHistoryVec<u64>,
+        >::new(
+            sequences,
+            alignment_costs,
+            rc_fn,
+            anchor_k.try_into().expect("anchor_k must be <= 255."),
+            max_anchor_mutations,
+        ))
+    } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
+        anchor_k.try_into().expect("anchor_k must be <= 255."),
+        max_anchor_mutations,
+    ) {
+        Box::new(InexactChainEvaluator::<
+            _,
+            UnsignedIntAlignmentHistoryVec<u128>,
+        >::new(
+            sequences,
+            alignment_costs,
+            rc_fn,
+            anchor_k.try_into().expect("anchor_k must be <= 255."),
+            max_anchor_mutations,
+        ))
+    } else {
+        panic!(
+            "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
+        );
+    };
 
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
@@ -264,7 +355,8 @@ fn actually_align<
         let (evaluated_cost, _) = chain_evaluator.evaluate_chain(
             anchors,
             &chain,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
             astar.context_mut().chaining_cost_function,
             false,
         );
@@ -352,7 +444,8 @@ fn actually_align<
     let (evaluated_cost, alignments) = chain_evaluator.evaluate_chain(
         anchors,
         &chain,
-        max_match_run,
+        anchor_k,
+        max_anchor_mutations,
         astar.context_mut().chaining_cost_function,
         true,
     );
