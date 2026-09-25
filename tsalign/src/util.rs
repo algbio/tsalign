@@ -55,6 +55,7 @@ pub fn tschain_preprocess_cache_file(
     alignment_costs: &AlignmentCosts<U32Cost>,
     cache_directory: impl AsRef<Path>,
     k: u32,
+    max_anchor_mutations: u8,
     max_n: usize,
 ) -> Result<PathBuf> {
     let cost_hash = Sha1::default()
@@ -66,7 +67,9 @@ pub fn tschain_preprocess_cache_file(
 
     Ok([
         cache_directory.as_ref().to_path_buf(),
-        PathBuf::from(format!("{cost_hash}-{k}-{max_n}.tsc")),
+        PathBuf::from(format!(
+            "{cost_hash}-{k}-{max_anchor_mutations}-{max_n}.tsc"
+        )),
     ]
     .iter()
     .collect())
