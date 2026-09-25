@@ -48,7 +48,7 @@ pub fn preprocess(
     max_match_run: u32,
     alignment_costs: AlignmentCosts<U32Cost>,
 ) -> ChainingLowerBounds<U32Cost> {
-    ChainingLowerBounds::new(max_n, max_match_run, alignment_costs)
+    ChainingLowerBounds::new(max_n, max_match_run + 1, 0, alignment_costs)
 }
 
 /// Align two sequences.
@@ -93,7 +93,7 @@ pub fn align<AlphabetType: Alphabet>(
         PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
         PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
-    let k = chaining_lower_bounds.max_match_run() + 1;
+    let k = chaining_lower_bounds.anchor_k();
 
     let anchors = if max_mutations == 0 {
         Anchors::new_exact(&sequences, k, rc_fn)
@@ -120,7 +120,7 @@ pub fn align<AlphabetType: Alphabet>(
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
-        chaining_lower_bounds.max_match_run(),
+        k - 1,
         &anchors,
         &mut chaining_cost_function,
     )
