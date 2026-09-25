@@ -50,7 +50,7 @@ pub fn align_a_star_chain_ts<
         info!("Loading preprocessed data from cache at {cache_file:?}");
         let chaining_lower_bounds = ChainingLowerBounds::read(&mut file).unwrap();
         assert_eq!(chaining_lower_bounds.alignment_costs(), &alignment_costs);
-        assert_eq!(chaining_lower_bounds.max_match_run(), max_match_run);
+        assert_eq!(chaining_lower_bounds.anchor_k(), k);
         chaining_lower_bounds
     } else {
         assert!(
