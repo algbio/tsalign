@@ -3,10 +3,10 @@ use num_traits::{Zero, bounds::UpperBounded};
 
 use crate::alignment::AlignmentType;
 use crate::alignment::coordinates::{
-    PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
+    AlignmentCoordinates, PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
 };
 use crate::alignment::ts_kind::TsKind;
-use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAligner};
+use crate::exact_chaining::gap_affine::GapAffineAligner;
 use crate::panic_on_extend::PanicOnExtend;
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
 
