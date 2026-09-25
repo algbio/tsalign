@@ -8,6 +8,20 @@ use crate::chaining_lower_bounds::gap_affine::inexact_algo::history_alignment_op
 ///
 /// Only keeps track of enough state to prove that a DP node does not end on a possibly valid anchor,
 /// i.e. that when backtracking the node, at least `max_anchor_mutations + 1` mutations are required to create an anchor of lenght `anchor_k`.
+///
+/// # Properties
+///
+/// The alignment history can be described by a tuple of two flags.
+/// First, `is_anchor_length` is true if and only if the history covers at least `anchor_k` bases for one of the two sequences.
+/// Second, `is_invalid` is true if and only if the history contains more than `max_anchor_mutations` mutations.
+///
+/// When extending the alignment, the history develops in two phases: the initial phase and the general phase.
+/// There is one transition from initial phase to general phase at some point, and no other phase transition.
+/// The initial phase is when the history is too short to describe a full anchor, but there are not enough mutations to invalidate an anchor.
+/// Formally, in the initial phase, `is_anchor_length` and `is_invalid` are both false.
+/// As soon as an extension causes one of them to become true, the anchor has transitioned to the general phase.
+/// Once in the general phase, `is_invalid` must always be true, otherwise an extension would result in a valid anchor.
+/// However, it suffices to store as little history as necessary to keep `is_invalid` true, hence in the general phase `is_anchor_length` may be true or false.
 pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
     /// Returns true if the alignment history has enough capacity for the given parameters.
     fn has_enough_capacity(anchor_k: u8, max_anchor_mutations: u8) -> bool;
@@ -142,37 +156,52 @@ impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVe
         let mut len_a = 0;
         let mut len_b = 0;
         let mut mutations = 0;
+        let mut previous_len_a = 0;
+        let mut previous_len_b = 0;
         let mut previous_mutations = 0;
         let extension: Self = iter::once(alignment)
             .chain(*self)
             .filter(|alignment| {
-                let result = if len_a < anchor_k && len_b < anchor_k {
-                    mutations += alignment.mutations();
-                    true
-                } else {
-                    false
-                };
+                // Extend until at least one of `is_anchor_length` or `is_invalid` becomes true.
+                let result =
+                    if len_a < anchor_k && len_b < anchor_k && mutations <= max_anchor_mutations {
+                        len_a += alignment.len_a();
+                        len_b += alignment.len_b();
+                        mutations += alignment.mutations();
+                        true
+                    } else {
+                        false
+                    };
 
+                previous_len_a += alignment.len_a();
+                previous_len_b += alignment.len_b();
                 previous_mutations += alignment.mutations();
-                len_a += alignment.len_a();
-                len_b += alignment.len_b();
 
                 result
             })
             .collect();
 
-        let extension_is_full_length = len_a >= anchor_k || len_b >= anchor_k;
+        let len_a = len_a;
+        let len_b = len_b;
+        let mutations = mutations;
+        let previous_len_a = previous_len_a - alignment.len_a();
+        let previous_len_b = previous_len_b - alignment.len_b();
+        let previous_mutations = previous_mutations - alignment.mutations();
 
-        if extension_is_full_length {
-            // A full extension is valid if it has enough mutations.
-            if mutations > max_anchor_mutations {
-                Some(extension)
-            } else {
-                None
-            }
-        } else {
-            // An extension that is not yet full is always valid.
-            Some(extension)
+        let previous_is_anchor_length = previous_len_a.max(previous_len_b) >= anchor_k;
+        let previous_is_invalid = previous_mutations > max_anchor_mutations;
+        let previous_general_phase = previous_is_anchor_length || previous_is_invalid;
+
+        let current_is_anchor_length = len_a.max(len_b) >= anchor_k;
+        let current_is_invalid = mutations > max_anchor_mutations;
+        let current_is_general_phase = current_is_anchor_length || current_is_invalid;
+
+        match (previous_general_phase, current_is_general_phase) {
+            (_, true) => current_is_invalid.then_some(extension),
+            (true, false) => unreachable!(
+                "It should not be possible to transition from the general phase back to the initial phase."
+            ),
+            (false, false) => Some(extension),
         }
     }
 }
