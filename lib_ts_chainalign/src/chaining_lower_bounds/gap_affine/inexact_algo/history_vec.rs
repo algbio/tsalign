@@ -4,6 +4,9 @@ use num_traits::{NumCast, PrimInt, Unsigned};
 
 use crate::chaining_lower_bounds::gap_affine::inexact_algo::history_alignment_operations::AlignmentHistoryOperation;
 
+#[cfg(test)]
+mod tests;
+
 /// Keeps track of the most recent alignments required to reach a DP node.
 ///
 /// Only keeps track of enough state to prove that a DP node does not end on a possibly valid anchor,
@@ -32,6 +35,24 @@ pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
     /// Returns true if the alignment history vector is empty.
     fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Returns the maximum length that the history can have given the parameters.
+    fn required_capacity(anchor_k: u8, max_anchor_mutations: u8) -> usize {
+        let anchor_k = <usize as From<u8>>::from(anchor_k);
+        let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
+
+        // The required length of the initial phase is lower than that of the general phase, so we can ignore it.
+        // Specifically, an initial history transitions to a general history by adding an alignment operation without removing any at the same time.
+        // If any would be removed, then the initial phase history would have had enough mismatches to be general phase, or enough alignments to form a valid anchor.
+
+        // Required len of the general phase.
+        // In the general phase, there need to be `max_anchor_mutations + 1` mismatches, and each sequence has at most `anchor_k` characters in the history.
+        // So, the longest history we can construct starts with `max_anchor_mutations + 1` gaps which take a length of at least `(max_anchor_mutations + 1).div_ceil(2)` for one of the sequences.
+        // Then, it is followed by the maximum possible amount of matches, which is `anchor_k - (max_anchor_mutations + 1).div_ceil(2)`.
+        // Summing up, we get a history of length `max_anchor_mutations + 1 + anchor_k - (max_anchor_mutations + 1).div_ceil(2)`.
+        // We can rewrite that as follows:
+        anchor_k + max_anchor_mutations.div_ceil(2)
     }
 
     /// If possible, returns the extension of this the alignment history vector with another alignment history operation.
@@ -134,10 +155,7 @@ impl<UnsignedInt: HistoryInt> UnsignedIntAlignmentHistoryVec<UnsignedInt> {
 
 impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVec<UnsignedInt> {
     fn has_enough_capacity(anchor_k: u8, max_anchor_mutations: u8) -> bool {
-        let anchor_k = <usize as From<u8>>::from(anchor_k);
-        let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
-        let required_len = anchor_k + max_anchor_mutations / 2;
-        required_len <= UnsignedInt::max_len()
+        Self::required_capacity(anchor_k, max_anchor_mutations) <= UnsignedInt::max_len()
     }
 
     fn len(&self) -> usize {
@@ -153,6 +171,8 @@ impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVe
         let anchor_k = <usize as From<u8>>::from(anchor_k);
         let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
 
+        // We probably can simplify how many numbers we track here, but we keep it like this because it is easier to reason about the correctness of the algorithm.
+        // Hopefully the optimiser will take good care of this.
         let mut len_a = 0;
         let mut len_b = 0;
         let mut mutations = 0;
@@ -201,7 +221,11 @@ impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVe
             (true, false) => unreachable!(
                 "It should not be possible to transition from the general phase back to the initial phase."
             ),
-            (false, false) => Some(extension),
+            (false, false) => {
+                // In the initial phase it is possible that some histories cannot be extended in to an invalid anchor, because the contain too many matches.
+                // However, with inexact anchors, we chain without overlap, so even sequences of `anchor_k - 1` matches are required to cover all possible alignments.
+                Some(extension)
+            }
         }
     }
 }
