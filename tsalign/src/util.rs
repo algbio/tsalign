@@ -77,7 +77,7 @@ mod tests {
     use crate::util::infer_tschain_max_n;
 
     #[test]
-    fn test_infer_tschain_max_n() {
+    fn infer_tschain_max_n() {
         assert_eq!(infer_tschain_max_n(1, 1), 1);
         assert_eq!(infer_tschain_max_n(2, 2), 2);
         assert_eq!(infer_tschain_max_n(3, 3), 4);

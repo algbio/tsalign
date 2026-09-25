@@ -188,7 +188,7 @@ mod tests {
     };
 
     #[test]
-    fn test_nonoverlapping_block_ranges() {
+    fn nonoverlapping_block_ranges() {
         assert_eq!(
             nonoverlapping_block_ranges(11, 3).collect::<Vec<_>>(),
             vec![0..3, 3..6, 6..11]
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_all_substrings() {
+    fn find_all_substrings() {
         let haystack = "AAAACATAAA";
         let needles = ["AAA", "ATA", "CAT", "ACA"];
         let mut expected = [(0, 0), (1, 0), (7, 0), (5, 1), (4, 2), (3, 3)].map(
@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seed_nonoverlapping() {
+    fn seed_nonoverlapping() {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(b"ACTTGGAAAA").unwrap();
         let query = VectorGenome::<DnaAlphabet>::from_slice_u8(b"TACTGGAAAAACT").unwrap();
         let mut expected = [
