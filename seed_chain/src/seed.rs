@@ -188,7 +188,7 @@ mod tests {
     };
 
     #[test]
-    fn nonoverlapping_block_ranges() {
+    fn fn_nonoverlapping_block_ranges() {
         assert_eq!(
             nonoverlapping_block_ranges(11, 3).collect::<Vec<_>>(),
             vec![0..3, 3..6, 6..11]
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn find_all_substrings() {
+    fn fn_find_all_substrings() {
         let haystack = "AAAACATAAA";
         let needles = ["AAA", "ATA", "CAT", "ACA"];
         let mut expected = [(0, 0), (1, 0), (7, 0), (5, 1), (4, 2), (3, 3)].map(
