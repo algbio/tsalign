@@ -75,9 +75,9 @@ pub trait HistoryInt: PrimInt + Unsigned + NumCast + Hash {
     ///
     /// This is always even.
     const HISTORY_BITS: usize;
-    /// A mask for the lowest [`Self::len_bits()`] bits of the integer type.
+    /// A mask for the lowest [`Self::LEN_BITS`] bits of the integer type.
     const LEN_MASK: Self;
-    /// A mask for the highest [`Self::history_bits()`] bits of the integer type.
+    /// A mask for the highest [`Self::HISTORY_BITS`] bits of the integer type.
     const HISTORY_MASK: Self;
 
     /// Returns the maximum length of the alignment history vector that can be stored in this integer type.
@@ -89,8 +89,8 @@ pub trait HistoryInt: PrimInt + Unsigned + NumCast + Hash {
 /// A packed representation of an alignment history.
 ///
 /// The representation is just one unsigned integer.
-/// The lowest [`Self::len_bits()`] bits are used to store the length of the history in number of operations (each operation takes two bits).
-/// The remaining [`Self::history_bits()`] bits are used to store the history itself.
+/// The lowest [`Self::LEN_BITS`] bits are used to store the length of the history in number of operations (each operation takes two bits).
+/// The remaining [`Self::HISTORY_BITS`] bits are used to store the history itself.
 /// The first history item is stored in the lowest bits of the history part.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct UnsignedIntAlignmentHistoryVec<UnsignedInt> {
