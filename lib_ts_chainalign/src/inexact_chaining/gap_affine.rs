@@ -8,6 +8,7 @@ use crate::{
         },
         sequences::AlignmentSequences,
     },
+    alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::GapAffineCosts,
     inexact_chaining::gap_affine::algo::{Context, Node},
 };
@@ -16,51 +17,35 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
+pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec> {
     a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
+    history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
     sequences: &'sequences AlignmentSequences,
     cost_table: &'cost_table GapAffineCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-    max_match_run: u32,
+    anchor_k: u8,
+    max_anchor_mutations: u8,
 }
 
-impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
-    GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost>
+impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
+    GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost, AlignmentHistoryVec>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
         cost_table: &'cost_table GapAffineCosts<Cost>,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-        max_match_run: u32,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
     ) -> Self {
-        todo!("Not yet adapted to inexact anchors.");
-
         Self {
             a_star_buffers: Some(Default::default()),
+            history_graph: HistoryExtensionGraph::new(),
             sequences,
             cost_table,
             rc_fn,
-            max_match_run,
+            anchor_k,
+            max_anchor_mutations,
         }
-    }
-
-    /// Evaluate if `allow_direct_chaining` should be set in the alignment context.
-    fn allow_direct_chaining(
-        &self,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
-    ) -> bool {
-        start == self.sequences.primary_start().into() || end == self.sequences.primary_end().into()
-    }
-
-    /// Evaluate if `allow_all_matches` should be set in the alignment context.
-    fn allow_all_matches(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
-        let minimum_primary_sequence_length = (self.sequences.primary_end().a()
-            - self.sequences.primary_start().a())
-        .min(self.sequences.primary_end().b() - self.sequences.primary_start().b());
-        start == self.sequences.primary_start().into()
-            && end == self.sequences.primary_end().into()
-            && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run
     }
 
     /// Align from start to end.
@@ -87,11 +72,11 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.cost_table,
             self.sequences,
             self.rc_fn,
+            &mut self.history_graph,
             start,
             end,
-            self.allow_direct_chaining(start, end),
-            self.allow_all_matches(start, end),
-            self.max_match_run,
+            self.anchor_k,
+            self.max_anchor_mutations,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
@@ -99,7 +84,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
                 let alignment = a_star.reconstruct_path().into();
-                (cost.0, alignment)
+                (cost, alignment)
             }
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
@@ -107,9 +92,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         };
         a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
 
-        self.fill_additional_targets(
+        Self::fill_additional_targets(
             &a_star,
-            start,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
@@ -139,19 +123,18 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.cost_table,
             self.sequences,
             self.rc_fn,
+            &mut self.history_graph,
             start,
             end,
-            true,
-            true,
-            self.max_match_run,
+            self.anchor_k,
+            self.max_anchor_mutations,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
-        self.fill_additional_targets(
+        Self::fill_additional_targets(
             &a_star,
-            start,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
@@ -159,117 +142,20 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     }
 
     fn fill_additional_targets(
-        &self,
-        a_star: &AStar<Context<Cost>>,
-        start: AlignmentCoordinates,
+        a_star: &AStar<Context<Cost, AlignmentHistoryVec>>,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
         additional_primary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_primary())
-                .filter(|node| {
-                    start != node.identifier.coordinates
-                        || self.allow_direct_chaining(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    start == node.identifier.coordinates
-                        || node.identifier.has_non_match
-                        || self.allow_all_matches(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    // Filter duplicates.
-                    let mut pair_identifier = node.identifier;
-                    pair_identifier.has_non_match = !pair_identifier.has_non_match;
-                    a_star
-                        .closed_node(&pair_identifier)
-                        .map(|pair| {
-                            pair.cost > node.cost
-                                || (pair.cost == node.cost && node.identifier.has_non_match)
-                        })
-                        .unwrap_or(true)
-                })
-                .map(|node| {
-                    (
-                        node.identifier.coordinates.into_primary().unwrap(),
-                        node.cost,
-                    )
-                }),
+                .filter_map(|node| Some((node.identifier.coordinates.into_primary()?, node.cost))),
         );
-        additional_secondary_targets_output.extend(
-            a_star
-                .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_secondary())
-                .filter(|node| {
-                    start != node.identifier.coordinates
-                        || self.allow_direct_chaining(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    start == node.identifier.coordinates
-                        || node.identifier.has_non_match
-                        || self.allow_all_matches(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    // Filter duplicates.
-                    let mut pair_identifier = node.identifier;
-                    pair_identifier.has_non_match = !pair_identifier.has_non_match;
-                    a_star
-                        .closed_node(&pair_identifier)
-                        .map(|pair| {
-                            pair.cost > node.cost
-                                || (pair.cost == node.cost && node.identifier.has_non_match)
-                        })
-                        .unwrap_or(true)
-                })
-                .map(|node| {
-                    (
-                        node.identifier.coordinates.into_secondary().unwrap().into(),
-                        node.cost,
-                    )
-                }),
-        );
-    }
-
-    /// Align an anchor from start to end.
-    ///
-    /// None of the restrictions typically imposed by this aligner imply, e.g. `max_match_run` is ignored.
-    pub fn align_anchor(
-        &mut self,
-        start: impl Into<AlignmentCoordinates>,
-        end: impl Into<AlignmentCoordinates>,
-    ) -> (Cost, Alignment) {
-        let start = start.into();
-        let end = end.into();
-
-        assert!(
-            start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
-        );
-
-        let context = Context::new(
-            self.cost_table,
-            self.sequences,
-            self.rc_fn,
-            start,
-            end,
-            true,
-            true,
-            u32::MAX,
-        );
-        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
-
-        a_star.initialise();
-        let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => {
-                let alignment = a_star.reconstruct_path().into();
-                (cost.0, alignment)
-            }
-            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
-        };
-        self.a_star_buffers = Some(a_star.into_buffers());
-
-        (cost, alignment)
+        additional_secondary_targets_output.extend(a_star.iter_closed_nodes().filter_map(|node| {
+            Some((
+                node.identifier.coordinates.into_secondary()?.into_any(),
+                node.cost,
+            ))
+        }));
     }
 }

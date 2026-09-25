@@ -80,7 +80,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star.initialise();
         let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
-                let cost = cost;
                 let alignment = a_star.reconstruct_path().into();
 
                 (cost, alignment)
