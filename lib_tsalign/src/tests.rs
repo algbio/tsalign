@@ -38,7 +38,7 @@ use crate::{
 };
 
 #[test]
-fn test_tsnax_disc1_473() {
+fn tsnax_disc1_473() {
     let config = TemplateSwitchConfig::<DnaAlphabet, U64Cost>::read_plain(
         File::open("../test_files/config/bench/config.tsa").unwrap(),
     )
