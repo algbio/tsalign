@@ -7,14 +7,14 @@ use crate::alignment::{
 
 pub mod range;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum AlignmentCoordinates {
     Primary(PrimaryAlignmentCoordinates),
     Secondary(SpecificSecondaryAlignmentCoordinates),
 }
 
 /// Alignment coordinates in the primary sequence space.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct PrimaryAlignmentCoordinates {
     a: usize,
     b: usize,
@@ -30,7 +30,7 @@ pub struct AnySecondaryAlignmentCoordinates {
 }
 
 /// Alignment coordinates in a specified secondary sequence space.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct SpecificSecondaryAlignmentCoordinates {
     coordinates: AnySecondaryAlignmentCoordinates,
     ts_kind: TsKind,
@@ -776,6 +776,20 @@ impl From<&'_ SpecificSecondaryAlignmentCoordinates> for AlignmentCoordinates {
 impl From<&'_ SpecificSecondaryAlignmentCoordinates> for AnySecondaryAlignmentCoordinates {
     fn from(value: &SpecificSecondaryAlignmentCoordinates) -> Self {
         value.coordinates
+    }
+}
+
+impl Ord for PrimaryAlignmentCoordinates {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.a()
+            .cmp(&other.a())
+            .then_with(|| self.b().cmp(&other.b()))
+    }
+}
+
+impl PartialOrd for PrimaryAlignmentCoordinates {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

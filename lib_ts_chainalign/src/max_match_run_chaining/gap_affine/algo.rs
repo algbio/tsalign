@@ -29,7 +29,7 @@ pub struct Node<Cost> {
     pub cost: Cost,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
     gap_type: GapType,

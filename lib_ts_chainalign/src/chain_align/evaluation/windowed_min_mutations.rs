@@ -320,12 +320,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                             alignments.push(alignment);
                         } else {
                             chaining_cost_function.update_primary_to_end(index, cost, true);
-                            chaining_cost_function.update_additional_primary_targets(
-                                index,
-                                &mut self.additional_primary_targets_buffer,
-                                anchors,
-                                &mut self.total_redundant_gap_fillings,
-                            );
+                            chaining_cost_function
+                                .update_additional_primary_targets(
+                                    index,
+                                    &mut self.additional_primary_targets_buffer,
+                                    anchors,
+                                    &mut self.total_redundant_gap_fillings,
+                                )
+                                .unwrap_or_else(|error| {
+                                    panic!(
+                                        "Error updating additional primary targets: {}",
+                                        error.display(anchors)
+                                    )
+                                });
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -454,13 +461,24 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
                         } else {
-                            chaining_cost_function.update_primary(from_index, to_index, cost, true);
-                            chaining_cost_function.update_additional_primary_targets(
-                                from_index,
-                                &mut self.additional_primary_targets_buffer,
-                                anchors,
-                                &mut self.total_redundant_gap_fillings,
-                            );
+                            chaining_cost_function
+                                .update_primary(from_index, to_index, cost, true)
+                                .unwrap_or_else(|error| {
+                                    panic!("Error updating primary: {}", error.display(anchors))
+                                });
+                            chaining_cost_function
+                                .update_additional_primary_targets(
+                                    from_index,
+                                    &mut self.additional_primary_targets_buffer,
+                                    anchors,
+                                    &mut self.total_redundant_gap_fillings,
+                                )
+                                .unwrap_or_else(|error| {
+                                    panic!(
+                                        "Error updating additional primary targets: {}",
+                                        error.display(anchors)
+                                    )
+                                });
                         }
                     }
                     current_upper_bound = current_upper_bound
