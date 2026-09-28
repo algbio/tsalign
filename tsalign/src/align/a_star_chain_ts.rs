@@ -4,7 +4,9 @@ use compact_genome::interface::{
 };
 use lib_ts_chainalign::{
     chain_align::performance_parameters::AlignmentPerformanceParameters,
-    chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
+    chaining_lower_bounds::ChainingLowerBounds,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::AlignmentCosts,
 };
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::{debug, info, warn};
@@ -64,8 +66,15 @@ pub fn align_a_star_chain_ts<
         );
 
         info!("Preprocessing...");
-        let chaining_lower_bounds =
-            lib_ts_chainalign::preprocess(max_n, k, cli.max_anchor_mutations, alignment_costs);
+        let chaining_lower_bounds = lib_ts_chainalign::preprocess(
+            max_n,
+            ChainingLowerBoundConfig {
+                anchor_k: k,
+                max_anchor_mutations: cli.max_anchor_mutations,
+                inexact_lower_bound: InexactLowerBoundKind::Tight,
+            },
+            alignment_costs,
+        );
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
         let mut file = File::create(&cache_file).unwrap();

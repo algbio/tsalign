@@ -2,7 +2,7 @@ use generic_a_star::cost::AStarCost;
 
 use crate::{
     alignment::Alignment, anchors::Anchors, chain_align::chainer::Identifier,
-    chaining_cost_function::ChainingCostFunction,
+    chaining_cost_function::ChainingCostFunction, config::ChainingLowerBoundConfig,
 };
 
 pub mod exact;
@@ -13,8 +13,7 @@ pub trait ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> 
         &mut self,
         anchors: &Anchors<Cost>,
         chain: &[Identifier],
-        anchor_k: u32,
-        max_anchor_mutations: u8,
+        config: &ChainingLowerBoundConfig,
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>);
