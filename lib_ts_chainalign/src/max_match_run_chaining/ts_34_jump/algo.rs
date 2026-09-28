@@ -25,6 +25,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     end: PrimaryAlignmentCoordinates,
     enforce_non_match: bool,
     max_match_run: u32,
+    enforcement_offset: u8,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -52,10 +53,12 @@ pub enum Identifier {
         gap_type: GapType,
         has_non_match: bool,
         match_run: u32,
+        final_unenforced_section: bool,
     },
 }
 
 impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
@@ -64,6 +67,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         end: PrimaryAlignmentCoordinates,
         enforce_non_match: bool,
         max_match_run: u32,
+        enforcement_offset: u8,
     ) -> Self {
         Self {
             costs,
@@ -73,6 +77,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             end,
             enforce_non_match,
             max_match_run,
+            enforcement_offset,
         }
     }
 
@@ -128,7 +133,12 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if match_run < self.max_match_run {
+                        if match_run < self.max_match_run
+                            || (self.start.ancestor() - coordinates.ancestor()
+                                < self.enforcement_offset.into()
+                                && coordinates.descendant() - self.start.descendant()
+                                    < self.enforcement_offset.into())
+                        {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -237,6 +247,29 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 let gap_type = identifier.gap_type();
                 let match_run = identifier.match_run();
 
+                // Generate a successor into a possible final unenforced section.
+                if let Identifier::Primary {
+                    coordinates,
+                    gap_type,
+                    has_non_match,
+                    match_run,
+                    final_unenforced_section: false,
+                } = *identifier
+                {
+                    let identifier = Identifier::Primary {
+                        coordinates,
+                        gap_type,
+                        has_non_match,
+                        match_run,
+                        final_unenforced_section: true,
+                    };
+                    let mut node = *node;
+                    node.identifier = identifier;
+                    output.extend(std::iter::once(node));
+                }
+
+                let final_unenforced_section = identifier.final_unenforced_section();
+
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_primary(self.end) {
                     let (ca, cb) = self.sequences.primary_characters(coordinates);
@@ -245,7 +278,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if match_run < self.max_match_run {
+                        if match_run < self.max_match_run
+                            || (final_unenforced_section
+                                && match_run < self.enforcement_offset.into())
+                        {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -254,6 +290,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     GapType::None,
                                     has_non_match,
                                     match_run + 1,
+                                    final_unenforced_section,
                                 ),
                                 predecessor,
                                 predecessor_alignment_type: Some(AlignmentType::Match),
@@ -269,6 +306,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 GapType::None,
                                 true,
                                 0,
+                                final_unenforced_section,
                             ),
                             predecessor,
                             predecessor_alignment_type: Some(AlignmentType::Substitution),
@@ -290,6 +328,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             GapType::InB,
                             true,
                             0,
+                            final_unenforced_section,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapB),
@@ -310,6 +349,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             GapType::InA,
                             true,
                             0,
+                            final_unenforced_section,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::GapA),
@@ -382,12 +422,14 @@ impl Identifier {
         gap_type: GapType,
         has_non_match: bool,
         match_run: u32,
+        final_unenforced_section: bool,
     ) -> Self {
         Identifier::Primary {
             coordinates,
             gap_type,
             has_non_match,
             match_run,
+            final_unenforced_section,
         }
     }
 
@@ -434,6 +476,16 @@ impl Identifier {
             Identifier::Primary { match_run, .. } => *match_run,
             Identifier::Jump34 { .. } => 0,
             Identifier::Secondary { match_run, .. } => *match_run,
+        }
+    }
+
+    pub fn final_unenforced_section(&self) -> bool {
+        match self {
+            Identifier::Primary {
+                final_unenforced_section,
+                ..
+            } => *final_unenforced_section,
+            _ => false,
         }
     }
 }

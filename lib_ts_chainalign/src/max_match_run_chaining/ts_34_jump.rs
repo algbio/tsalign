@@ -24,6 +24,7 @@ pub struct Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost
     alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     max_match_run: u32,
+    enforcement_offset: u8,
 }
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
@@ -34,6 +35,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         max_match_run: u32,
+        enforcement_offset: u8,
     ) -> Self {
         Self {
             a_star_buffers: Some(Default::default()),
@@ -41,6 +43,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             alignment_costs,
             rc_fn,
             max_match_run,
+            enforcement_offset,
         }
     }
 
@@ -74,6 +77,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             end,
             enforce_non_match,
             self.max_match_run,
+            self.enforcement_offset,
         );
         let mut a_star = AStar::<_>::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
@@ -121,6 +125,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             end,
             true,
             self.max_match_run,
+            self.enforcement_offset,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();

@@ -141,24 +141,28 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             &chaining_lower_bounds.alignment_costs().primary_costs,
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
+            0,
         );
         let mut secondary_aligner = max_match_run_chaining::gap_affine::GapAffineAligner::new(
             sequences,
             &chaining_lower_bounds.alignment_costs().secondary_costs,
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
+            0,
         );
         let mut ts_12_jump_aligner = max_match_run_chaining::ts_12_jump::Ts12JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
+            0,
         );
         let mut ts_34_jump_aligner = max_match_run_chaining::ts_34_jump::Ts34JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
+            0,
         );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
