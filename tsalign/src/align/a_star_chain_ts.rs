@@ -14,7 +14,7 @@ use log::{debug, info, warn};
 use std::{fmt::Debug, fs::File, path::PathBuf};
 
 use crate::{
-    align::Cli,
+    align::{Cli, InexactLowerBound},
     util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
 };
 
@@ -49,6 +49,7 @@ pub fn align_a_star_chain_ts<
         &cache_directory,
         k,
         cli.max_anchor_mutations,
+        cli.inexact_chaining_lower_bound.into(),
         max_n,
     )
     .unwrap();
@@ -71,7 +72,7 @@ pub fn align_a_star_chain_ts<
             ChainingLowerBoundConfig {
                 anchor_k: k,
                 max_anchor_mutations: cli.max_anchor_mutations,
-                inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+                inexact_lower_bound: InexactLowerBoundKind::from(cli.inexact_chaining_lower_bound),
             },
             alignment_costs,
         );
@@ -116,4 +117,13 @@ pub fn align_a_star_chain_ts<
     }
 
     println!("{alignment}");
+}
+
+impl From<InexactLowerBound> for InexactLowerBoundKind {
+    fn from(value: InexactLowerBound) -> Self {
+        match value {
+            InexactLowerBound::WindowedMinMutations => InexactLowerBoundKind::WindowedMinMutations,
+            InexactLowerBound::MaxMatchRun => InexactLowerBoundKind::MaxMatchRun,
+        }
+    }
 }
