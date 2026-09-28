@@ -6,14 +6,17 @@ use log::{debug, trace};
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
     alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
-    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::exact_algo::Context},
+    chaining_lower_bounds::{
+        cost_array::LowerBoundCostArray, gap_affine::max_match_run_algo::Context,
+    },
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::GapAffineCosts,
 };
 
-mod exact_algo;
-mod inexact_algo;
+mod max_match_run_algo;
 #[cfg(test)]
 mod tests;
+mod windowed_min_mutations_algo;
 
 pub struct GapAffineLowerBounds<Cost> {
     lower_bounds: LowerBoundCostArray<2, Cost>,
@@ -26,6 +29,7 @@ enum BoundaryCondition {
     BothNonMatchAndNoDirectChaining,
     StartNonMatchAndDirectChaining,
     EndNonMatchAndDirectChaining,
+    NoNonMatchAndDirectChaining,
 }
 
 impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
@@ -44,9 +48,10 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         max_match_run: u32,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        Self::compute_exact(
+        Self::compute_max_match_run(
             max_n,
             max_match_run,
+            0,
             cost_table,
             BoundaryCondition::BothNonMatchAndNoDirectChaining,
         )
@@ -70,9 +75,10 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         max_match_run: u32,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        Self::compute_exact(
+        Self::compute_max_match_run(
             max_n,
             max_match_run,
+            0,
             cost_table,
             BoundaryCondition::StartNonMatchAndDirectChaining,
         )
@@ -96,9 +102,10 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         max_match_run: u32,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        Self::compute_exact(
+        Self::compute_max_match_run(
             max_n,
             max_match_run,
+            0,
             cost_table,
             BoundaryCondition::EndNonMatchAndDirectChaining,
         )
@@ -119,66 +126,82 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     /// * `cost_table` is the cost function for the alignment.
     pub fn new_inexact_anchors(
         max_n: usize,
-        anchor_k: u8,
-        max_anchor_mutations: u8,
+        config: &ChainingLowerBoundConfig,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
-        if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(anchor_k, max_anchor_mutations)
-        {
-            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u8>>(
+        let anchor_k = u8::try_from(config.anchor_k).expect("anchor_k must be <= 255.");
+
+        match config.inexact_lower_bound {
+            InexactLowerBoundKind::WindowedMinMutations => {
+                let max_anchor_mutations = config.max_anchor_mutations;
+                if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
+                    anchor_k,
+                    max_anchor_mutations,
+                ) {
+                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u8>>(
+                        max_n,
+                        anchor_k,
+                        max_anchor_mutations,
+                        cost_table,
+                    )
+                } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
+                    anchor_k,
+                    max_anchor_mutations,
+                ) {
+                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u16>>(
+                        max_n,
+                        anchor_k,
+                        max_anchor_mutations,
+                        cost_table,
+                    )
+                } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
+                    anchor_k,
+                    max_anchor_mutations,
+                ) {
+                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u32>>(
+                        max_n,
+                        anchor_k,
+                        max_anchor_mutations,
+                        cost_table,
+                    )
+                } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
+                    anchor_k,
+                    max_anchor_mutations,
+                ) {
+                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u64>>(
+                        max_n,
+                        anchor_k,
+                        max_anchor_mutations,
+                        cost_table,
+                    )
+                } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
+                    anchor_k,
+                    max_anchor_mutations,
+                ) {
+                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u128>>(
+                        max_n,
+                        anchor_k,
+                        max_anchor_mutations,
+                        cost_table,
+                    )
+                } else {
+                    panic!(
+                        "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
+                    );
+                }
+            }
+
+            InexactLowerBoundKind::MaxMatchRun => Self::compute_max_match_run(
                 max_n,
+                (anchor_k - 1 - config.max_anchor_mutations).into(),
                 anchor_k,
-                max_anchor_mutations,
                 cost_table,
-            )
-        } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
-            anchor_k,
-            max_anchor_mutations,
-        ) {
-            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u16>>(
-                max_n,
-                anchor_k,
-                max_anchor_mutations,
-                cost_table,
-            )
-        } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
-            anchor_k,
-            max_anchor_mutations,
-        ) {
-            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u32>>(
-                max_n,
-                anchor_k,
-                max_anchor_mutations,
-                cost_table,
-            )
-        } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
-            anchor_k,
-            max_anchor_mutations,
-        ) {
-            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u64>>(
-                max_n,
-                anchor_k,
-                max_anchor_mutations,
-                cost_table,
-            )
-        } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
-            anchor_k,
-            max_anchor_mutations,
-        ) {
-            Self::new_inexact_anchors_with_history_type::<UnsignedIntAlignmentHistoryVec<u128>>(
-                max_n,
-                anchor_k,
-                max_anchor_mutations,
-                cost_table,
-            )
-        } else {
-            panic!(
-                "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
-            );
+                BoundaryCondition::NoNonMatchAndDirectChaining,
+            ),
         }
     }
 
-    fn new_inexact_anchors_with_history_type<AlignmentHistoryVec: AlignmentHistory>(
+    fn compute_windowed_min_mutation<AlignmentHistoryVec: AlignmentHistory>(
         max_n: usize,
         anchor_k: u8,
         max_anchor_mutations: u8,
@@ -194,7 +217,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         let mut reached_lower_bounds = 0;
         let total_lower_bounds = (max_n + 1) * (max_n + 1);
 
-        let context = inexact_algo::Context::<_, AlignmentHistoryVec>::new(
+        let context = windowed_min_mutations_algo::Context::<_, AlignmentHistoryVec>::new(
             cost_table,
             anchor_k,
             max_anchor_mutations,
@@ -244,18 +267,20 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         }
     }
 
-    /// Compute the lower bounds for the case that the anchors are exact matches.
+    /// Compute the lower bounds while limiting the maximum length of match runs in the alignment.
     ///
     /// # Parameters
     ///
     /// * `max_n` is the maximum sequence length that the lower bounds should support.
     /// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
-    ///   Set this to `k-1`, if the anchors are `k`-mers.
+    ///   Set this to `k-1`, if the anchors are exact `k`-mer matches.
+    /// * `enforcement_offset` allows match runs longer than `max_match_run` as long as both alignment coordinates are below this offset.
     /// * `cost_table` is the cost function for the alignment.
     /// * `boundary_condition` determines if there must be non-matches at the start or end of the alignment, and if direct chaining (i.e. a length-zero alignment) between anchors is allowed.
-    fn compute_exact(
+    fn compute_max_match_run(
         max_n: usize,
         max_match_run: u32,
+        enforcement_offset: u8,
         cost_table: &GapAffineCosts<Cost>,
         boundary_condition: BoundaryCondition,
     ) -> Self {
@@ -268,6 +293,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         let context = Context::new(
             cost_table,
             max_match_run,
+            enforcement_offset,
             max_n,
             boundary_condition.allow_start_match(),
         );
@@ -276,12 +302,11 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         a_star.search_until(|_, node| {
             if node.identifier.match_run == 0
                 || (boundary_condition.allow_end_match()
-                    && node.identifier.coordinates.into_primary().unwrap()
-                        != PrimaryAlignmentCoordinates::new(0, 0))
+                    && node.identifier.coordinates != PrimaryAlignmentCoordinates::new(0, 0))
             {
                 let lower_bound = &mut lower_bounds[[
-                    node.identifier.coordinates.primary_ordinate_a().unwrap(),
-                    node.identifier.coordinates.primary_ordinate_b().unwrap(),
+                    node.identifier.coordinates.a(),
+                    node.identifier.coordinates.b(),
                 ]];
                 *lower_bound = (*lower_bound).min(node.cost());
             }
@@ -340,6 +365,7 @@ impl BoundaryCondition {
             BoundaryCondition::BothNonMatchAndNoDirectChaining => false,
             BoundaryCondition::StartNonMatchAndDirectChaining => true,
             BoundaryCondition::EndNonMatchAndDirectChaining => true,
+            BoundaryCondition::NoNonMatchAndDirectChaining => true,
         }
     }
 
@@ -348,6 +374,7 @@ impl BoundaryCondition {
             BoundaryCondition::BothNonMatchAndNoDirectChaining => false,
             BoundaryCondition::StartNonMatchAndDirectChaining => false,
             BoundaryCondition::EndNonMatchAndDirectChaining => true,
+            BoundaryCondition::NoNonMatchAndDirectChaining => true,
         }
     }
 
@@ -356,6 +383,7 @@ impl BoundaryCondition {
             BoundaryCondition::BothNonMatchAndNoDirectChaining => false,
             BoundaryCondition::StartNonMatchAndDirectChaining => true,
             BoundaryCondition::EndNonMatchAndDirectChaining => false,
+            BoundaryCondition::NoNonMatchAndDirectChaining => true,
         }
     }
 }

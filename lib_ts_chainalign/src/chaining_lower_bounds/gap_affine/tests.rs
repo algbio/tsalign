@@ -1,7 +1,11 @@
 use generic_a_star::cost::{AStarCost, U32Cost};
 use ndarray::Array2;
 
-use crate::{chaining_lower_bounds::gap_affine::GapAffineLowerBounds, costs::GapAffineCosts};
+use crate::{
+    chaining_lower_bounds::gap_affine::GapAffineLowerBounds,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::GapAffineCosts,
+};
 
 #[test]
 fn exact_max_match_run_0() {
@@ -334,14 +338,22 @@ fn exact_max_match_run_2_allow_end_match() {
 }
 
 #[test]
-fn inexact_1_0() {
+fn windowed_min_mutations_1_0() {
     let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 2;
-    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(max_n, 1, 0, &cost_table);
+    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(
+        max_n,
+        &ChainingLowerBoundConfig {
+            anchor_k: 1,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+        },
+        &cost_table,
+    );
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -368,14 +380,22 @@ fn inexact_1_0() {
 }
 
 #[test]
-fn inexact_2_0() {
+fn windowed_min_mutations_2_0() {
     let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 4;
-    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(max_n, 2, 0, &cost_table);
+    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(
+        max_n,
+        &ChainingLowerBoundConfig {
+            anchor_k: 2,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+        },
+        &cost_table,
+    );
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -404,14 +424,22 @@ fn inexact_2_0() {
 }
 
 #[test]
-fn inexact_3_0() {
+fn windowed_min_mutations_3_0() {
     let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 6;
-    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(max_n, 3, 0, &cost_table);
+    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(
+        max_n,
+        &ChainingLowerBoundConfig {
+            anchor_k: 3,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+        },
+        &cost_table,
+    );
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -442,14 +470,22 @@ fn inexact_3_0() {
 }
 
 #[test]
-fn inexact_2_1() {
+fn windowed_min_mutations_2_1() {
     let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 4;
-    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(max_n, 2, 1, &cost_table);
+    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(
+        max_n,
+        &ChainingLowerBoundConfig {
+            anchor_k: 2,
+            max_anchor_mutations: 1,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+        },
+        &cost_table,
+    );
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -478,14 +514,22 @@ fn inexact_2_1() {
 }
 
 #[test]
-fn inexact_3_1() {
+fn windowed_min_mutations_3_1() {
     let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 6;
-    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(max_n, 3, 1, &cost_table);
+    let lower_bounds = GapAffineLowerBounds::new_inexact_anchors(
+        max_n,
+        &ChainingLowerBoundConfig {
+            anchor_k: 3,
+            max_anchor_mutations: 1,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+        },
+        &cost_table,
+    );
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(

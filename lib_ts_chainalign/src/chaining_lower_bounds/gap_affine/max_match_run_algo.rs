@@ -5,13 +5,15 @@ use std::fmt::Display;
 use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
-    alignment::{GapType, coordinates::AlignmentCoordinates},
+    alignment::{GapType, coordinates::PrimaryAlignmentCoordinates},
     costs::GapAffineCosts,
 };
 
 pub struct Context<'a, Cost> {
     costs: &'a GapAffineCosts<Cost>,
     max_match_run: u32,
+    /// Start enforcing the max match run only when at least one sequence has reached this length.
+    enforcement_offset: u8,
     max_n: usize,
     allow_start_match: bool,
 }
@@ -24,7 +26,7 @@ pub struct Node<Cost> {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
-    pub coordinates: AlignmentCoordinates,
+    pub coordinates: PrimaryAlignmentCoordinates,
     pub match_run: u32,
     gap_type: GapType,
 }
@@ -33,12 +35,14 @@ impl<'a, Cost> Context<'a, Cost> {
     pub fn new(
         costs: &'a GapAffineCosts<Cost>,
         max_match_run: u32,
+        enforcement_offset: u8,
         max_n: usize,
         allow_start_match: bool,
     ) -> Self {
         Self {
             costs,
             max_match_run,
+            enforcement_offset,
             max_n,
             allow_start_match,
         }
@@ -51,7 +55,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
     fn create_root(&self) -> Self::Node {
         Node {
             identifier: Identifier {
-                coordinates: AlignmentCoordinates::new_primary(0, 0),
+                coordinates: PrimaryAlignmentCoordinates::new(0, 0),
                 // If we want to enfore the first alignment to be a non-match, we set the match run to u32::MAX.
                 match_run: if self.allow_start_match { 0 } else { u32::MAX },
                 gap_type: GapType::None,
@@ -70,15 +74,18 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
                 },
             cost,
         } = node;
-        let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
+        let end = PrimaryAlignmentCoordinates::new(self.max_n, self.max_n);
 
-        if coordinates.can_increment_both(end, None) {
-            if *match_run < self.max_match_run {
+        if coordinates.can_increment_both_primary(end) {
+            if *match_run < self.max_match_run
+                || (coordinates.a() < self.enforcement_offset.into()
+                    && coordinates.b() < self.enforcement_offset.into())
+            {
                 // Match
                 let new_cost = *cost;
                 output.extend(std::iter::once(Node {
                     identifier: Identifier {
-                        coordinates: coordinates.increment_both(),
+                        coordinates: coordinates.increment_both(1),
                         match_run: match_run + 1,
                         gap_type: GapType::None,
                     },
@@ -90,7 +97,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             let new_cost = *cost + self.costs.substitution;
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
-                    coordinates: coordinates.increment_both(),
+                    coordinates: coordinates.increment_both(1),
                     match_run: 0,
                     gap_type: GapType::None,
                 },
@@ -98,7 +105,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_a_or_ancestor(end, None) {
+        if coordinates.can_increment_a_primary(end) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
@@ -115,7 +122,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_b_or_descendant(end, None) {
+        if coordinates.can_increment_b_primary(end) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
@@ -198,8 +205,8 @@ impl Display for Identifier {
         write!(
             f,
             "({}, {}, {}, {})",
-            self.coordinates.primary_ordinate_a().unwrap(),
-            self.coordinates.primary_ordinate_b().unwrap(),
+            self.coordinates.a(),
+            self.coordinates.b(),
             self.match_run,
             self.gap_type,
         )

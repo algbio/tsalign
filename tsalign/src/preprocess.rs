@@ -125,7 +125,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                 ChainingLowerBoundConfig {
                     anchor_k: k,
                     max_anchor_mutations: cli.max_anchor_mutations,
-                    inexact_lower_bound: InexactLowerBoundKind::Tight,
+                    inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
                 },
                 costs.clone(),
             );
@@ -169,7 +169,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                     ChainingLowerBoundConfig {
                         anchor_k: k,
                         max_anchor_mutations: cli.max_anchor_mutations,
-                        inexact_lower_bound: InexactLowerBoundKind::Tight,
+                        inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
                     },
                     costs.clone(),
                 );

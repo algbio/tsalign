@@ -9,7 +9,7 @@ use crate::{
         sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
-    exact_chaining::gap_affine::algo::{Context, Node},
+    max_match_run_chaining::gap_affine::algo::{Context, Node},
 };
 
 mod algo;
