@@ -7,6 +7,7 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     chaining_lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
+    config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
 };
 
@@ -19,8 +20,7 @@ pub struct ChainingLowerBounds<Cost> {
     secondary: GapAffineLowerBounds<Cost>,
     jump: TsJumpLowerBounds<Cost>,
     alignment_costs: AlignmentCosts<Cost>,
-    anchor_k: u32,
-    max_anchor_mutations: u8,
+    config: ChainingLowerBoundConfig,
 }
 
 impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
@@ -32,39 +32,37 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     /// * `alignment_costs` is the cost function for the alignment.
     pub fn new(
         max_n: usize,
-        anchor_k: u32,
-        max_anchor_mutations: u8,
+        config: ChainingLowerBoundConfig,
         alignment_costs: AlignmentCosts<Cost>,
     ) -> Self {
-        if max_anchor_mutations == 0 {
+        if config.max_anchor_mutations == 0 {
             Self {
                 primary: GapAffineLowerBounds::new_exact_anchors(
                     max_n,
-                    anchor_k - 1,
+                    config.anchor_k - 1,
                     &alignment_costs.primary_costs,
                 ),
                 secondary: GapAffineLowerBounds::new_exact_anchors(
                     max_n,
-                    anchor_k - 1,
+                    config.anchor_k - 1,
                     &alignment_costs.secondary_costs,
                 ),
-                jump: TsJumpLowerBounds::new_exact(max_n, anchor_k - 1, &alignment_costs),
+                jump: TsJumpLowerBounds::new_exact(max_n, config.anchor_k - 1, &alignment_costs),
                 alignment_costs,
-                anchor_k,
-                max_anchor_mutations,
+                config,
             }
         } else {
-            let anchor_k = u8::try_from(anchor_k).expect("anchor_k must be <= 255.");
+            let anchor_k = u8::try_from(config.anchor_k).expect("anchor_k must be <= 255.");
             let primary = GapAffineLowerBounds::new_inexact_anchors(
                 max_n,
                 anchor_k,
-                max_anchor_mutations,
+                config.max_anchor_mutations,
                 &alignment_costs.primary_costs,
             );
             let secondary = GapAffineLowerBounds::new_inexact_anchors(
                 max_n,
                 anchor_k,
-                max_anchor_mutations,
+                config.max_anchor_mutations,
                 &alignment_costs.secondary_costs,
             );
 
@@ -74,8 +72,7 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
                 secondary,
 
                 alignment_costs,
-                anchor_k: anchor_k.into(),
-                max_anchor_mutations,
+                config,
             }
         }
     }
@@ -96,8 +93,17 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             bincode::error::EncodeError::Io { inner, .. } => inner,
             error => panic!("I/O error: {error}"),
         })?;
-        write.write_all(&self.anchor_k.to_ne_bytes())?;
-        write.write_all(&self.max_anchor_mutations.to_ne_bytes())
+        bincode::serde::encode_into_std_write(
+            &self.config,
+            &mut write,
+            bincode::config::standard(),
+        )
+        .map_err(|error| match error {
+            bincode::error::EncodeError::Io { inner, .. } => inner,
+            error => panic!("I/O error: {error}"),
+        })?;
+
+        Ok(())
     }
 
     pub fn read(mut read: impl Read) -> std::io::Result<Self>
@@ -114,22 +120,18 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
                     error => panic!("I/O error: {error}"),
                 },
             )?;
-
-        let mut buffer = [0; std::mem::size_of::<u32>()];
-        read.read_exact(&mut buffer)?;
-        let anchor_k = u32::from_ne_bytes(buffer);
-
-        let mut buffer = [0; std::mem::size_of::<u8>()];
-        read.read_exact(&mut buffer)?;
-        let max_anchor_mutations = u8::from_ne_bytes(buffer);
+        let config = bincode::serde::decode_from_std_read(&mut read, bincode::config::standard())
+            .map_err(|error| match error {
+            bincode::error::DecodeError::Io { inner, .. } => inner,
+            error => panic!("I/O error: {error}"),
+        })?;
 
         Ok(Self {
             primary,
             secondary,
             jump,
             alignment_costs,
-            anchor_k,
-            max_anchor_mutations,
+            config,
         })
     }
 }
@@ -169,11 +171,15 @@ impl<Cost> ChainingLowerBounds<Cost> {
         &self.alignment_costs
     }
 
+    pub fn config(&self) -> &ChainingLowerBoundConfig {
+        &self.config
+    }
+
     pub fn anchor_k(&self) -> u32 {
-        self.anchor_k
+        self.config.anchor_k
     }
 
     pub fn max_anchor_mutations(&self) -> u8 {
-        self.max_anchor_mutations
+        self.config.max_anchor_mutations
     }
 }

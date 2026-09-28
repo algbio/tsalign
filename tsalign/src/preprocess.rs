@@ -16,7 +16,11 @@ use compact_genome::{
     interface::alphabet::Alphabet,
 };
 use generic_a_star::cost::U32Cost;
-use lib_ts_chainalign::{costs::AlignmentCosts, preprocess};
+use lib_ts_chainalign::{
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::AlignmentCosts,
+    preprocess,
+};
 use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
@@ -116,8 +120,15 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         let mut current_max_n = max_n;
         while current_max_n >= 1 && current_max_n >= k.try_into()? {
             info!("Preprocessing for max_n = {current_max_n}...");
-            let lower_bounds =
-                preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
+            let lower_bounds = preprocess(
+                current_max_n,
+                ChainingLowerBoundConfig {
+                    anchor_k: k,
+                    max_anchor_mutations: cli.max_anchor_mutations,
+                    inexact_lower_bound: InexactLowerBoundKind::Tight,
+                },
+                costs.clone(),
+            );
             let cache_file = tschain_preprocess_cache_file(
                 &costs,
                 &cache_directory,
@@ -153,8 +164,15 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
 
             for k in ks {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
-                let lower_bounds =
-                    preprocess(current_max_n, k, cli.max_anchor_mutations, costs.clone());
+                let lower_bounds = preprocess(
+                    current_max_n,
+                    ChainingLowerBoundConfig {
+                        anchor_k: k,
+                        max_anchor_mutations: cli.max_anchor_mutations,
+                        inexact_lower_bound: InexactLowerBoundKind::Tight,
+                    },
+                    costs.clone(),
+                );
                 let cache_file = tschain_preprocess_cache_file(
                     &costs,
                     &cache_directory,

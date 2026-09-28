@@ -13,6 +13,7 @@ use crate::{
     anchors::Anchors,
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
 };
 
@@ -29,8 +30,11 @@ fn dna_rc_fn(c: u8) -> u8 {
 fn create_lower_bounds(max_match_run: u32) -> ChainingLowerBounds<U32Cost> {
     ChainingLowerBounds::new(
         20,
-        max_match_run + 1,
-        0,
+        ChainingLowerBoundConfig {
+            anchor_k: max_match_run + 1,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::Tight,
+        },
         AlignmentCosts::new(
             GapAffineCosts::new(2u8.into(), 3u8.into(), 1u8.into()),
             GapAffineCosts::new(4u8.into(), 6u8.into(), 2u8.into()),

@@ -14,6 +14,7 @@ use crate::{
     chain_align::performance_parameters::AlignmentPerformanceParameters,
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
+    config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
 };
 
@@ -23,6 +24,7 @@ pub mod anchors;
 pub mod chain_align;
 pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
+pub mod config;
 pub mod costs;
 pub mod exact_chaining;
 pub mod inexact_chaining;
@@ -47,11 +49,10 @@ pub fn dna_rc_fn(c: u8) -> u8 {
 /// * `alignment_costs` is the cost function for the alignment.
 pub fn preprocess(
     max_n: usize,
-    anchor_k: u32,
-    max_anchor_mutations: u8,
+    config: ChainingLowerBoundConfig,
     alignment_costs: AlignmentCosts<U32Cost>,
 ) -> ChainingLowerBounds<U32Cost> {
-    ChainingLowerBounds::new(max_n, anchor_k, max_anchor_mutations, alignment_costs)
+    ChainingLowerBounds::new(max_n, config, alignment_costs)
 }
 
 /// Align two sequences.
@@ -96,7 +97,7 @@ pub fn align<AlphabetType: Alphabet>(
         PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
         PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
-    let k = chaining_lower_bounds.anchor_k();
+    let k = chaining_lower_bounds.config().anchor_k;
 
     let anchors = if max_mutations == 0 {
         Anchors::new_exact(&sequences, k, rc_fn)
@@ -123,8 +124,7 @@ pub fn align<AlphabetType: Alphabet>(
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
-        chaining_lower_bounds.anchor_k(),
-        chaining_lower_bounds.max_anchor_mutations(),
+        chaining_lower_bounds.config(),
         &anchors,
         &mut chaining_cost_function,
     )
