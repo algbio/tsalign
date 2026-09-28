@@ -11,7 +11,7 @@ use crate::{
         ts_kind::{TsDescendant, TsKind},
     },
     costs::AlignmentCosts,
-    exact_chaining::ts_12_jump::algo::{Context, Node},
+    max_match_run_chaining::ts_12_jump::algo::{Context, Node},
 };
 
 mod algo;

@@ -37,8 +37,8 @@ pub struct Identifier {
 }
 
 impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
+    /// # Parameters:
     ///
-    /// **Parameters:**
     /// * `allow_direct_chaining`: allow reaching the target with zero alignment operations.
     /// * `allow_all_matches`: allow reaching the target before any non-match was used. This still obeys the `max_match_run` parameter.
     #[expect(clippy::too_many_arguments)]

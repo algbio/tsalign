@@ -52,17 +52,14 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
                 config,
             }
         } else {
-            let anchor_k = u8::try_from(config.anchor_k).expect("anchor_k must be <= 255.");
             let primary = GapAffineLowerBounds::new_inexact_anchors(
                 max_n,
-                anchor_k,
-                config.max_anchor_mutations,
+                &config,
                 &alignment_costs.primary_costs,
             );
             let secondary = GapAffineLowerBounds::new_inexact_anchors(
                 max_n,
-                anchor_k,
-                config.max_anchor_mutations,
+                &config,
                 &alignment_costs.secondary_costs,
             );
 

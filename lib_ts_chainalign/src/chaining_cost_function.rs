@@ -18,8 +18,9 @@ use crate::{
     anchors::{Anchors, index::AnchorIndex},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
-    exact_chaining, inexact_chaining,
+    max_match_run_chaining,
     panic_on_extend::PanicOnExtend,
+    windowed_min_mutation_chaining,
 };
 
 mod cost_array;
@@ -135,25 +136,25 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let primary_start_anchor_index = AnchorIndex::zero();
         let primary_end_anchor_index = primary_anchor_amount - 1;
 
-        let mut primary_aligner = exact_chaining::gap_affine::GapAffineAligner::new(
+        let mut primary_aligner = max_match_run_chaining::gap_affine::GapAffineAligner::new(
             sequences,
             &chaining_lower_bounds.alignment_costs().primary_costs,
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
         );
-        let mut secondary_aligner = exact_chaining::gap_affine::GapAffineAligner::new(
+        let mut secondary_aligner = max_match_run_chaining::gap_affine::GapAffineAligner::new(
             sequences,
             &chaining_lower_bounds.alignment_costs().secondary_costs,
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
         );
-        let mut ts_12_jump_aligner = exact_chaining::ts_12_jump::Ts12JumpAligner::new(
+        let mut ts_12_jump_aligner = max_match_run_chaining::ts_12_jump::Ts12JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
             chaining_lower_bounds.anchor_k() - 1,
         );
-        let mut ts_34_jump_aligner = exact_chaining::ts_34_jump::Ts34JumpAligner::new(
+        let mut ts_34_jump_aligner = max_match_run_chaining::ts_34_jump::Ts34JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
@@ -617,38 +618,46 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let k = u8::try_from(chaining_lower_bounds.anchor_k())
             .expect("Inexact chaining supports only k <= 255.");
 
-        let mut primary_aligner =
-            inexact_chaining::gap_affine::GapAffineAligner::<_, AlignmentHistoryVec>::new(
-                sequences,
-                &chaining_lower_bounds.alignment_costs().primary_costs,
-                rc_fn,
-                k,
-                chaining_lower_bounds.max_anchor_mutations(),
-            );
-        let mut secondary_aligner =
-            inexact_chaining::gap_affine::GapAffineAligner::<_, AlignmentHistoryVec>::new(
-                sequences,
-                &chaining_lower_bounds.alignment_costs().secondary_costs,
-                rc_fn,
-                k,
-                chaining_lower_bounds.max_anchor_mutations(),
-            );
-        let mut ts_12_jump_aligner =
-            inexact_chaining::ts_12_jump::Ts12JumpAligner::<_, AlignmentHistoryVec>::new(
-                sequences,
-                chaining_lower_bounds.alignment_costs(),
-                rc_fn,
-                k,
-                chaining_lower_bounds.max_anchor_mutations(),
-            );
-        let mut ts_34_jump_aligner =
-            inexact_chaining::ts_34_jump::Ts34JumpAligner::<_, AlignmentHistoryVec>::new(
-                sequences,
-                chaining_lower_bounds.alignment_costs(),
-                rc_fn,
-                k,
-                chaining_lower_bounds.max_anchor_mutations(),
-            );
+        let mut primary_aligner = windowed_min_mutation_chaining::gap_affine::GapAffineAligner::<
+            _,
+            AlignmentHistoryVec,
+        >::new(
+            sequences,
+            &chaining_lower_bounds.alignment_costs().primary_costs,
+            rc_fn,
+            k,
+            chaining_lower_bounds.max_anchor_mutations(),
+        );
+        let mut secondary_aligner = windowed_min_mutation_chaining::gap_affine::GapAffineAligner::<
+            _,
+            AlignmentHistoryVec,
+        >::new(
+            sequences,
+            &chaining_lower_bounds.alignment_costs().secondary_costs,
+            rc_fn,
+            k,
+            chaining_lower_bounds.max_anchor_mutations(),
+        );
+        let mut ts_12_jump_aligner = windowed_min_mutation_chaining::ts_12_jump::Ts12JumpAligner::<
+            _,
+            AlignmentHistoryVec,
+        >::new(
+            sequences,
+            chaining_lower_bounds.alignment_costs(),
+            rc_fn,
+            k,
+            chaining_lower_bounds.max_anchor_mutations(),
+        );
+        let mut ts_34_jump_aligner = windowed_min_mutation_chaining::ts_34_jump::Ts34JumpAligner::<
+            _,
+            AlignmentHistoryVec,
+        >::new(
+            sequences,
+            chaining_lower_bounds.alignment_costs(),
+            rc_fn,
+            k,
+            chaining_lower_bounds.max_anchor_mutations(),
+        );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
 

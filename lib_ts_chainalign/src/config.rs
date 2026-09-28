@@ -11,6 +11,9 @@ pub struct ChainingLowerBoundConfig {
 /// Chooses the kind of lower bound to use for chaining with inexact anchors.
 #[derive(Clone, Serialize, Deserialize)]
 pub enum InexactLowerBoundKind {
-    /// Compute a tight lower bound.
-    Tight,
+    /// Compute a lower bound assuming that in every window of size `anchor_k` there have to be at least `max_anchor_mutations + 1` mutations.
+    WindowedMinMutations,
+    /// Compute a lower bound assuming that there is no match run longer than `anchor_k - 1 - max_anchor_mutations`,
+    /// except for alignments that are shorter than `anchor_k` on both sequences.
+    MaxMatchRun,
 }

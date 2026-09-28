@@ -4,7 +4,7 @@ use crate::{
     alignment::{
         Alignment,
         coordinates::{
-            AlignmentCoordinates, PrimaryAlignmentCoordinates,
+            AlignmentCoordinates, AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
             SpecificSecondaryAlignmentCoordinates,
         },
         sequences::AlignmentSequences,
@@ -12,14 +12,14 @@ use crate::{
     },
     alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::AlignmentCosts,
-    inexact_chaining::ts_34_jump::algo::{Context, Node},
+    windowed_min_mutation_chaining::ts_12_jump::algo::{Context, Node},
 };
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct Ts34JumpAligner<
+pub struct Ts12JumpAligner<
     'sequences,
     'alignment_costs,
     'rc_fn,
@@ -36,7 +36,7 @@ pub struct Ts34JumpAligner<
 }
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
-    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
+    Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
@@ -64,9 +64,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     /// Note that the output list may contain duplicate anchors with different cost.
     pub fn align(
         &mut self,
-        start: SpecificSecondaryAlignmentCoordinates,
-        end: PrimaryAlignmentCoordinates,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
+        start: PrimaryAlignmentCoordinates,
+        end: SpecificSecondaryAlignmentCoordinates,
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
         let context = Context::new(
             self.alignment_costs,
@@ -82,18 +82,14 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
 
         a_star.initialise();
         let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => {
-                let alignment = a_star.reconstruct_path().into();
-
-                (cost, alignment)
-            }
+            AStarResult::FoundTarget { cost, .. } => (cost, a_star.reconstruct_path().into()),
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
 
         a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
-        Self::fill_additional_targets(&a_star, start.ts_kind(), additional_primary_targets_output);
+        Self::fill_additional_targets(&a_star, end.ts_kind(), additional_secondary_targets_output);
         self.a_star_buffers = Some(a_star.into_buffers());
 
         (cost, alignment)
@@ -105,12 +101,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     /// Note that the output list may contain duplicate anchors with different cost.
     pub fn align_until_cost_limit(
         &mut self,
-        start: SpecificSecondaryAlignmentCoordinates,
+        start: PrimaryAlignmentCoordinates,
+        end: SpecificSecondaryAlignmentCoordinates,
         cost_limit: Cost,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
-    ) {
-        let end = self.sequences.primary_end();
-
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
+    ) -> usize {
         let context = Context::new(
             self.alignment_costs,
             self.sequences,
@@ -125,19 +120,22 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
         a_star.initialise();
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
-        let ts_kind = start.ts_kind();
-        Self::fill_additional_targets(&a_star, ts_kind, additional_primary_targets_output);
+        Self::fill_additional_targets(&a_star, end.ts_kind(), additional_secondary_targets_output);
+
+        let opened_node_amount = a_star.performance_counters().opened_nodes;
         self.a_star_buffers = Some(a_star.into_buffers());
+        opened_node_amount
     }
 
     fn fill_additional_targets(
         a_star: &AStar<Context<Cost, AlignmentHistoryVec>>,
         ts_kind: TsKind,
-        additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
-        additional_primary_targets_output.extend(a_star.iter_closed_nodes().filter_map(|node| {
-            if let AlignmentCoordinates::Primary(primary) = node.identifier.coordinates(ts_kind) {
-                Some((primary, node.cost))
+        additional_secondary_targets_output.extend(a_star.iter_closed_nodes().filter_map(|node| {
+            if let AlignmentCoordinates::Secondary(secondary) = node.identifier.coordinates(ts_kind)
+            {
+                Some((secondary.into(), node.cost))
             } else {
                 None
             }
