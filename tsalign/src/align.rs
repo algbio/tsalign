@@ -120,6 +120,10 @@ pub struct Cli {
     #[clap(long, default_value = "0")]
     max_anchor_mutations: u8,
 
+    /// The lower bound to use for inexact chaining.
+    #[clap(long, default_value = "max-match-run")]
+    inexact_chaining_lower_bound: InexactLowerBound,
+
     #[clap(long, default_value = "anti-diagonal")]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
 
@@ -311,6 +315,15 @@ enum InputAlphabet {
     DnaIupac,
     #[cfg(feature = "alphabet_rna_iupac")]
     RnaIupac,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, ValueEnum)]
+pub enum InexactLowerBound {
+    /// Compute a lower bound assuming that in every window of size `anchor_k` there have to be at least `max_anchor_mutations + 1` mutations.
+    WindowedMinMutations,
+    /// Compute a lower bound assuming that there is no match run longer than `anchor_k - 1 - max_anchor_mutations`,
+    /// except for alignments that are shorter than `anchor_k` on both sequences.
+    MaxMatchRun,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {

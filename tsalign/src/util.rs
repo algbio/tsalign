@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::{AStarCost, U32Cost};
-use lib_ts_chainalign::costs::AlignmentCosts;
+use lib_ts_chainalign::{config::InexactLowerBoundKind, costs::AlignmentCosts};
 use lib_tsalign::config::TemplateSwitchConfig;
 use log::{debug, info};
 use sha::{
@@ -56,6 +56,7 @@ pub fn tschain_preprocess_cache_file(
     cache_directory: impl AsRef<Path>,
     k: u32,
     max_anchor_mutations: u8,
+    inexact_lower_bound: InexactLowerBoundKind,
     max_n: usize,
 ) -> Result<PathBuf> {
     let cost_hash = Sha1::default()
@@ -68,7 +69,11 @@ pub fn tschain_preprocess_cache_file(
     Ok([
         cache_directory.as_ref().to_path_buf(),
         PathBuf::from(format!(
-            "{cost_hash}-{k}-{max_anchor_mutations}-{max_n}.tsc"
+            "{cost_hash}-{k}-{max_anchor_mutations}-{}-{max_n}.tsc",
+            match inexact_lower_bound {
+                InexactLowerBoundKind::WindowedMinMutations => "wmm",
+                InexactLowerBoundKind::MaxMatchRun => "mmr",
+            }
         )),
     ]
     .iter()
