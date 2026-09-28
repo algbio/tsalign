@@ -24,8 +24,9 @@ use lib_ts_chainalign::{
 use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
-use crate::util::{
-    infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+use crate::{
+    align::InexactLowerBound,
+    util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
 };
 
 #[derive(Parser)]
@@ -60,6 +61,10 @@ pub struct Cli {
     /// Higher values produce a more accurate alignment at the cost of increased runtime.
     #[clap(long, default_value = "0")]
     max_anchor_mutations: u8,
+
+    /// The lower bound to use for inexact chaining.
+    #[clap(long, default_value = "max-match-run")]
+    inexact_chaining_lower_bound: InexactLowerBound,
 
     /// Maximum sequence length for which to preprocess.
     max_length: usize,
@@ -125,7 +130,9 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                 ChainingLowerBoundConfig {
                     anchor_k: k,
                     max_anchor_mutations: cli.max_anchor_mutations,
-                    inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+                    inexact_lower_bound: InexactLowerBoundKind::from(
+                        cli.inexact_chaining_lower_bound,
+                    ),
                 },
                 costs.clone(),
             );
@@ -134,6 +141,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                 &cache_directory,
                 k,
                 cli.max_anchor_mutations,
+                cli.inexact_chaining_lower_bound.into(),
                 current_max_n,
             )?;
             let mut file = File::create(&cache_file)
@@ -169,7 +177,9 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                     ChainingLowerBoundConfig {
                         anchor_k: k,
                         max_anchor_mutations: cli.max_anchor_mutations,
-                        inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
+                        inexact_lower_bound: InexactLowerBoundKind::from(
+                            cli.inexact_chaining_lower_bound,
+                        ),
                     },
                     costs.clone(),
                 );
@@ -178,6 +188,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                     &cache_directory,
                     k,
                     cli.max_anchor_mutations,
+                    cli.inexact_chaining_lower_bound.into(),
                     current_max_n,
                 )?;
                 let mut file = File::create(&cache_file)
