@@ -8,47 +8,23 @@ use crate::{
         coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
         sequences::AlignmentSequences,
     },
-    alignment_history::history_vec::AlignmentHistory,
     anchors::Anchors,
     chain_align::{chainer::Identifier, evaluation::ChainEvaluator},
     chaining_cost_function::ChainingCostFunction,
     config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
-    max_match_run_chaining,
-    panic_on_extend::PanicOnExtend,
-    windowed_min_mutation_chaining::{
+    max_match_run_chaining::{
         gap_affine::GapAffineAligner, ts_12_jump::Ts12JumpAligner, ts_34_jump::Ts34JumpAligner,
     },
+    panic_on_extend::PanicOnExtend,
 };
 
-pub struct InexactChainEvaluator<
-    'sequences,
-    'alignment_costs,
-    'rc_fn,
-    Cost: AStarCost,
-    AlignmentHistoryVec,
-> {
+pub struct MaxMatchRunChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
     sequences: &'sequences AlignmentSequences,
-    primary_aligner:
-        GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    secondary_aligner:
-        GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    ts_12_jump_aligner:
-        Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    ts_34_jump_aligner:
-        Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    primary_anchor_aligner: max_match_run_chaining::gap_affine::GapAffineAligner<
-        'sequences,
-        'alignment_costs,
-        'rc_fn,
-        Cost,
-    >,
-    secondary_anchor_aligner: max_match_run_chaining::gap_affine::GapAffineAligner<
-        'sequences,
-        'alignment_costs,
-        'rc_fn,
-        Cost,
-    >,
+    primary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    secondary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    ts_34_jump_aligner: Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
 
     additional_primary_targets_buffer: Vec<(PrimaryAlignmentCoordinates, Cost)>,
     additional_secondary_targets_buffer: Vec<(AnySecondaryAlignmentCoordinates, Cost)>,
@@ -59,15 +35,15 @@ pub struct InexactChainEvaluator<
     gap_fill_alignments_per_chain: Vec<u32>,
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
-    InexactChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
+    MaxMatchRunChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
         alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-        anchor_k: u8,
-        max_anchor_mutations: u8,
+        max_match_run: u32,
+        enforcement_offset: u8,
     ) -> Self {
         Self {
             sequences,
@@ -75,41 +51,29 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                 sequences,
                 &alignment_costs.primary_costs,
                 rc_fn,
-                anchor_k,
-                max_anchor_mutations,
+                max_match_run,
+                enforcement_offset,
             ),
             secondary_aligner: GapAffineAligner::new(
                 sequences,
                 &alignment_costs.secondary_costs,
                 rc_fn,
-                anchor_k,
-                max_anchor_mutations,
+                max_match_run,
+                enforcement_offset,
             ),
             ts_12_jump_aligner: Ts12JumpAligner::new(
                 sequences,
                 alignment_costs,
                 rc_fn,
-                anchor_k,
-                max_anchor_mutations,
+                max_match_run,
+                enforcement_offset,
             ),
             ts_34_jump_aligner: Ts34JumpAligner::new(
                 sequences,
                 alignment_costs,
                 rc_fn,
-                anchor_k,
-                max_anchor_mutations,
-            ),
-            primary_anchor_aligner: max_match_run_chaining::gap_affine::GapAffineAligner::new(
-                sequences,
-                &alignment_costs.primary_costs,
-                rc_fn,
-                (anchor_k - 1).into(),
-            ),
-            secondary_anchor_aligner: max_match_run_chaining::gap_affine::GapAffineAligner::new(
-                sequences,
-                &alignment_costs.secondary_costs,
-                rc_fn,
-                (anchor_k - 1).into(),
+                max_match_run,
+                enforcement_offset,
             ),
 
             additional_primary_targets_buffer: Default::default(),
@@ -123,9 +87,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     }
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
-    for InexactChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
+    for MaxMatchRunChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
 {
     fn evaluate_chain(
         &mut self,
@@ -135,6 +99,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
+        debug_assert_eq!(config.max_anchor_mutations, 0);
+
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
@@ -296,7 +262,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_anchor_aligner.align_anchor(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(index).start(),
                                     anchors.primary(index).end(),
                                 );
@@ -344,7 +310,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_anchor_aligner.align_anchor(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(index, ts_kind)
                                         .start()
@@ -431,7 +397,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
 
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_anchor_aligner.align_anchor(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(from_index).start(),
                                     anchors.primary(from_index).end(),
                                 );
@@ -495,7 +461,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.primary_anchor_aligner.align_anchor(
+                                self.primary_aligner.align_anchor(
                                     anchors.primary(from_index).start(),
                                     anchors.primary(from_index).end(),
                                 );
@@ -580,7 +546,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_anchor_aligner.align_anchor(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(from_index, ts_kind)
                                         .start()
@@ -657,7 +623,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                         );
                         if final_evaluation {
                             let (anchor_alignment_cost, anchor_alignment) =
-                                self.secondary_anchor_aligner.align_anchor(
+                                self.secondary_aligner.align_anchor(
                                     anchors
                                         .secondary(from_index, ts_kind)
                                         .start()
