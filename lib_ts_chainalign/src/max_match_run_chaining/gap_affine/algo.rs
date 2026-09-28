@@ -18,6 +18,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     allow_direct_chaining: bool,
     allow_all_matches: bool,
     max_match_run: u32,
+    enforcement_offset: u8,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -51,6 +52,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         allow_direct_chaining: bool,
         allow_all_matches: bool,
         max_match_run: u32,
+        enforcement_offset: u8,
     ) -> Self {
         Self {
             costs,
@@ -61,6 +63,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             allow_direct_chaining,
             allow_all_matches,
             max_match_run,
+            enforcement_offset,
         }
     }
 }
@@ -94,6 +97,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             match_run,
         } = *identifier;
 
+        let enforce_max_match_run = if let Some(primary) = coordinates.into_primary() {
+            let start = self.start.into_primary().unwrap();
+            primary.a() - start.a() < self.enforcement_offset.into()
+                && primary.b() - start.b() < self.enforcement_offset.into()
+        } else {
+            let secondary = coordinates.into_secondary().unwrap();
+            let start = self.start.into_secondary().unwrap();
+            start.ancestor() - secondary.ancestor() < self.enforcement_offset.into()
+                && secondary.descendant() - start.descendant() < self.enforcement_offset.into()
+        };
+
         if coordinates.can_increment_both(self.end, Some(self.sequences)) {
             let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
             let is_match = ca == cb;
@@ -101,7 +115,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             if is_match {
                 // Disallow runs of matches longer than the maximum.
                 // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                if match_run < self.max_match_run {
+                if match_run < self.max_match_run || !enforce_max_match_run {
                     // Match
                     let new_cost = *cost;
                     output.extend(std::iter::once(Node {

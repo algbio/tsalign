@@ -22,6 +22,7 @@ pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
     cost_table: &'cost_table GapAffineCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     max_match_run: u32,
+    enforcement_offset: u8,
 }
 
 impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
@@ -32,6 +33,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         cost_table: &'cost_table GapAffineCosts<Cost>,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         max_match_run: u32,
+        enforcement_offset: u8,
     ) -> Self {
         Self {
             a_star_buffers: Some(Default::default()),
@@ -39,6 +41,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             cost_table,
             rc_fn,
             max_match_run,
+            enforcement_offset,
         }
     }
 
@@ -48,7 +51,10 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
     ) -> bool {
-        start == self.sequences.primary_start().into() || end == self.sequences.primary_end().into()
+        start == self.sequences.primary_start().into()
+            || end == self.sequences.primary_end().into()
+            // If enforcement_offset > 0 then we are in inexact anchor chaining, where direct chaining is always allowed.
+            || self.enforcement_offset > 0
     }
 
     /// Evaluate if `allow_all_matches` should be set in the alignment context.
@@ -56,9 +62,11 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         let minimum_primary_sequence_length = (self.sequences.primary_end().a()
             - self.sequences.primary_start().a())
         .min(self.sequences.primary_end().b() - self.sequences.primary_start().b());
-        start == self.sequences.primary_start().into()
+        (start == self.sequences.primary_start().into()
             && end == self.sequences.primary_end().into()
-            && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run
+            && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run)
+            // If enforcement_offset > 0 then we are in inexact anchor chaining, where all matches is always allowed.
+            || self.enforcement_offset > 0
     }
 
     /// Align from start to end.
@@ -90,6 +98,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.allow_direct_chaining(start, end),
             self.allow_all_matches(start, end),
             self.max_match_run,
+            self.enforcement_offset,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
@@ -142,6 +151,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             true,
             true,
             self.max_match_run,
+            self.enforcement_offset,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
@@ -253,6 +263,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             true,
             true,
             u32::MAX,
+            0,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 

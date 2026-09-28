@@ -29,11 +29,10 @@ use std::{
 
 use crate::{
     alignment::{AlignmentType, sequences::AlignmentSequences},
-    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
     anchors::Anchors,
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
-        evaluation::{ChainEvaluator, exact::ExactChainEvaluator, inexact::InexactChainEvaluator},
+        evaluation::build_chain_evaluator,
         performance_parameters::{
             AlignmentPerformanceParameters, ChainingClosedList, ChainingOpenList,
         },
@@ -151,117 +150,7 @@ fn actually_align<
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
 
-    let mut chain_evaluator: Box<dyn ChainEvaluator<_>> = if config.max_anchor_mutations == 0 {
-        Box::new(ExactChainEvaluator::new(
-            sequences,
-            alignment_costs,
-            rc_fn,
-            config.anchor_k - 1,
-        ))
-    } else if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
-        config
-            .anchor_k
-            .try_into()
-            .expect("anchor_k must be <= 255."),
-        config.max_anchor_mutations,
-    ) {
-        Box::new(
-            InexactChainEvaluator::<_, UnsignedIntAlignmentHistoryVec<u8>>::new(
-                sequences,
-                alignment_costs,
-                rc_fn,
-                config
-                    .anchor_k
-                    .try_into()
-                    .expect("anchor_k must be <= 255."),
-                config.max_anchor_mutations,
-            ),
-        )
-    } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
-        config
-            .anchor_k
-            .try_into()
-            .expect("anchor_k must be <= 255."),
-        config.max_anchor_mutations,
-    ) {
-        Box::new(InexactChainEvaluator::<
-            _,
-            UnsignedIntAlignmentHistoryVec<u16>,
-        >::new(
-            sequences,
-            alignment_costs,
-            rc_fn,
-            config
-                .anchor_k
-                .try_into()
-                .expect("anchor_k must be <= 255."),
-            config.max_anchor_mutations,
-        ))
-    } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
-        config
-            .anchor_k
-            .try_into()
-            .expect("anchor_k must be <= 255."),
-        config.max_anchor_mutations,
-    ) {
-        Box::new(InexactChainEvaluator::<
-            _,
-            UnsignedIntAlignmentHistoryVec<u32>,
-        >::new(
-            sequences,
-            alignment_costs,
-            rc_fn,
-            config
-                .anchor_k
-                .try_into()
-                .expect("anchor_k must be <= 255."),
-            config.max_anchor_mutations,
-        ))
-    } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
-        config
-            .anchor_k
-            .try_into()
-            .expect("anchor_k must be <= 255."),
-        config.max_anchor_mutations,
-    ) {
-        Box::new(InexactChainEvaluator::<
-            _,
-            UnsignedIntAlignmentHistoryVec<u64>,
-        >::new(
-            sequences,
-            alignment_costs,
-            rc_fn,
-            config
-                .anchor_k
-                .try_into()
-                .expect("anchor_k must be <= 255."),
-            config.max_anchor_mutations,
-        ))
-    } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
-        config
-            .anchor_k
-            .try_into()
-            .expect("anchor_k must be <= 255."),
-        config.max_anchor_mutations,
-    ) {
-        Box::new(InexactChainEvaluator::<
-            _,
-            UnsignedIntAlignmentHistoryVec<u128>,
-        >::new(
-            sequences,
-            alignment_costs,
-            rc_fn,
-            config
-                .anchor_k
-                .try_into()
-                .expect("anchor_k must be <= 255."),
-            config.max_anchor_mutations,
-        ))
-    } else {
-        panic!(
-            "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
-        );
-    };
+    let mut chain_evaluator = build_chain_evaluator(sequences, alignment_costs, rc_fn, config);
 
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
