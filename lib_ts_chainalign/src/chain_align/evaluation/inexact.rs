@@ -12,6 +12,7 @@ use crate::{
     anchors::Anchors,
     chain_align::{chainer::Identifier, evaluation::ChainEvaluator},
     chaining_cost_function::ChainingCostFunction,
+    config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
     exact_chaining,
     inexact_chaining::{
@@ -122,13 +123,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
         &mut self,
         anchors: &Anchors<Cost>,
         chain: &[Identifier],
-        anchor_k: u32,
-        max_anchor_mutations: u8,
+        config: &ChainingLowerBoundConfig,
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
-        debug_assert_eq!(max_anchor_mutations, 0);
-
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
@@ -415,7 +413,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
                             cost
                         );
 
-                        if end.a() - start.a() > usize::try_from(anchor_k - 1).unwrap() {
+                        if end.a() - start.a() > usize::try_from(config.anchor_k - 1).unwrap() {
                             assert!(
                                 !cost.is_zero(),
                                 "Alignment is longer than max_match_run, but has zero cost: {}",
