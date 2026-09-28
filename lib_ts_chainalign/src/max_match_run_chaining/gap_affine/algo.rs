@@ -99,13 +99,13 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
         let enforce_max_match_run = if let Some(primary) = coordinates.into_primary() {
             let start = self.start.into_primary().unwrap();
-            primary.a() - start.a() < self.enforcement_offset.into()
-                && primary.b() - start.b() < self.enforcement_offset.into()
+            primary.a() - start.a() >= self.enforcement_offset.into()
+                || primary.b() - start.b() >= self.enforcement_offset.into()
         } else {
             let secondary = coordinates.into_secondary().unwrap();
             let start = self.start.into_secondary().unwrap();
-            start.ancestor() - secondary.ancestor() < self.enforcement_offset.into()
-                && secondary.descendant() - start.descendant() < self.enforcement_offset.into()
+            start.ancestor() - secondary.ancestor() >= self.enforcement_offset.into()
+                || secondary.descendant() - start.descendant() >= self.enforcement_offset.into()
         };
 
         if coordinates.can_increment_both(self.end, Some(self.sequences)) {

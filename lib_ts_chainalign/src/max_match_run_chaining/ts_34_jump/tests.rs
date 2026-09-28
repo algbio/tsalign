@@ -192,8 +192,9 @@ fn max_match_run_0() {
     assert_eq!(
         alignment.alignment,
         vec![
-            (1, AlignmentType::TsEnd { jump: 8 }),
-            (16, AlignmentType::GapA),
+            (1, AlignmentType::TsEnd { jump: 7 }),
+            (1, AlignmentType::Substitution),
+            (15, AlignmentType::GapA),
         ]
     );
     assert_eq!(cost, U32Cost::from(18u8));
