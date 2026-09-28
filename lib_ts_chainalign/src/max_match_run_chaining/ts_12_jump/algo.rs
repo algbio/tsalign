@@ -291,7 +291,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 cost: new_cost,
                             }));
                         }
-                    } else {
+                    } else if !final_unenforced_section {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
@@ -309,7 +309,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     }
                 }
 
-                if coordinates.can_increment_ancestor_secondary(self.end) {
+                if coordinates.can_increment_ancestor_secondary(self.end)
+                    && !final_unenforced_section
+                {
                     // Gap in b
                     let new_cost = *cost
                         + match gap_type {
@@ -330,7 +332,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     }));
                 }
 
-                if coordinates.can_increment_descendant_secondary(self.end) {
+                if coordinates.can_increment_descendant_secondary(self.end)
+                    && !final_unenforced_section
+                {
                     // Gap in a
                     let new_cost = *cost
                         + match gap_type {

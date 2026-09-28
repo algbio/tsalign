@@ -115,24 +115,32 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
                 node.history
                     .try_extend(alignment, anchor_k, max_anchor_mutations)
             {
-                *cache = nodes_len.into();
-                let new_node_id = self.nodes.push(HistoryNode::new(extension));
-                self.history_to_node_id_map.insert(extension, new_node_id);
+                Some(
+                    if let Some(node_id) = self.history_to_node_id_map.get(&extension) {
+                        *cache = *node_id;
+                        *cache
+                    } else {
+                        *cache = nodes_len.into();
+                        let new_node_id = self.nodes.push(HistoryNode::new(extension));
+                        self.history_to_node_id_map.insert(extension, new_node_id);
 
-                debug_assert_eq!(
-                    {
-                        let node = &self.nodes[node_id];
-                        match alignment {
-                            AlignmentHistoryOperation::Match => node.match_successor,
-                            AlignmentHistoryOperation::Substitution => node.substitution_successor,
-                            AlignmentHistoryOperation::GapInA => node.gap_in_a_successor,
-                            AlignmentHistoryOperation::GapInB => node.gap_in_b_successor,
-                        }
+                        debug_assert_eq!(
+                            {
+                                let node = &self.nodes[node_id];
+                                match alignment {
+                                    AlignmentHistoryOperation::Match => node.match_successor,
+                                    AlignmentHistoryOperation::Substitution => {
+                                        node.substitution_successor
+                                    }
+                                    AlignmentHistoryOperation::GapInA => node.gap_in_a_successor,
+                                    AlignmentHistoryOperation::GapInB => node.gap_in_b_successor,
+                                }
+                            },
+                            new_node_id
+                        );
+                        new_node_id
                     },
-                    new_node_id
-                );
-
-                Some(new_node_id)
+                )
             } else {
                 *cache = HistoryExtensionGraphNodeIndex::new_dead_end();
                 None
