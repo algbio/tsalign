@@ -33,7 +33,7 @@ fn create_lower_bounds(max_match_run: u32) -> ChainingLowerBounds<U32Cost> {
         ChainingLowerBoundConfig {
             anchor_k: max_match_run + 1,
             max_anchor_mutations: 0,
-            inexact_lower_bound: InexactLowerBoundKind::Tight,
+            inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
         },
         AlignmentCosts::new(
             GapAffineCosts::new(2u8.into(), 3u8.into(), 1u8.into()),

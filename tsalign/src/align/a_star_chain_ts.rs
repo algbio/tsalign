@@ -71,7 +71,7 @@ pub fn align_a_star_chain_ts<
             ChainingLowerBoundConfig {
                 anchor_k: k,
                 max_anchor_mutations: cli.max_anchor_mutations,
-                inexact_lower_bound: InexactLowerBoundKind::Tight,
+                inexact_lower_bound: InexactLowerBoundKind::WindowedMinMutations,
             },
             alignment_costs,
         );
