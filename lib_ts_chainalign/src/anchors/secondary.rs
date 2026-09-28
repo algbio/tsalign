@@ -210,27 +210,7 @@ impl<Cost: Ord> Ord for SecondaryAnchor<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.range
             .offset()
-            .ancestor()
-            .min(self.range.offset().descendant())
-            .cmp(
-                &other
-                    .range
-                    .offset()
-                    .ancestor()
-                    .min(other.range.offset().descendant()),
-            )
-            .then_with(|| {
-                self.range
-                    .offset()
-                    .ancestor()
-                    .cmp(&other.range.offset().ancestor())
-            })
-            .then_with(|| {
-                self.range
-                    .offset()
-                    .descendant()
-                    .cmp(&other.range.offset().descendant())
-            })
+            .cmp(&other.range.offset())
             .then_with(|| self.cost.cmp(&other.cost))
             .then_with(|| self.range.limit().cmp(&other.range.limit()))
     }
