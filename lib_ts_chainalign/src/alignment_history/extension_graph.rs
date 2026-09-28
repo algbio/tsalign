@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use rustc_hash::{FxHashMapSeed, FxSeededState};
 use tagged_vec::TaggedVec;
 
 use crate::alignment_history::{
@@ -8,6 +9,7 @@ use crate::alignment_history::{
 
 pub struct HistoryExtensionGraph<AlignmentHistoryVec> {
     nodes: TaggedVec<HistoryExtensionGraphNodeIndex, HistoryNode<AlignmentHistoryVec>>,
+    history_to_node_id_map: FxHashMapSeed<AlignmentHistoryVec, HistoryExtensionGraphNodeIndex>,
 }
 
 pub struct HistoryNode<AlignmentHistoryVec> {
@@ -32,14 +34,19 @@ pub struct HistoryExtensionGraphNodeIndex(pub usize);
 impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHistoryVec> {
     pub fn new() -> Self {
         let mut nodes = TaggedVec::new();
-        nodes.push(HistoryNode {
+        let empty_node_id = nodes.push(HistoryNode {
             history: AlignmentHistoryVec::default(),
             match_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
             substitution_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
             gap_in_a_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
             gap_in_b_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
         });
-        Self { nodes }
+        let mut history_to_node_id_map = FxHashMapSeed::with_hasher(FxSeededState::with_seed(0));
+        history_to_node_id_map.insert(AlignmentHistoryVec::default(), empty_node_id);
+        Self {
+            nodes,
+            history_to_node_id_map,
+        }
     }
 
     /// Returns the id of the node that represents the empty history.
@@ -110,6 +117,7 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
             {
                 *cache = nodes_len.into();
                 let new_node_id = self.nodes.push(HistoryNode::new(extension));
+                self.history_to_node_id_map.insert(extension, new_node_id);
 
                 debug_assert_eq!(
                     {
