@@ -18,6 +18,7 @@ use crate::{
     anchors::{Anchors, index::AnchorIndex},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
+    config::InexactLowerBoundKind,
     max_match_run_chaining,
     panic_on_extend::PanicOnExtend,
     windowed_min_mutation_chaining,
@@ -34,6 +35,18 @@ pub struct ChainingCostFunction<Cost> {
     jump_34s: [ChainingCostArray<Cost>; 4],
 }
 
+pub enum ChainingCostFunctionError<Cost> {
+    /// The existing cost is larger than the new cost.
+    ExistingCostLargerThanNewCost {
+        /// The existing cost.
+        existing_cost: Cost,
+        /// The new cost.
+        new_cost: Cost,
+        from_anchor_index: AnchorIndex,
+        to_anchor_index: AnchorIndex,
+    },
+}
+
 impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn new_from_lower_bounds(
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
@@ -43,7 +56,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
         if chaining_lower_bounds.max_anchor_mutations() == 0 {
-            Self::new_exact_from_lower_bounds(
+            Self::new_max_match_run_from_lower_bounds(
                 chaining_lower_bounds,
                 anchors,
                 sequences,
@@ -55,78 +68,98 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .expect("Inexact chaining supports only k <= 255.");
             let max_anchor_mutations = chaining_lower_bounds.max_anchor_mutations();
 
-            if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
-                anchor_k,
-                max_anchor_mutations,
-            ) {
-                Self::new_inexact_from_lower_bounds::<UnsignedIntAlignmentHistoryVec<u8>>(
+            match chaining_lower_bounds.config().inexact_lower_bound {
+                InexactLowerBoundKind::WindowedMinMutations => {
+                    if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
+                        anchor_k,
+                        max_anchor_mutations,
+                    ) {
+                        Self::new_windowed_min_mutations_from_lower_bounds::<
+                            UnsignedIntAlignmentHistoryVec<u8>,
+                        >(
+                            chaining_lower_bounds,
+                            anchors,
+                            sequences,
+                            max_exact_cost_function_cost,
+                            rc_fn,
+                        )
+                    } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
+                        anchor_k,
+                        max_anchor_mutations,
+                    ) {
+                        Self::new_windowed_min_mutations_from_lower_bounds::<
+                            UnsignedIntAlignmentHistoryVec<u16>,
+                        >(
+                            chaining_lower_bounds,
+                            anchors,
+                            sequences,
+                            max_exact_cost_function_cost,
+                            rc_fn,
+                        )
+                    } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
+                        anchor_k,
+                        max_anchor_mutations,
+                    ) {
+                        Self::new_windowed_min_mutations_from_lower_bounds::<
+                            UnsignedIntAlignmentHistoryVec<u32>,
+                        >(
+                            chaining_lower_bounds,
+                            anchors,
+                            sequences,
+                            max_exact_cost_function_cost,
+                            rc_fn,
+                        )
+                    } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
+                        anchor_k,
+                        max_anchor_mutations,
+                    ) {
+                        Self::new_windowed_min_mutations_from_lower_bounds::<
+                            UnsignedIntAlignmentHistoryVec<u64>,
+                        >(
+                            chaining_lower_bounds,
+                            anchors,
+                            sequences,
+                            max_exact_cost_function_cost,
+                            rc_fn,
+                        )
+                    } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
+                        anchor_k,
+                        max_anchor_mutations,
+                    ) {
+                        Self::new_windowed_min_mutations_from_lower_bounds::<
+                            UnsignedIntAlignmentHistoryVec<u128>,
+                        >(
+                            chaining_lower_bounds,
+                            anchors,
+                            sequences,
+                            max_exact_cost_function_cost,
+                            rc_fn,
+                        )
+                    } else {
+                        panic!(
+                            "No suitable alignment history type found for anchor_k = {anchor_k} and max_anchor_mutations = {max_anchor_mutations}."
+                        )
+                    }
+                }
+
+                InexactLowerBoundKind::MaxMatchRun => Self::new_max_match_run_from_lower_bounds(
                     chaining_lower_bounds,
                     anchors,
                     sequences,
                     max_exact_cost_function_cost,
                     rc_fn,
-                )
-            } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
-                anchor_k,
-                max_anchor_mutations,
-            ) {
-                Self::new_inexact_from_lower_bounds::<UnsignedIntAlignmentHistoryVec<u16>>(
-                    chaining_lower_bounds,
-                    anchors,
-                    sequences,
-                    max_exact_cost_function_cost,
-                    rc_fn,
-                )
-            } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
-                anchor_k,
-                max_anchor_mutations,
-            ) {
-                Self::new_inexact_from_lower_bounds::<UnsignedIntAlignmentHistoryVec<u32>>(
-                    chaining_lower_bounds,
-                    anchors,
-                    sequences,
-                    max_exact_cost_function_cost,
-                    rc_fn,
-                )
-            } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
-                anchor_k,
-                max_anchor_mutations,
-            ) {
-                Self::new_inexact_from_lower_bounds::<UnsignedIntAlignmentHistoryVec<u64>>(
-                    chaining_lower_bounds,
-                    anchors,
-                    sequences,
-                    max_exact_cost_function_cost,
-                    rc_fn,
-                )
-            } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
-                anchor_k,
-                max_anchor_mutations,
-            ) {
-                Self::new_inexact_from_lower_bounds::<UnsignedIntAlignmentHistoryVec<u128>>(
-                    chaining_lower_bounds,
-                    anchors,
-                    sequences,
-                    max_exact_cost_function_cost,
-                    rc_fn,
-                )
-            } else {
-                panic!(
-                    "No suitable alignment history type found for anchor_k = {anchor_k} and max_anchor_mutations = {max_anchor_mutations}."
-                )
+                ),
             }
         }
     }
 
-    pub fn new_exact_from_lower_bounds(
+    fn new_max_match_run_from_lower_bounds(
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
         anchors: &Anchors<Cost>,
         sequences: &AlignmentSequences,
         max_exact_cost_function_cost: Cost,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
-        debug_assert_eq!(chaining_lower_bounds.max_anchor_mutations(), 0);
-
         info!("Initialising chaining cost function...");
         let start_time = Instant::now();
 
@@ -136,33 +169,41 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let primary_start_anchor_index = AnchorIndex::zero();
         let primary_end_anchor_index = primary_anchor_amount - 1;
 
+        let enforcement_offset = if chaining_lower_bounds.max_anchor_mutations() == 0 {
+            0
+        } else {
+            u8::try_from(chaining_lower_bounds.anchor_k())
+                .expect("Inexact chaining supports only k <= 255.")
+        };
+        let max_anchor_mutations = u32::from(chaining_lower_bounds.max_anchor_mutations());
+
         let mut primary_aligner = max_match_run_chaining::gap_affine::GapAffineAligner::new(
             sequences,
             &chaining_lower_bounds.alignment_costs().primary_costs,
             rc_fn,
-            chaining_lower_bounds.anchor_k() - 1,
-            0,
+            chaining_lower_bounds.anchor_k() - 1 - max_anchor_mutations,
+            enforcement_offset,
         );
         let mut secondary_aligner = max_match_run_chaining::gap_affine::GapAffineAligner::new(
             sequences,
             &chaining_lower_bounds.alignment_costs().secondary_costs,
             rc_fn,
-            chaining_lower_bounds.anchor_k() - 1,
-            0,
+            chaining_lower_bounds.anchor_k() - 1 - max_anchor_mutations,
+            enforcement_offset,
         );
         let mut ts_12_jump_aligner = max_match_run_chaining::ts_12_jump::Ts12JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
-            chaining_lower_bounds.anchor_k() - 1,
-            0,
+            chaining_lower_bounds.anchor_k() - 1 - max_anchor_mutations,
+            enforcement_offset,
         );
         let mut ts_34_jump_aligner = max_match_run_chaining::ts_34_jump::Ts34JumpAligner::new(
             sequences,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
-            chaining_lower_bounds.anchor_k() - 1,
-            0,
+            chaining_lower_bounds.anchor_k() - 1 - max_anchor_mutations,
+            enforcement_offset,
         );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
@@ -604,7 +645,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
     }
 
-    pub fn new_inexact_from_lower_bounds<AlignmentHistoryVec: AlignmentHistory>(
+    fn new_windowed_min_mutations_from_lower_bounds<AlignmentHistoryVec: AlignmentHistory>(
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
         anchors: &Anchors<Cost>,
         sequences: &AlignmentSequences,
@@ -1255,25 +1296,34 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .is_exact(from_secondary_index, self.primary_end_anchor_index())
     }
 
+    /// Returns `Err` if the existing cost is larger than the new cost.
     pub fn update_primary(
         &mut self,
         from_primary_index: AnchorIndex,
         to_primary_index: AnchorIndex,
         cost: Cost,
         is_exact: bool,
-    ) -> bool {
+    ) -> Result<bool, ChainingCostFunctionError<Cost>> {
         if is_exact {
             self.primary
                 .set_exact(from_primary_index + 1, to_primary_index + 1);
         }
         let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
-        assert!(
+        if *target > cost {
+            return Err(ChainingCostFunctionError::ExistingCostLargerThanNewCost {
+                existing_cost: *target,
+                new_cost: cost,
+                from_anchor_index: from_primary_index,
+                to_anchor_index: to_primary_index,
+            });
+        }
+        /*assert!(
             *target <= cost,
             "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {from_primary_index}; to_primary_index: {to_primary_index}; is_exact: {is_exact}",
-        );
+        );*/
         let result = *target < cost;
         *target = cost;
-        result
+        Ok(result)
     }
 
     pub fn update_primary_from_start(
@@ -1521,7 +1571,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         additional_targets: &mut [(PrimaryAlignmentCoordinates, Cost)],
         anchors: &Anchors<Cost>,
         total_redundant_gap_fillings: &mut u64,
-    ) {
+    ) -> Result<(), ChainingCostFunctionError<Cost>> {
         additional_targets.sort_unstable();
         for (to_primary_index, cost) in
             anchors.primary_anchor_to_index_iter(additional_targets.iter().copied())
@@ -1530,9 +1580,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 *total_redundant_gap_fillings += 1;
                 debug_assert_eq!(self.primary(from_primary_index, to_primary_index), cost);
             } else {
-                self.update_primary(from_primary_index, to_primary_index, cost, true);
+                self.update_primary(from_primary_index, to_primary_index, cost, true)?;
             }
         }
+
+        Ok(())
     }
 
     pub fn update_additional_primary_targets_from_start(
@@ -1657,6 +1709,23 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             } else {
                 self.update_jump_34(from_secondary_index, to_primary_index, ts_kind, cost, true);
             }
+        }
+    }
+}
+
+impl<Cost: std::fmt::Display> ChainingCostFunctionError<Cost> {
+    pub fn display(&self, anchors: &Anchors<Cost>) -> String {
+        match self {
+            ChainingCostFunctionError::ExistingCostLargerThanNewCost {
+                existing_cost,
+                new_cost,
+                from_anchor_index,
+                to_anchor_index,
+            } => format!(
+                "Existing cost {existing_cost} is larger than new cost {new_cost} from anchor {} to anchor {}.",
+                anchors.primary(*from_anchor_index),
+                anchors.primary(*to_anchor_index),
+            ),
         }
     }
 }
