@@ -173,7 +173,8 @@ fn max_match_run_0() {
 
     assert!(
         alignment.alignment == vec![(8, AlignmentType::GapA), (8, AlignmentType::GapB),]
-            || alignment.alignment == vec![(8, AlignmentType::GapB), (8, AlignmentType::GapA),]
+            || alignment.alignment == vec![(8, AlignmentType::GapB), (8, AlignmentType::GapA),],
+        "{alignment}",
     );
     assert_eq!(cost, U32Cost::from(20u8));
 }

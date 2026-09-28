@@ -258,11 +258,14 @@ fn max_match_run_1() {
         alignment.alignment,
         vec![
             (1, AlignmentType::Match),
-            (14, AlignmentType::GapA),
+            (5, AlignmentType::GapA),
+            (1, AlignmentType::Match),
+            (7, AlignmentType::GapA),
+            (1, AlignmentType::Match),
             (
                 1,
                 AlignmentType::TsStart {
-                    jump: -8,
+                    jump: -10,
                     ts_kind: TsKind::TS12
                 }
             ),
