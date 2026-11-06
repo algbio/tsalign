@@ -1007,25 +1007,25 @@ enum OptionalChar {
     InnerDecreasing,
 }
 
-fn copy_color(copy_depth: &Option<usize>, optional: OptionalChar) -> Color {
+fn copy_color(copy_depth: &Option<u8>, optional: OptionalChar) -> Color {
     if let Some(copy_depth) = copy_depth {
         match optional {
-            OptionalChar::NotOptional => COPY_COLORS[copy_depth % COPY_COLORS.len()],
+            OptionalChar::NotOptional => COPY_COLORS[usize::from(*copy_depth) % COPY_COLORS.len()],
             OptionalChar::SourceIncreasing => {
                 OPTIONAL_SOURCE_INCREASING_COPY_COLORS
-                    [copy_depth % OPTIONAL_SOURCE_INCREASING_COPY_COLORS.len()]
+                    [usize::from(*copy_depth) % OPTIONAL_SOURCE_INCREASING_COPY_COLORS.len()]
             }
             OptionalChar::SourceDecreasing => {
                 OPTIONAL_SOURCE_DECREASING_COPY_COLORS
-                    [copy_depth % OPTIONAL_SOURCE_DECREASING_COPY_COLORS.len()]
+                    [usize::from(*copy_depth) % OPTIONAL_SOURCE_DECREASING_COPY_COLORS.len()]
             }
             OptionalChar::InnerIncreasing => {
                 OPTIONAL_INNER_INCREASING_COPY_COLORS
-                    [copy_depth % OPTIONAL_INNER_INCREASING_COPY_COLORS.len()]
+                    [usize::from(*copy_depth) % OPTIONAL_INNER_INCREASING_COPY_COLORS.len()]
             }
             OptionalChar::InnerDecreasing => {
                 OPTIONAL_INNER_DECREASING_COPY_COLORS
-                    [copy_depth % OPTIONAL_INNER_DECREASING_COPY_COLORS.len()]
+                    [usize::from(*copy_depth) % OPTIONAL_INNER_DECREASING_COPY_COLORS.len()]
             }
         }
     } else {
