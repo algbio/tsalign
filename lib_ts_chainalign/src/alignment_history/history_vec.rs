@@ -10,21 +10,19 @@ mod tests;
 /// Keeps track of the most recent alignments required to reach a DP node.
 ///
 /// Only keeps track of enough state to prove that a DP node does not end on a possibly valid anchor,
-/// i.e. that when backtracking the node, at least `max_anchor_mutations + 1` mutations are required to create an anchor of lenght `anchor_k`.
+/// i.e. that when backtracking the node, at least `max_anchor_mutations + 1` mutations are required to create an anchor of length `anchor_k`.
 ///
 /// # Properties
 ///
-/// The alignment history can be described by a tuple of two flags.
-/// First, `is_anchor_length` is true if and only if the history covers at least `anchor_k` bases for one of the two sequences.
-/// Second, `is_invalid` is true if and only if the history contains more than `max_anchor_mutations` mutations.
+/// The history stores the longest suffix of the alignment that contains at most `max_anchor_mutations` mutations, from newest to oldest operation.
+/// The alignment ending in this history is valid (i.e. contains no subalignment that could be an anchor)
+/// if and only if this suffix covers fewer than `anchor_k` characters of each of the two sequences.
 ///
-/// When extending the alignment, the history develops in two phases: the initial phase and the general phase.
-/// There is one transition from initial phase to general phase at some point, and no other phase transition.
-/// The initial phase is when the history is too short to describe a full anchor, but there are not enough mutations to invalidate an anchor.
-/// Formally, in the initial phase, `is_anchor_length` and `is_invalid` are both false.
-/// As soon as an extension causes one of them to become true, the anchor has transitioned to the general phase.
-/// Once in the general phase, `is_invalid` must always be true, otherwise an extension would result in a valid anchor.
-/// However, it suffices to store as little history as necessary to keep `is_invalid` true, hence in the general phase `is_anchor_length` may be true or false.
+/// Operations before the suffix are never required.
+/// Extending by a match extends the suffix, and extending by a mutation extends the suffix and drops everything up to and including its oldest mutation, if it already had `max_anchor_mutations` mutations.
+/// In both cases, the new suffix is a suffix of the old suffix extended by the new operation.
+///
+/// See [`HistoryProfile`](crate::alignment_history::profile::HistoryProfile) for a formalisation.
 pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
     /// Returns true if the alignment history has enough capacity for the given parameters.
     fn has_enough_capacity(anchor_k: u8, max_anchor_mutations: u8) -> bool;
@@ -37,22 +35,21 @@ pub trait AlignmentHistory: Default + Eq + Hash + Ord + Copy {
         self.len() == 0
     }
 
+    /// Returns the operations of the alignment history, from newest to oldest.
+    fn operations(&self) -> impl Iterator<Item = AlignmentHistoryOperation>;
+
     /// Returns the maximum length that the history can have given the parameters.
     fn required_capacity(anchor_k: u8, max_anchor_mutations: u8) -> usize {
         let anchor_k = <usize as From<u8>>::from(anchor_k);
         let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
 
-        // The required length of the initial phase is lower than that of the general phase, so we can ignore it.
-        // Specifically, an initial history transitions to a general history by adding an alignment operation without removing any at the same time.
-        // If any would be removed, then the initial phase history would have had enough mismatches to be general phase, or enough alignments to form a valid anchor.
-
-        // Required len of the general phase.
-        // In the general phase, there need to be `max_anchor_mutations + 1` mismatches, and each sequence has at most `anchor_k` characters in the history.
-        // So, the longest history we can construct starts with `max_anchor_mutations + 1` gaps which take a length of at least `(max_anchor_mutations + 1).div_ceil(2)` for one of the sequences.
-        // Then, it is followed by the maximum possible amount of matches, which is `anchor_k - (max_anchor_mutations + 1).div_ceil(2)`.
-        // Summing up, we get a history of length `max_anchor_mutations + 1 + anchor_k - (max_anchor_mutations + 1).div_ceil(2)`.
-        // We can rewrite that as follows:
-        anchor_k + max_anchor_mutations.div_ceil(2)
+        // The history contains at most `max_anchor_mutations` mutations and covers at most `anchor_k - 1` characters of each sequence.
+        // Matches and substitutions cover a character of both sequences, while gaps cover a character of only one sequence.
+        // Hence, the longest history consists of `d` gaps in b, `i` gaps in a and `anchor_k - 1 - max(d, i)` matches,
+        // with `d + i <= max_anchor_mutations` and `max(d, i) <= anchor_k - 1`.
+        // Its length is `anchor_k - 1 + min(d, i)`, which is maximised by `min(d, i) = min(floor(max_anchor_mutations / 2), anchor_k - 1)`.
+        let max_len_per_sequence = anchor_k.saturating_sub(1);
+        max_len_per_sequence + (max_anchor_mutations / 2).min(max_len_per_sequence)
     }
 
     /// If possible, returns the extension of this the alignment history vector with another alignment history operation.
@@ -162,6 +159,10 @@ impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVe
         (self.data & UnsignedInt::LEN_MASK).to_usize().unwrap()
     }
 
+    fn operations(&self) -> impl Iterator<Item = AlignmentHistoryOperation> {
+        *self
+    }
+
     fn try_extend(
         &self,
         alignment: AlignmentHistoryOperation,
@@ -171,62 +172,29 @@ impl<UnsignedInt: HistoryInt> AlignmentHistory for UnsignedIntAlignmentHistoryVe
         let anchor_k = <usize as From<u8>>::from(anchor_k);
         let max_anchor_mutations = <usize as From<u8>>::from(max_anchor_mutations);
 
-        // We probably can simplify how many numbers we track here, but we keep it like this because it is easier to reason about the correctness of the algorithm.
-        // Hopefully the optimiser will take good care of this.
+        // Find the longest suffix of the extended alignment with at most `max_anchor_mutations` mutations.
+        // It is a suffix of the extended history, since the history is the longest such suffix before the extension.
         let mut len_a = 0;
         let mut len_b = 0;
         let mut mutations = 0;
-        let mut previous_len_a = 0;
-        let mut previous_len_b = 0;
-        let mut previous_mutations = 0;
-        let extension: Self = iter::once(alignment)
-            .chain(*self)
-            .filter(|alignment| {
-                // Extend until at least one of `is_anchor_length` or `is_invalid` becomes true.
-                let result =
-                    if len_a < anchor_k && len_b < anchor_k && mutations <= max_anchor_mutations {
-                        len_a += alignment.len_a();
-                        len_b += alignment.len_b();
-                        mutations += alignment.mutations();
-                        true
-                    } else {
-                        false
-                    };
+        let mut len = 0;
+        for alignment in iter::once(alignment).chain(*self) {
+            mutations += alignment.mutations();
+            if mutations > max_anchor_mutations {
+                break;
+            }
 
-                previous_len_a += alignment.len_a();
-                previous_len_b += alignment.len_b();
-                previous_mutations += alignment.mutations();
+            len_a += alignment.len_a();
+            len_b += alignment.len_b();
+            len += 1;
 
-                result
-            })
-            .collect();
-
-        let len_a = len_a;
-        let len_b = len_b;
-        let mutations = mutations;
-        let previous_len_a = previous_len_a - alignment.len_a();
-        let previous_len_b = previous_len_b - alignment.len_b();
-        let previous_mutations = previous_mutations - alignment.mutations();
-
-        let previous_is_anchor_length = previous_len_a.max(previous_len_b) >= anchor_k;
-        let previous_is_invalid = previous_mutations > max_anchor_mutations;
-        let previous_general_phase = previous_is_anchor_length || previous_is_invalid;
-
-        let current_is_anchor_length = len_a.max(len_b) >= anchor_k;
-        let current_is_invalid = mutations > max_anchor_mutations;
-        let current_is_general_phase = current_is_anchor_length || current_is_invalid;
-
-        match (previous_general_phase, current_is_general_phase) {
-            (_, true) => current_is_invalid.then_some(extension),
-            (true, false) => unreachable!(
-                "It should not be possible to transition from the general phase back to the initial phase."
-            ),
-            (false, false) => {
-                // In the initial phase it is possible that some histories cannot be extended in to an invalid anchor, because the contain too many matches.
-                // However, with inexact anchors, we chain without overlap, so even sequences of `anchor_k - 1` matches are required to cover all possible alignments.
-                Some(extension)
+            if len_a >= anchor_k || len_b >= anchor_k {
+                // The suffix could be a valid anchor.
+                return None;
             }
         }
+
+        Some(iter::once(alignment).chain(*self).take(len).collect())
     }
 }
 

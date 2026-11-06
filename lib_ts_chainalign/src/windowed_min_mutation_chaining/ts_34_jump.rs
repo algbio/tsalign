@@ -1,4 +1,5 @@
 use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
+use rustc_hash::FxHashMap;
 
 use crate::{
     alignment::{
@@ -10,7 +11,10 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
+    alignment_history::{
+        extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory,
+        pareto_front::ParetoFront,
+    },
     costs::AlignmentCosts,
     windowed_min_mutation_chaining::ts_34_jump::algo::{Context, Node},
 };
@@ -28,6 +32,8 @@ pub struct Ts34JumpAligner<
 > {
     a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
     history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
+    pareto_fronts: FxHashMap<AlignmentCoordinates, ParetoFront<Cost>>,
+    pareto_pruning: bool,
     sequences: &'sequences AlignmentSequences,
     alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
@@ -48,12 +54,22 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
         Self {
             a_star_buffers: Some(Default::default()),
             history_graph: HistoryExtensionGraph::new(),
+            pareto_fronts: Default::default(),
+            pareto_pruning: true,
             sequences,
             alignment_costs,
             rc_fn,
             anchor_k,
             max_anchor_mutations,
         }
+    }
+
+    /// Enable or disable skipping nodes that are dominated by an expanded node.
+    ///
+    /// Disabling this is only useful for testing.
+    #[cfg(test)]
+    pub fn set_pareto_pruning(&mut self, pareto_pruning: bool) {
+        self.pareto_pruning = pareto_pruning;
     }
 
     /// Align from start to end.
@@ -73,6 +89,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
             self.sequences,
             self.rc_fn,
             &mut self.history_graph,
+            &mut self.pareto_fronts,
+            self.pareto_pruning,
             start,
             end,
             self.anchor_k,
@@ -116,6 +134,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
             self.sequences,
             self.rc_fn,
             &mut self.history_graph,
+            &mut self.pareto_fronts,
+            self.pareto_pruning,
             start,
             end,
             self.anchor_k,

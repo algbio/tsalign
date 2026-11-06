@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
+use rustc_hash::FxHashMap;
 
 use crate::{
     alignment::{
@@ -16,6 +17,7 @@ use crate::{
         extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
         history_alignment_operations::AlignmentHistoryOperation,
         history_vec::AlignmentHistory,
+        pareto_front::{ParetoFront, ParetoLabel},
     },
     costs::AlignmentCosts,
 };
@@ -27,6 +29,9 @@ pub struct Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryV
     sequences: &'sequences AlignmentSequences,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
+    /// The Pareto fronts of expanded nodes by coordinates.
+    pareto_fronts: &'history mut FxHashMap<AlignmentCoordinates, ParetoFront<Cost>>,
+    pareto_pruning: bool,
     start: SpecificSecondaryAlignmentCoordinates,
     end: PrimaryAlignmentCoordinates,
     anchor_k: u8,
@@ -61,22 +66,32 @@ pub enum Identifier {
 impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
     Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
 {
+    /// Creates a new context.
+    ///
+    /// The `pareto_fronts` are cleared.
+    /// If `pareto_pruning` is true, then nodes that are dominated by an expanded node at the same coordinates are not expanded.
     #[expect(clippy::too_many_arguments)]
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
+        pareto_fronts: &'history mut FxHashMap<AlignmentCoordinates, ParetoFront<Cost>>,
+        pareto_pruning: bool,
         start: SpecificSecondaryAlignmentCoordinates,
         end: PrimaryAlignmentCoordinates,
         anchor_k: u8,
         max_anchor_mutations: u8,
     ) -> Self {
+        pareto_fronts.clear();
+
         Self {
             costs,
             sequences,
             rc_fn,
             history_graph,
+            pareto_fronts,
+            pareto_pruning,
             start,
             end,
             anchor_k,
@@ -108,6 +123,34 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+        if self.pareto_pruning {
+            let coordinates = node.identifier.coordinates(self.ts_kind());
+            // Jump nodes are equivalent to nodes with an empty history and no gap.
+            let label = ParetoLabel::new(
+                node.cost,
+                node.identifier.gap_type(),
+                node.identifier
+                    .history()
+                    .unwrap_or_else(|| self.history_graph.empty_node_id()),
+                self.history_graph,
+            );
+            // The costs of the operations that follow the node.
+            let costs = if coordinates.is_primary() {
+                &self.costs.primary_costs
+            } else {
+                &self.costs.secondary_costs
+            };
+            if !self
+                .pareto_fronts
+                .entry(coordinates)
+                .or_default()
+                .insert(label, costs)
+            {
+                // The node is dominated by an expanded node, so its successors are dominated as well.
+                return;
+            }
+        }
+
         let Node {
             identifier, cost, ..
         } = node;

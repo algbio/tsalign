@@ -5,6 +5,7 @@ use tagged_vec::TaggedVec;
 
 use crate::alignment_history::{
     history_alignment_operations::AlignmentHistoryOperation, history_vec::AlignmentHistory,
+    profile::HistoryProfile,
 };
 
 pub struct HistoryExtensionGraph<AlignmentHistoryVec> {
@@ -14,6 +15,9 @@ pub struct HistoryExtensionGraph<AlignmentHistoryVec> {
 
 pub struct HistoryNode<AlignmentHistoryVec> {
     history: AlignmentHistoryVec,
+
+    /// The profile of the history, or `None` if it is not supported for the given parameters.
+    profile: Option<HistoryProfile>,
 
     /// The successor of this node if the next alignment operation is a match.
     match_successor: HistoryExtensionGraphNodeIndex,
@@ -36,6 +40,9 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
         let mut nodes = TaggedVec::new();
         let empty_node_id = nodes.push(HistoryNode {
             history: AlignmentHistoryVec::default(),
+            // The empty history has the all-zero profile for all supported parameters.
+            // If the parameters are not supported, then all other nodes have no profile, so the empty node only dominates itself.
+            profile: Some(HistoryProfile::default()),
             match_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
             substitution_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
             gap_in_a_successor: HistoryExtensionGraphNodeIndex(usize::MAX),
@@ -52,6 +59,13 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
     /// Returns the id of the node that represents the empty history.
     pub fn empty_node_id(&self) -> HistoryExtensionGraphNodeIndex {
         HistoryExtensionGraphNodeIndex(0)
+    }
+
+    /// Returns the profile of the alignment history of the given node.
+    ///
+    /// Returns `None` if the profile is not supported for the parameters of this graph.
+    pub fn profile(&self, node_id: HistoryExtensionGraphNodeIndex) -> Option<HistoryProfile> {
+        self.nodes[node_id].profile
     }
 
     /// Returns true if the alignment history vector can be extended with another alignment history operation without becoming a valid anchor.
@@ -121,7 +135,9 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
                         *cache
                     } else {
                         *cache = nodes_len.into();
-                        let new_node_id = self.nodes.push(HistoryNode::new(extension));
+                        let new_node_id = self
+                            .nodes
+                            .push(HistoryNode::new(extension, max_anchor_mutations));
                         self.history_to_node_id_map.insert(extension, new_node_id);
 
                         debug_assert_eq!(
@@ -151,10 +167,11 @@ impl<AlignmentHistoryVec: AlignmentHistory> HistoryExtensionGraph<AlignmentHisto
     }
 }
 
-impl<AlignmentHistoryVec> HistoryNode<AlignmentHistoryVec> {
-    pub fn new(history: AlignmentHistoryVec) -> Self {
+impl<AlignmentHistoryVec: AlignmentHistory> HistoryNode<AlignmentHistoryVec> {
+    pub fn new(history: AlignmentHistoryVec, max_anchor_mutations: u8) -> Self {
         Self {
             history,
+            profile: HistoryProfile::new(history.operations(), max_anchor_mutations),
             match_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
             substitution_successor: HistoryExtensionGraphNodeIndex::new_unknown(),
             gap_in_a_successor: HistoryExtensionGraphNodeIndex::new_unknown(),

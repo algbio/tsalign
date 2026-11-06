@@ -1,8 +1,14 @@
 //! The algorithm for computing lower bounds for the case where the anchors are inexact matches.
+//!
+//! This is a multi-criteria search: nodes at the same coordinates are compared by cost and by the freedom their alignment history gives to future alignments.
+//! Dominated nodes are not expanded, see [`pareto_front`](crate::alignment_history::pareto_front).
 
 use std::fmt::Display;
 
-use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::{
+    AStarContext, AStarIdentifier, AStarNode, closed_lists::AStarClosedList, cost::AStarCost,
+    reset::Reset,
+};
 
 use crate::{
     alignment::{GapType, coordinates::AlignmentCoordinates},
@@ -10,9 +16,12 @@ use crate::{
         extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
         history_alignment_operations::AlignmentHistoryOperation,
         history_vec::AlignmentHistory,
+        pareto_front::{ParetoFront, ParetoLabel},
     },
     costs::GapAffineCosts,
 };
+
+
 
 pub struct Context<'a, Cost, AlignmentHistoryVec> {
     costs: &'a GapAffineCosts<Cost>,
@@ -20,6 +29,22 @@ pub struct Context<'a, Cost, AlignmentHistoryVec> {
     max_anchor_mutations: u8,
     max_n: usize,
     history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
+
+    /// The Pareto fronts of expanded nodes, indexed by coordinates.
+    ///
+    /// Since a node identical to an expanded node is dominated, these replace the closed list,
+    /// so the search can be run with a [`LastNodeClosedList`].
+    /// If `pareto_pruning` is false, then these are empty and a real closed list is needed.
+    pareto_fronts: Vec<ParetoFront<Cost>>,
+    pareto_pruning: bool,
+}
+
+/// A closed list that only remembers the most recently closed node.
+///
+/// This is used when the context itself detects nodes that do not need to be expanded.
+/// The A* algorithm only needs the closed list to retrieve the target node, so the search must abort on the first target.
+pub struct LastNodeClosedList<Node> {
+    last_node: Option<Node>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -35,12 +60,19 @@ pub struct Identifier {
     gap_type: GapType,
 }
 
-impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, AlignmentHistoryVec> {
+impl<'a, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
+    Context<'a, Cost, AlignmentHistoryVec>
+{
+    /// Creates a new context.
+    ///
+    /// If `pareto_pruning` is false, then dominated nodes are expanded as well, which requires a closed list.
+    /// This is only useful for testing.
     pub fn new(
         costs: &'a GapAffineCosts<Cost>,
         anchor_k: u8,
         max_anchor_mutations: u8,
         max_n: usize,
+        pareto_pruning: bool,
     ) -> Self {
         Self {
             costs,
@@ -48,6 +80,38 @@ impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, Alignmen
             max_anchor_mutations,
             max_n,
             history_graph: HistoryExtensionGraph::new(),
+            pareto_fronts: if pareto_pruning {
+                (0..(max_n + 1) * (max_n + 1))
+                    .map(|_| ParetoFront::new())
+                    .collect()
+            } else {
+                Vec::new()
+            },
+            pareto_pruning,
+        }
+    }
+
+    fn pareto_front_index(&self, coordinates: AlignmentCoordinates) -> usize {
+        coordinates.primary_ordinate_a().unwrap() * (self.max_n + 1)
+            + coordinates.primary_ordinate_b().unwrap()
+    }
+
+    fn pareto_label(&self, node: &Node<Cost>) -> ParetoLabel<Cost> {
+        ParetoLabel::new(
+            node.cost,
+            node.identifier.gap_type,
+            node.identifier.history,
+            &self.history_graph,
+        )
+    }
+
+    /// Outputs the given successor, unless it is dominated by an expanded node.
+    fn output_successor(&self, successor: Node<Cost>, output: &mut impl Extend<Node<Cost>>) {
+        if !self.pareto_pruning
+            || !self.pareto_fronts[self.pareto_front_index(successor.identifier.coordinates)]
+                .is_dominated(&self.pareto_label(&successor), self.costs)
+        {
+            output.extend(std::iter::once(successor));
         }
     }
 }
@@ -69,6 +133,15 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+        if self.pareto_pruning {
+            let label = self.pareto_label(node);
+            let index = self.pareto_front_index(node.identifier.coordinates);
+            if !self.pareto_fronts[index].insert(label, self.costs) {
+                // The node is dominated by an expanded node, so its successors are dominated as well.
+                return;
+            }
+        }
+
         let Node {
             identifier:
                 Identifier {
@@ -89,14 +162,17 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
             ) {
                 // Match
                 let new_cost = *cost;
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_both(),
-                        history,
-                        gap_type: GapType::None,
+                self.output_successor(
+                    Node {
+                        identifier: Identifier {
+                            coordinates: coordinates.increment_both(),
+                            history,
+                            gap_type: GapType::None,
+                        },
+                        cost: new_cost,
                     },
-                    cost: new_cost,
-                }));
+                    output,
+                );
             }
 
             if let Some(history) = self.history_graph.try_extend(
@@ -107,14 +183,17 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
             ) {
                 // Substitution
                 let new_cost = *cost + self.costs.substitution;
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_both(),
-                        history,
-                        gap_type: GapType::None,
+                self.output_successor(
+                    Node {
+                        identifier: Identifier {
+                            coordinates: coordinates.increment_both(),
+                            history,
+                            gap_type: GapType::None,
+                        },
+                        cost: new_cost,
                     },
-                    cost: new_cost,
-                }));
+                    output,
+                );
             }
         }
 
@@ -131,14 +210,17 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                         GapType::InB => self.costs.gap_extend,
                         _ => self.costs.gap_open,
                     };
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_a(),
-                        history,
-                        gap_type: GapType::InB,
+                self.output_successor(
+                    Node {
+                        identifier: Identifier {
+                            coordinates: coordinates.increment_a(),
+                            history,
+                            gap_type: GapType::InB,
+                        },
+                        cost: new_cost,
                     },
-                    cost: new_cost,
-                }));
+                    output,
+                );
             }
         }
 
@@ -155,14 +237,17 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                         GapType::InA => self.costs.gap_extend,
                         _ => self.costs.gap_open,
                     };
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_b(),
-                        history,
-                        gap_type: GapType::InA,
+                self.output_successor(
+                    Node {
+                        identifier: Identifier {
+                            coordinates: coordinates.increment_b(),
+                            history,
+                            gap_type: GapType::InA,
+                        },
+                        cost: new_cost,
                     },
-                    cost: new_cost,
-                }));
+                    output,
+                );
             }
         }
     }
@@ -184,6 +269,43 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
 impl<Cost, AlignmentHistoryVec> Reset for Context<'_, Cost, AlignmentHistoryVec> {
     fn reset(&mut self) {
         unimplemented!()
+    }
+}
+
+impl<Node: AStarNode> AStarClosedList<Node> for LastNodeClosedList<Node> {
+    fn new() -> Self {
+        Self { last_node: None }
+    }
+
+    fn len(&self) -> usize {
+        usize::from(self.last_node.is_some())
+    }
+
+    fn insert(&mut self, identifier: <Node as AStarNode>::Identifier, node: Node) -> Option<Node> {
+        self.last_node
+            .replace(node)
+            .filter(|previous_node| *previous_node.identifier() == identifier)
+    }
+
+    fn get(&self, identifier: &<Node as AStarNode>::Identifier) -> Option<&Node> {
+        self.last_node
+            .as_ref()
+            .filter(|node| node.identifier() == identifier)
+    }
+
+    fn iter<'this: 'node, 'node>(
+        &'this self,
+    ) -> impl use<'this, 'node, Node> + Iterator<Item = &'node Node>
+    where
+        Node: 'node,
+    {
+        self.last_node.iter()
+    }
+}
+
+impl<Node> Reset for LastNodeClosedList<Node> {
+    fn reset(&mut self) {
+        self.last_node = None;
     }
 }
 

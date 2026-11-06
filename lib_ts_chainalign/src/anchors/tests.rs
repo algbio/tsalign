@@ -1189,3 +1189,100 @@ fn coordinates_inexact_1_rev() {
         &expected_secondary_22,
     );
 }
+
+/// Inexact anchors can share their start coordinates, and then all of them must be matched with the minimum cost of their start.
+#[test]
+fn anchor_to_index_iter_matches_all_anchors_with_equal_start() {
+    let sequences = AlignmentSequences::new_complete(
+        b"ACGTTACGAACGTACCGT".to_vec(),
+        b"ACGTACGAACGTTACGGT".to_vec(),
+    );
+    let costs = GapAffineCosts::new(2u16, 3, 1).into_costs::<U16Cost>();
+    let costs = AlignmentCosts::new(
+        costs.clone(),
+        costs,
+        U16Cost::zero().into(),
+        TsLimits::new_unlimited(),
+    );
+    let anchors = Anchors::new_inexact(&sequences, 4, 1, &costs, &rc_fn);
+
+    let primary_starts: Vec<_> = anchors
+        .enumerate_primaries()
+        .map(|(_, anchor)| anchor.start())
+        .collect();
+    assert!(
+        primary_starts.iter().duplicates().count() > 0,
+        "the test requires anchors with equal start"
+    );
+
+    // Each start gets a few targets with different costs, and some targets are not anchor starts.
+    let mut primary_targets: Vec<_> = primary_starts
+        .iter()
+        .unique()
+        .enumerate()
+        .flat_map(|(i, start)| {
+            [
+                (*start, U16Cost::from(i as u16 % 7 + 3)),
+                (*start, U16Cost::from(i as u16 % 5)),
+            ]
+        })
+        .chain([(
+            crate::alignment::coordinates::PrimaryAlignmentCoordinates::new(100, 100),
+            U16Cost::zero(),
+        )])
+        .collect();
+    primary_targets.sort_unstable();
+
+    let expected: Vec<_> = anchors
+        .enumerate_primaries()
+        .filter_map(|(index, anchor)| {
+            primary_targets
+                .iter()
+                .filter(|(coordinates, _)| *coordinates == anchor.start())
+                .map(|(_, cost)| *cost)
+                .min()
+                .map(|cost| (index, cost))
+        })
+        .collect();
+    assert_eq!(
+        anchors
+            .primary_anchor_to_index_iter(primary_targets.iter().copied())
+            .collect::<Vec<_>>(),
+        expected
+    );
+
+    for ts_kind in TsKind::iter() {
+        let mut secondary_targets: Vec<_> = anchors
+            .enumerate_secondaries(ts_kind)
+            .map(|(_, anchor)| anchor.start())
+            .unique()
+            .enumerate()
+            .flat_map(|(i, start)| {
+                [
+                    (start, U16Cost::from(i as u16 % 7 + 3)),
+                    (start, U16Cost::from(i as u16 % 5)),
+                ]
+            })
+            .collect();
+        secondary_targets.sort_unstable();
+
+        let expected: Vec<_> = anchors
+            .enumerate_secondaries(ts_kind)
+            .filter_map(|(index, anchor)| {
+                secondary_targets
+                    .iter()
+                    .filter(|(coordinates, _)| *coordinates == anchor.start())
+                    .map(|(_, cost)| *cost)
+                    .min()
+                    .map(|cost| (index, cost))
+            })
+            .collect();
+        assert_eq!(
+            anchors
+                .secondary_anchor_to_index_iter(secondary_targets.iter().copied(), ts_kind)
+                .collect::<Vec<_>>(),
+            expected,
+            "{ts_kind}"
+        );
+    }
+}

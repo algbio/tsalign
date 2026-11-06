@@ -3,3 +3,7 @@
 pub mod extension_graph;
 pub mod history_alignment_operations;
 pub mod history_vec;
+pub mod pareto_front;
+pub mod profile;
+#[cfg(test)]
+pub(crate) mod test_util;
