@@ -31,17 +31,17 @@ pub enum InnerChar {
     Inner {
         column: SourceColumn,
         lower_case: bool,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     OptionalInner {
         column: SourceColumn,
         lower_case: bool,
         /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
         increases_inner: bool,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     Gap {
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     Blank,
 }

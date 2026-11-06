@@ -34,21 +34,21 @@ pub enum SourceChar {
     Source {
         column: SourceColumn,
         lower_case: bool,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     OptionalSource {
         column: SourceColumn,
         lower_case: bool,
         /// True if this character is part of the TSM uncertainty range that increases the size of the inner sequence.
         increases_inner: bool,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     Hidden {
         column: SourceColumn,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     Gap {
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     },
     /// Separates the aligned section of the sequences from the unaligned section.
     ///
@@ -623,7 +623,7 @@ impl TsSourceArrangement {
         &mut self,
         ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
-        copy_depth: Option<usize>,
+        copy_depth: Option<u8>,
     ) {
         match ancestor {
             TemplateSwitchAncestor::Reference => self.insert_reference_gap(column, copy_depth),
@@ -631,13 +631,13 @@ impl TsSourceArrangement {
         }
     }
 
-    pub fn insert_reference_gap(&mut self, column: ArrangementColumn, copy_depth: Option<usize>) {
+    pub fn insert_reference_gap(&mut self, column: ArrangementColumn, copy_depth: Option<u8>) {
         self.reference
             .insert(column, SourceChar::Gap { copy_depth });
         self.query.insert(column, SourceChar::Blank);
     }
 
-    pub fn insert_query_gap(&mut self, column: ArrangementColumn, copy_depth: Option<usize>) {
+    pub fn insert_query_gap(&mut self, column: ArrangementColumn, copy_depth: Option<u8>) {
         self.reference.insert(column, SourceChar::Blank);
         self.query.insert(column, SourceChar::Gap { copy_depth });
     }
@@ -942,7 +942,7 @@ impl SourceChar {
         }
     }
 
-    pub fn copy_depth(&self) -> Option<usize> {
+    pub fn copy_depth(&self) -> Option<u8> {
         match self {
             Self::Source { copy_depth, .. }
             | Self::OptionalSource { copy_depth, .. }
