@@ -29,7 +29,7 @@ pub trait PartialIntoAnchorIndex {
 
 impl<
     Cost: Ord,
-    Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates> + Clone,
     CoordinateIter: Iterator<Item = Coordinates>,
     AnchorIter: Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>,
 > Iterator for PrimaryAnchorToIndexIter<CoordinateIter, AnchorIter>
@@ -45,12 +45,8 @@ impl<
                     self.coordinate_iter.next().unwrap();
                 }
                 Ordering::Equal => {
-                    let result = Some(
-                        self.coordinate_iter
-                            .next()
-                            .unwrap()
-                            .partial_into(*anchor_index),
-                    );
+                    // Multiple anchors may start at the same coordinates, so keep the coordinates for the next anchor.
+                    let result = Some(coordinate_anchor.clone().partial_into(*anchor_index));
                     self.anchor_iter.next().unwrap();
                     return result;
                 }
@@ -66,7 +62,7 @@ impl<
 
 impl<
     Cost: Ord,
-    Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates> + Clone,
     CoordinateIter: Iterator<Item = Coordinates>,
     AnchorIter: Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>,
 > Iterator for SecondaryAnchorToIndexIter<CoordinateIter, AnchorIter>
@@ -82,12 +78,8 @@ impl<
                     self.coordinate_iter.next().unwrap();
                 }
                 Ordering::Equal => {
-                    let result = Some(
-                        self.coordinate_iter
-                            .next()
-                            .unwrap()
-                            .partial_into(*anchor_index),
-                    );
+                    // Multiple anchors may start at the same coordinates, so keep the coordinates for the next anchor.
+                    let result = Some(coordinate_anchor.clone().partial_into(*anchor_index));
                     self.anchor_iter.next().unwrap();
                     return result;
                 }
@@ -104,9 +96,11 @@ impl<
 impl<Cost> Anchors<Cost> {
     /// Returns an iterator over the primary anchor indices that correspond to the given primary alignment coordinates.
     ///
-    /// If a pair of primary alignment coordinates does not correspond to a primary anchor, then the iterator returns `Some(None)`.
+    /// The coordinates must be sorted.
+    /// Each anchor is matched with the first coordinates that are equal to its start, and coordinates that match no anchor are skipped.
+    /// Hence, if the coordinates are paired with costs and sorted, then each anchor is matched with the minimum cost of its start.
     pub fn primary_anchor_to_index_iter<
-        Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates> + Clone,
     >(
         &self,
         iter: impl IntoIterator<Item = Coordinates>,
@@ -122,9 +116,11 @@ impl<Cost> Anchors<Cost> {
 
     /// Returns an iterator over the secondary anchor indices that correspond to the given secondary alignment coordinates.
     ///
-    /// If a pair of secondary alignment coordinates does not correspond to a secondary anchor, then the iterator returns `Some(None)`.
+    /// The coordinates must be sorted.
+    /// Each anchor is matched with the first coordinates that are equal to its start, and coordinates that match no anchor are skipped.
+    /// Hence, if the coordinates are paired with costs and sorted, then each anchor is matched with the minimum cost of its start.
     pub fn secondary_anchor_to_index_iter<
-        Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates> + Clone,
     >(
         &self,
         iter: impl IntoIterator<Item = Coordinates>,

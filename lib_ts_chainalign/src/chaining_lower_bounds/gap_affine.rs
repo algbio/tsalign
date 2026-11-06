@@ -1,6 +1,9 @@
 use std::io::{Read, Write};
 
-use generic_a_star::{AStar, AStarNode, cost::AStarCost};
+use generic_a_star::{
+    AStar, AStarNode, closed_lists::AStarClosedList, cost::AStarCost, open_lists::AStarOpenList,
+    open_lists::linear_heap::LinearHeap,
+};
 use log::{debug, trace};
 
 use crate::{
@@ -212,38 +215,69 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             std::any::type_name::<AlignmentHistoryVec>(),
         );
 
-        let mut lower_bounds =
-            LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
-        let mut reached_lower_bounds = 0;
-        let total_lower_bounds = (max_n + 1) * (max_n + 1);
-
         let context = windowed_min_mutations_algo::Context::<_, AlignmentHistoryVec>::new(
             cost_table,
             anchor_k,
             max_anchor_mutations,
             max_n,
+            true,
         );
-        let mut a_star = AStar::<_>::new(context);
+        // The context detects dominated nodes itself, which includes nodes that were expanded before.
+        let a_star =
+            AStar::<_, windowed_min_mutations_algo::LastNodeClosedList<_>, LinearHeap<_>>::new(
+                context,
+            );
+        Self::compute_windowed_min_mutation_with_search(max_n, a_star)
+    }
+
+    /// Run the given windowed-min-mutation search until the lower bounds of all gap lengths are known.
+    fn compute_windowed_min_mutation_with_search<
+        AlignmentHistoryVec: AlignmentHistory,
+        ClosedList: AStarClosedList<windowed_min_mutations_algo::Node<Cost>>,
+        OpenList: AStarOpenList<windowed_min_mutations_algo::Node<Cost>>,
+    >(
+        max_n: usize,
+        mut a_star: AStar<
+            windowed_min_mutations_algo::Context<'_, Cost, AlignmentHistoryVec>,
+            ClosedList,
+            OpenList,
+        >,
+    ) -> Self {
+        let mut lower_bounds =
+            LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
+        let mut reached_lower_bounds = 0;
+        let total_lower_bounds = (max_n + 1) * (max_n + 1);
+
         a_star.initialise();
-        a_star.search_until(|_, node| {
-            let lower_bound = &mut lower_bounds[[
-                node.identifier.coordinates.primary_ordinate_a().unwrap(),
-                node.identifier.coordinates.primary_ordinate_b().unwrap(),
-            ]];
+        // Abort on the first target, since the closed list may only contain the last closed node.
+        a_star.search_until_with_target_policy(
+            |_, node| {
+                let lower_bound = &mut lower_bounds[[
+                    node.identifier.coordinates.primary_ordinate_a().unwrap(),
+                    node.identifier.coordinates.primary_ordinate_b().unwrap(),
+                ]];
 
-            if *lower_bound == Cost::max_value() {
-                reached_lower_bounds += 1;
-                debug_assert!(node.cost() < Cost::max_value());
-                trace!(
-                    "Reached lower bound {reached_lower_bounds}/{total_lower_bounds} = {:.2}%",
-                    reached_lower_bounds as f64 / total_lower_bounds as f64 * 100.0
-                );
-            }
+                if *lower_bound == Cost::max_value() {
+                    reached_lower_bounds += 1;
+                    debug_assert!(node.cost() < Cost::max_value());
+                    trace!(
+                        "Reached lower bound {reached_lower_bounds}/{total_lower_bounds} = {:.2}%",
+                        reached_lower_bounds as f64 / total_lower_bounds as f64 * 100.0
+                    );
+                }
 
-            *lower_bound = (*lower_bound).min(node.cost());
+                *lower_bound = (*lower_bound).min(node.cost());
 
-            reached_lower_bounds >= total_lower_bounds
-        });
+                reached_lower_bounds >= total_lower_bounds
+            },
+            true,
+        );
+        debug!(
+            "Windowed-min-mutation lower bound search opened {} and closed {} nodes",
+            a_star.performance_counters().opened_nodes,
+            a_star.performance_counters().closed_nodes,
+        );
+
         let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
             (0..=max_n)
                 .map(|gap2| lower_bounds[[gap1, gap2]])
@@ -265,6 +299,28 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             lower_bounds,
             variable_gap2_lower_bounds,
         }
+    }
+
+    /// Compute the windowed-min-mutation lower bounds without Pareto pruning.
+    ///
+    /// This is much slower, and only useful for testing the Pareto pruning.
+    #[cfg(test)]
+    fn compute_windowed_min_mutation_without_pareto_pruning<
+        AlignmentHistoryVec: AlignmentHistory,
+    >(
+        max_n: usize,
+        anchor_k: u8,
+        max_anchor_mutations: u8,
+        cost_table: &GapAffineCosts<Cost>,
+    ) -> Self {
+        let context = windowed_min_mutations_algo::Context::<_, AlignmentHistoryVec>::new(
+            cost_table,
+            anchor_k,
+            max_anchor_mutations,
+            max_n,
+            false,
+        );
+        Self::compute_windowed_min_mutation_with_search(max_n, AStar::<_>::new(context))
     }
 
     /// Compute the lower bounds while limiting the maximum length of match runs in the alignment.
