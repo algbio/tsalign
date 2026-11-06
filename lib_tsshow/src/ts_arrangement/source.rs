@@ -1019,7 +1019,7 @@ impl SourceChar {
                     copy_depth: *copy_depth,
                 };
             }
-            Self::OptionalSource { .. } => unreachable!("Already optional"),
+            Self::OptionalSource { .. } => { /* Already optional, do nothing. */ }
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
                 unreachable!("Cannot be made optional: {self:?}")
             }
