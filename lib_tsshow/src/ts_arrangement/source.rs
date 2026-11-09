@@ -728,7 +728,7 @@ impl TsSourceArrangement {
         source_column: SourceColumn,
     ) -> ArrangementColumn {
         Self::try_source_to_arrangement_column(sequence, source_column)
-            .unwrap_or_else(|| panic!("Source column {source_column} has no matching arrangement column. There are {} source columns in the arrangement.", sequence.iter_values().filter(|c| matches!(c, SourceChar::Source {  .. } | SourceChar::Hidden {  .. })).count()))
+            .unwrap_or_else(|| panic!("Source column {source_column} has no matching arrangement column. There are {} source columns in the arrangement.", sequence.iter_values().filter(|c| matches!(c, SourceChar::Source {  .. } | SourceChar::OptionalSource {  .. } | SourceChar::Hidden {  .. })).count()))
     }
 
     fn try_source_to_arrangement_column(
@@ -738,12 +738,16 @@ impl TsSourceArrangement {
         sequence
             .iter(..)
             .filter_map(|(i, c)| match c {
-                SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
+                SourceChar::Source { column, .. }
+                | SourceChar::OptionalSource { column, .. }
+                | SourceChar::Hidden { column, .. }
                     if *column + 1usize == source_column =>
                 {
                     Some(sequence.len().into())
                 }
-                SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
+                SourceChar::Source { column, .. }
+                | SourceChar::OptionalSource { column, .. }
+                | SourceChar::Hidden { column, .. }
                     if *column == source_column =>
                 {
                     Some(i)

@@ -1106,7 +1106,7 @@ fn legend(
         let uncertainty_increasing_label = "PURPLE-ISH CHARACTERS";
         result = result.add(svg_phrase(
             uncertainty_increasing_label,
-            OPTIONAL_INNER_INCREASING_COLOR,
+            OPTIONAL_SOURCE_INCREASING_COLOR,
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
