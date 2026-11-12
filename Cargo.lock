@@ -273,7 +273,7 @@ dependencies = [
  "itertools 0.14.0",
  "lazy_static",
  "ref-cast",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "traitsequence",
 ]
 
@@ -662,7 +662,7 @@ checksum = "36ba4831bc667a362fe0c55567a509cd3145c6c4cb64d2bdde253cfe0f5c0c66"
 dependencies = [
  "generic_a_star",
  "num-traits",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -672,7 +672,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d40882c35e5bbdbd936ea94a1642a2f5f6500333803adb33cace5fe75caf8a37"
 dependencies = [
  "num-traits",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -756,6 +756,7 @@ dependencies = [
  "itertools 0.15.0",
  "lib_tsalign",
  "log",
+ "multicriteria-dijkstra",
  "ndarray",
  "num-traits",
  "rustc-hash",
@@ -780,7 +781,7 @@ dependencies = [
  "seed_chain",
  "serde",
  "template-switch-error-free-inners",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "traitsequence",
 ]
 
@@ -799,7 +800,7 @@ dependencies = [
  "strong-type",
  "svg",
  "tagged-vec",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "ttf-parser",
 ]
 
@@ -867,6 +868,15 @@ checksum = "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c"
 dependencies = [
  "adler2",
  "simd-adler32",
+]
+
+[[package]]
+name = "multicriteria-dijkstra"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5f0d2c932f3f76d715be1fe411b735558880b6735190cf6dd7ac8c6c810a200"
+dependencies = [
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1509,11 +1519,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
- "thiserror-impl 2.0.20",
+ "thiserror-impl 2.0.21",
 ]
 
 [[package]]
@@ -1529,9 +1539,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
