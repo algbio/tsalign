@@ -45,8 +45,8 @@ fn coordinates() {
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS12),
         &[
-            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0),
-            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0)
         ]
         .map(SecondaryAnchor::from)
     );
@@ -87,8 +87,8 @@ fn coordinates_rev() {
     assert_eq!(
         anchors.secondary_anchor_vec(TsKind::TS21),
         &[
-            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0),
-            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0)
+            (AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4), 0),
+            (AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4), 0)
         ]
         .map(SecondaryAnchor::from)
     );
@@ -143,11 +143,11 @@ fn coordinates_inexact_0() {
         anchors.secondary_anchor_vec(TsKind::TS12),
         &[
             (
-                AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4),
+                AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4),
                 U16Cost::from(0u16)
             ),
             (
-                AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4),
+                AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4),
                 U16Cost::from(0u16)
             )
         ]
@@ -219,11 +219,11 @@ fn coordinates_rev_inexact_0() {
         anchors.secondary_anchor_vec(TsKind::TS21),
         &[
             (
-                AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4),
+                AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4),
                 U16Cost::from(0u16)
             ),
             (
-                AnySecondaryAlignmentRange::new_from_ranges(4, 2, 2..4),
+                AnySecondaryAlignmentRange::new_from_ranges(2, 0, 2..4),
                 U16Cost::from(0u16)
             )
         ]

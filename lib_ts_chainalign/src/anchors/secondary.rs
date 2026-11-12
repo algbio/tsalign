@@ -17,7 +17,9 @@ use crate::{
 ///
 /// This is an anchor between the ancestor in reverse direction and the descendant in forward direction.
 ///
-/// The anchor is ordered by its minimum ordinate first, then by its ancestor ordinate and finally by its descendant ordinate.
+/// The anchor is ordered by its offset first, then by its cost and finally by its limit.
+/// Offset and limit are ordered as [`AnySecondaryAlignmentCoordinates`](crate::alignment::coordinates::AnySecondaryAlignmentCoordinates),
+/// i.e. by descending ancestor ordinate and then by ascending descendant ordinate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SecondaryAnchor<Cost> {
     range: AnySecondaryAlignmentRange,
