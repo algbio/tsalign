@@ -1,12 +1,21 @@
-//! The algorithm for computing lower bounds for the case where the anchors are exact matches.
+//! The algorithm for computing lower bounds for the case where the match runs of the alignment are limited.
+//!
+//! This uses a bicriteria Dijkstra, minimising the alignment cost and the length of the current match run,
+//! like the aligners in [`max_match_run_chaining`](crate::max_match_run_chaining).
 
 use std::fmt::Display;
 
-use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::cost::AStarCost;
+use multicriteria_dijkstra::{
+    MulticriteriaDijkstraContext,
+    node::{MulticriteriaDijkstraIdentifier, MulticriteriaDijkstraNode},
+    prune_list::{IndexedNode, NodeWithIsTarget, NodeWithOptionalPredecessorAndIsTarget},
+};
 
 use crate::{
     alignment::{GapType, coordinates::PrimaryAlignmentCoordinates},
     costs::GapAffineCosts,
+    max_match_run_chaining::alignment_search::{NodeCost, SuccessorOutput},
 };
 
 pub struct Context<'a, Cost> {
@@ -21,13 +30,12 @@ pub struct Context<'a, Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Node<Cost> {
     pub identifier: Identifier,
-    pub cost: Cost,
+    pub cost: NodeCost<Cost>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
     pub coordinates: PrimaryAlignmentCoordinates,
-    pub match_run: u32,
     gap_type: GapType,
 }
 
@@ -39,6 +47,13 @@ impl<'a, Cost> Context<'a, Cost> {
         max_n: usize,
         allow_start_match: bool,
     ) -> Self {
+        // Forbidding a start match sets the match_run of the root to u32::MAX,
+        // and a non-zero enforcement offset would allow to extend it with a match, overflowing the match_run.
+        assert!(
+            allow_start_match || enforcement_offset == 0,
+            "Forbidding a start match is not supported with a non-zero enforcement offset."
+        );
+
         Self {
             costs,
             max_match_run,
@@ -49,150 +64,135 @@ impl<'a, Cost> Context<'a, Cost> {
     }
 }
 
-impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
+impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, Cost> {
     type Node = Node<Cost>;
 
-    fn create_root(&self) -> Self::Node {
-        Node {
-            identifier: Identifier {
-                coordinates: PrimaryAlignmentCoordinates::new(0, 0),
-                // If we want to enfore the first alignment to be a non-match, we set the match run to u32::MAX.
-                match_run: if self.allow_start_match { 0 } else { u32::MAX },
-                gap_type: GapType::None,
+    fn generate_root_nodes(&self, output: &mut impl Extend<NodeWithIsTarget<Self::Node>>) {
+        output.extend(std::iter::once(NodeWithIsTarget {
+            node: Node {
+                identifier: Identifier {
+                    coordinates: PrimaryAlignmentCoordinates::new(0, 0),
+                    gap_type: GapType::None,
+                },
+                cost: NodeCost {
+                    cost: Cost::zero(),
+                    // If we want to enforce the first alignment operation to be a non-match, we set the match run to u32::MAX.
+                    match_run: if self.allow_start_match { 0 } else { u32::MAX },
+                },
             },
-            cost: Cost::zero(),
-        }
+            // There are no targets, the whole matrix is filled.
+            is_target: false,
+        }));
     }
 
-    fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+    fn generate_successors<Index: Copy>(
+        &self,
+        IndexedNode { node, index }: IndexedNode<Self::Node, Index>,
+        output: &mut impl Extend<NodeWithOptionalPredecessorAndIsTarget<Self::Node, Index>>,
+    ) {
+        let output = &mut SuccessorOutput {
+            output,
+            predecessor_index: index,
+        };
         let Node {
             identifier:
                 Identifier {
                     coordinates,
-                    match_run,
                     gap_type,
                 },
-            cost,
+            cost: NodeCost { cost, match_run },
         } = node;
         let end = PrimaryAlignmentCoordinates::new(self.max_n, self.max_n);
 
         if coordinates.can_increment_both_primary(end) {
-            if *match_run < self.max_match_run
+            if match_run < self.max_match_run
                 || (coordinates.a() < self.enforcement_offset.into()
                     && coordinates.b() < self.enforcement_offset.into())
             {
                 // Match
-                let new_cost = *cost;
                 output.extend(std::iter::once(Node {
                     identifier: Identifier {
                         coordinates: coordinates.increment_both(1),
-                        match_run: match_run + 1,
                         gap_type: GapType::None,
                     },
-                    cost: new_cost,
+                    cost: NodeCost {
+                        cost,
+                        match_run: match_run + 1,
+                    },
                 }));
             }
 
             // Substitution
-            let new_cost = *cost + self.costs.substitution;
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_both(1),
-                    match_run: 0,
                     gap_type: GapType::None,
                 },
-                cost: new_cost,
+                cost: NodeCost {
+                    cost: cost + self.costs.substitution,
+                    match_run: 0,
+                },
             }));
         }
 
         if coordinates.can_increment_a_primary(end) {
             // Gap in b
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InB => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_a(),
-                    match_run: 0,
                     gap_type: GapType::InB,
                 },
-                cost: new_cost,
+                cost: NodeCost {
+                    cost: cost
+                        + match gap_type {
+                            GapType::InB => self.costs.gap_extend,
+                            _ => self.costs.gap_open,
+                        },
+                    match_run: 0,
+                },
             }));
         }
 
         if coordinates.can_increment_b_primary(end) {
             // Gap in a
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InA => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_b(),
-                    match_run: 0,
                     gap_type: GapType::InA,
                 },
-                cost: new_cost,
+                cost: NodeCost {
+                    cost: cost
+                        + match gap_type {
+                            GapType::InA => self.costs.gap_extend,
+                            _ => self.costs.gap_open,
+                        },
+                    match_run: 0,
+                },
             }));
         }
     }
 
     fn is_target(&self, _node: &Self::Node) -> bool {
-        // Run until whole matrix is filled
+        // Run until whole matrix is filled.
         false
     }
-
-    fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
-        None
-    }
-
-    fn memory_limit(&self) -> Option<usize> {
-        None
-    }
 }
 
-impl<Cost> Reset for Context<'_, Cost> {
-    fn reset(&mut self) {
-        unimplemented!()
-    }
-}
-
-impl<Cost: AStarCost> AStarNode for Node<Cost> {
+impl<Cost: AStarCost> MulticriteriaDijkstraNode for Node<Cost> {
     type Identifier = Identifier;
 
-    type EdgeType = ();
-
-    type Cost = Cost;
+    type Cost = NodeCost<Cost>;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
-    fn cost(&self) -> Self::Cost {
-        self.cost
-    }
-
-    fn a_star_lower_bound(&self) -> Self::Cost {
-        Cost::zero()
-    }
-
-    fn secondary_maximisable_score(&self) -> usize {
-        0
-    }
-
-    fn predecessor(&self) -> Option<&Self::Identifier> {
-        // Backtracking not supported
-        None
-    }
-
-    fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
-        // Backtracking not supported
-        None
+    fn cost(&self) -> &Self::Cost {
+        &self.cost
     }
 }
+
+impl MulticriteriaDijkstraIdentifier for Identifier {}
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -204,25 +204,10 @@ impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "({}, {}, {}, {})",
+            "({}, {}, {})",
             self.coordinates.a(),
             self.coordinates.b(),
-            self.match_run,
             self.gap_type,
         )
     }
 }
-
-impl<Cost: Ord> PartialOrd for Node<Cost> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<Cost: Ord> Ord for Node<Cost> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost.cmp(&other.cost)
-    }
-}
-
-impl AStarIdentifier for Identifier {}

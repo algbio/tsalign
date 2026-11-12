@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 
 use generic_a_star::{AStar, AStarNode, cost::AStarCost};
 use log::{debug, trace};
+use multicriteria_dijkstra::MulticriteriaDijkstra;
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
@@ -13,6 +14,7 @@ use crate::{
     },
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::GapAffineCosts,
+    max_match_run_chaining::multicriteria_dijkstra::PruneList,
 };
 
 mod max_match_run_algo;
@@ -299,10 +301,14 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             max_n,
             boundary_condition.allow_start_match(),
         );
-        let mut a_star = AStar::<_>::new(context);
-        a_star.initialise();
-        a_star.search_until(|_, node| {
-            if node.identifier.match_run == 0
+        let mut dijkstra =
+            MulticriteriaDijkstra::<PruneList<max_match_run_algo::Node<Cost>>, _>::new(context);
+        // Record the lower bounds from all generated nodes, without pruning any.
+        // Each generated node represents an alignment, and each node that gets pruned by the prune list
+        // is dominated by a node with at most the same cost and match run.
+        // Hence, this results in the same lower bounds as recording only the nodes that are not pruned.
+        dijkstra.search_with_prune_condition(|_, node| {
+            if node.cost.match_run == 0
                 || (boundary_condition.allow_end_match()
                     && node.identifier.coordinates != PrimaryAlignmentCoordinates::new(0, 0))
             {
@@ -310,7 +316,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
                     node.identifier.coordinates.a(),
                     node.identifier.coordinates.b(),
                 ]];
-                *lower_bound = (*lower_bound).min(node.cost());
+                *lower_bound = (*lower_bound).min(node.cost.cost);
             }
             false
         });
