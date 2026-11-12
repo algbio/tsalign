@@ -1,4 +1,8 @@
-use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
+use generic_a_star::cost::AStarCost;
+use multicriteria_dijkstra::{
+    MulticriteriaDijkstra, MulticriteriaDijkstraDatastructures,
+    prune_list::{MulticriteriaDijkstraPruneList, NodeWithOptionalPredecessor},
+};
 
 use crate::{
     alignment::{
@@ -9,15 +13,27 @@ use crate::{
         sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
-    max_match_run_chaining::gap_affine::algo::{Context, Node},
+    max_match_run_chaining::{
+        gap_affine::algo::{Context, Identifier, Node, NodeCost},
+        multicriteria_dijkstra::PruneList,
+    },
 };
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
+type Datastructures<Cost> = MulticriteriaDijkstraDatastructures<PruneList<Node<Cost>>>;
+type Dijkstra<'context, Cost> =
+    MulticriteriaDijkstra<PruneList<Node<Cost>>, Context<'context, 'context, 'context, Cost>>;
+
+/// Aligns with a bicriteria Dijkstra, minimising the alignment cost and the length of the current match run.
+///
+/// Target nodes are not reported to the prune list, since target pruning would also prune nodes with
+/// the same alignment cost as a target, but a larger match run.
+/// Instead, nodes whose alignment cost exceeds the best target cost (or the cost limit) are not inserted.
 pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
-    a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
+    datastructures: Option<Datastructures<Cost>>,
     sequences: &'sequences AlignmentSequences,
     cost_table: &'cost_table GapAffineCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
@@ -36,7 +52,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         enforcement_offset: u8,
     ) -> Self {
         Self {
-            a_star_buffers: Some(Default::default()),
+            datastructures: Some(Default::default()),
             sequences,
             cost_table,
             rc_fn,
@@ -100,27 +116,17 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
-
-        a_star.initialise();
-        let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => {
-                let alignment = a_star.reconstruct_path().into();
-                (cost, alignment)
-            }
-            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
-        };
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
+        let mut dijkstra = self.dijkstra(context);
+        let (cost, alignment) = Self::search_best_target(&mut dijkstra);
 
         self.fill_additional_targets(
-            &a_star,
+            dijkstra.prune_list(),
             start,
+            cost,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
+        self.datastructures = Some(dijkstra.into_datastructures());
 
         (cost, alignment)
     }
@@ -153,90 +159,136 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
-        a_star.initialise();
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
+        let mut dijkstra = self.dijkstra(context);
+        // The match run is not limited, such that only the alignment cost is limited.
+        dijkstra.search_until_cost_limit(&NodeCost {
+            cost: cost_limit,
+            match_run: u32::MAX,
+        });
 
         self.fill_additional_targets(
-            &a_star,
+            dijkstra.prune_list(),
             start,
+            cost_limit,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
+        self.datastructures = Some(dijkstra.into_datastructures());
     }
 
+    /// Creates a Dijkstra with the reused datastructures of this aligner.
+    ///
+    /// The datastructures must be returned with [`MulticriteriaDijkstra::into_datastructures`].
+    fn dijkstra<'context>(
+        &mut self,
+        context: Context<'context, 'context, 'context, Cost>,
+    ) -> Dijkstra<'context, Cost> {
+        let mut dijkstra = MulticriteriaDijkstra::from_datastructures(
+            self.datastructures.take().unwrap(),
+            context,
+        );
+        dijkstra.reset(|_| {});
+        dijkstra
+    }
+
+    /// Search all nodes with an alignment cost of at most the cost of the best target.
+    ///
+    /// Returns the cost of the best target and its alignment,
+    /// or `Cost::max_value()` and an empty alignment if no target was found.
+    fn search_best_target(dijkstra: &mut Dijkstra<'_, Cost>) -> (Cost, Alignment) {
+        use multicriteria_dijkstra::MulticriteriaDijkstraContext;
+
+        // Nodes with a cost exceeding the best target cost found so far are not inserted.
+        // Some nodes exceeding the final best target cost may be inserted before the best target is found.
+        let mut best_target_cost = Cost::max_value();
+        dijkstra.search_with_prune_condition(|context, node| {
+            if context.is_target(node) {
+                best_target_cost = best_target_cost.min(node.cost.cost);
+            }
+            node.cost.cost > best_target_cost
+        });
+
+        let prune_list = dijkstra.prune_list();
+        let Some(best_target) = dijkstra
+            .context()
+            .target_identifiers()
+            .filter_map(|identifier| prune_list.min_first_node_at(&identifier))
+            .min_by_key(|node| node.cost.cost)
+        else {
+            return (Cost::max_value(), Vec::new().into());
+        };
+
+        // Backtrack the alignment.
+        let mut alignment = Vec::new();
+        let mut current = prune_list
+            .iter_nodes_with_predecessor_at_identifier(&best_target.identifier)
+            .find(|node| node.node == best_target)
+            .unwrap();
+        loop {
+            let NodeWithOptionalPredecessor {
+                node,
+                predecessor_index,
+            } = current;
+            alignment.extend(node.predecessor_alignment_type);
+            let Some(predecessor_index) = predecessor_index else {
+                break;
+            };
+            current = prune_list.get(predecessor_index).unwrap();
+        }
+        alignment.reverse();
+
+        (best_target.cost.cost, alignment.into())
+    }
+
+    /// Output the minimum cost of each node that is within the cost limit.
     fn fill_additional_targets(
         &self,
-        a_star: &AStar<Context<Cost>>,
+        prune_list: &PruneList<Node<Cost>>,
         start: AlignmentCoordinates,
+        cost_limit: Cost,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
-        additional_primary_targets_output.extend(
-            a_star
-                .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_primary())
-                .filter(|node| {
-                    start != node.identifier.coordinates
-                        || self.allow_direct_chaining(start, node.identifier.coordinates)
+        for (identifier, mut front) in prune_list.iter_fronts() {
+            // The front is ordered by cost, so the first node has minimum cost.
+            let Some(node) = front.next() else {
+                continue;
+            };
+            let coordinates = identifier.coordinates;
+            let cost = node.cost.cost;
+
+            if cost > cost_limit
+                || (start == coordinates && !self.allow_direct_chaining(start, coordinates))
+                || (start != coordinates
+                    && !identifier.has_non_match
+                    && !self.allow_all_matches(start, coordinates))
+            {
+                continue;
+            }
+
+            // Filter duplicates.
+            let pair_identifier = Identifier {
+                has_non_match: !identifier.has_non_match,
+                ..*identifier
+            };
+            if prune_list
+                .min_first_node_at(&pair_identifier)
+                .is_some_and(|pair| {
+                    pair.cost.cost < cost || (pair.cost.cost == cost && !identifier.has_non_match)
                 })
-                .filter(|node| {
-                    start == node.identifier.coordinates
-                        || node.identifier.has_non_match
-                        || self.allow_all_matches(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    // Filter duplicates.
-                    let mut pair_identifier = node.identifier;
-                    pair_identifier.has_non_match = !pair_identifier.has_non_match;
-                    a_star
-                        .closed_node(&pair_identifier)
-                        .map(|pair| {
-                            pair.cost > node.cost
-                                || (pair.cost == node.cost && node.identifier.has_non_match)
-                        })
-                        .unwrap_or(true)
-                })
-                .map(|node| {
-                    (
-                        node.identifier.coordinates.into_primary().unwrap(),
-                        node.cost,
-                    )
-                }),
-        );
-        additional_secondary_targets_output.extend(
-            a_star
-                .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_secondary())
-                .filter(|node| {
-                    start != node.identifier.coordinates
-                        || self.allow_direct_chaining(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    start == node.identifier.coordinates
-                        || node.identifier.has_non_match
-                        || self.allow_all_matches(start, node.identifier.coordinates)
-                })
-                .filter(|node| {
-                    // Filter duplicates.
-                    let mut pair_identifier = node.identifier;
-                    pair_identifier.has_non_match = !pair_identifier.has_non_match;
-                    a_star
-                        .closed_node(&pair_identifier)
-                        .map(|pair| {
-                            pair.cost > node.cost
-                                || (pair.cost == node.cost && node.identifier.has_non_match)
-                        })
-                        .unwrap_or(true)
-                })
-                .map(|node| {
-                    (
-                        node.identifier.coordinates.into_secondary().unwrap().into(),
-                        node.cost,
-                    )
-                }),
-        );
+            {
+                continue;
+            }
+
+            if let Some(primary) = coordinates.into_primary() {
+                additional_primary_targets_output.extend(std::iter::once((primary, cost)));
+            } else {
+                additional_secondary_targets_output.extend(std::iter::once((
+                    coordinates.into_secondary().unwrap().into(),
+                    cost,
+                )));
+            }
+        }
     }
 
     /// Align an anchor from start to end.
@@ -265,19 +317,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             u32::MAX,
             0,
         );
-        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
-
-        a_star.initialise();
-        let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => {
-                let alignment = a_star.reconstruct_path().into();
-                (cost, alignment)
-            }
-            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
-        };
-        self.a_star_buffers = Some(a_star.into_buffers());
+        let mut dijkstra = self.dijkstra(context);
+        let (cost, alignment) = Self::search_best_target(&mut dijkstra);
+        self.datastructures = Some(dijkstra.into_datastructures());
 
         (cost, alignment)
     }

@@ -1,12 +1,18 @@
 use std::fmt::Display;
 
-use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::cost::AStarCost;
+use multicriteria_dijkstra::{
+    MulticriteriaDijkstraContext,
+    node::{MulticriteriaDijkstraCost, MulticriteriaDijkstraIdentifier, MulticriteriaDijkstraNode},
+    prune_list::{IndexedNode, NodeWithIsTarget, NodeWithOptionalPredecessorAndIsTarget},
+};
 
 use crate::{
     alignment::{
         AlignmentType, GapType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
+    max_match_run_chaining::multicriteria_dijkstra::TwoCriteriaCost,
 };
 
 pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
@@ -24,16 +30,24 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Node<Cost> {
     pub identifier: Identifier,
-    pub predecessor: Option<Identifier>,
     pub predecessor_alignment_type: Option<AlignmentType>,
-    pub cost: Cost,
+    pub cost: NodeCost<Cost>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
-    gap_type: GapType,
+    pub gap_type: GapType,
     pub has_non_match: bool,
+}
+
+/// The cost of a node, consisting of the alignment cost and the length of the current run of matches.
+///
+/// A node dominates another node if it is not worse in both criteria.
+/// This is sound, because a smaller match run allows to extend the alignment with at least the same operations.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct NodeCost<Cost> {
+    pub cost: Cost,
     pub match_run: u32,
 }
 
@@ -66,36 +80,82 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             enforcement_offset,
         }
     }
-}
 
-impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
-    type Node = Node<Cost>;
-
-    fn create_root(&self) -> Self::Node {
-        Node {
-            identifier: Identifier {
-                coordinates: self.start,
-                gap_type: GapType::None,
-                has_non_match: false,
-                match_run: 0,
-            },
-            predecessor: None,
-            predecessor_alignment_type: None,
-            cost: Cost::zero(),
+    /// Returns true if nodes with the given identifier are targets.
+    pub fn is_target_identifier(&self, identifier: &Identifier) -> bool {
+        if identifier.coordinates != self.end {
+            false
+        } else if self.start == self.end {
+            self.allow_direct_chaining
+        } else {
+            identifier.has_non_match || self.allow_all_matches
         }
     }
 
-    fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+    /// Returns all identifiers that are targets.
+    pub fn target_identifiers(&self) -> impl Iterator<Item = Identifier> {
+        [GapType::None, GapType::InA, GapType::InB]
+            .into_iter()
+            .flat_map(|gap_type| {
+                [false, true].map(|has_non_match| Identifier {
+                    coordinates: self.end,
+                    gap_type,
+                    has_non_match,
+                })
+            })
+            .filter(|identifier| self.is_target_identifier(identifier))
+    }
+}
+
+impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost> {
+    type Node = Node<Cost>;
+
+    fn generate_root_nodes(&self, output: &mut impl Extend<NodeWithIsTarget<Self::Node>>) {
+        output.extend(std::iter::once(NodeWithIsTarget {
+            node: Node {
+                identifier: Identifier {
+                    coordinates: self.start,
+                    gap_type: GapType::None,
+                    has_non_match: false,
+                },
+                predecessor_alignment_type: None,
+                cost: NodeCost {
+                    cost: Cost::zero(),
+                    match_run: 0,
+                },
+            },
+            // Targets are not used for pruning, see `GapAffineAligner`.
+            is_target: false,
+        }));
+    }
+
+    fn generate_successors<Index: Copy>(
+        &self,
+        IndexedNode { node, index }: IndexedNode<Self::Node, Index>,
+        output: &mut impl Extend<NodeWithOptionalPredecessorAndIsTarget<Self::Node, Index>>,
+    ) {
         let Node {
-            identifier, cost, ..
+            identifier:
+                Identifier {
+                    coordinates,
+                    gap_type,
+                    has_non_match,
+                },
+            cost: NodeCost { cost, match_run },
+            ..
         } = node;
-        let predecessor = Some(*identifier);
-        let Identifier {
-            coordinates,
-            gap_type,
-            has_non_match,
-            match_run,
-        } = *identifier;
+        let mut emit = |identifier, alignment_type, cost, match_run| {
+            output.extend(std::iter::once(NodeWithOptionalPredecessorAndIsTarget {
+                node: Node {
+                    identifier,
+                    predecessor_alignment_type: Some(alignment_type),
+                    cost: NodeCost { cost, match_run },
+                },
+                predecessor_index: Some(index),
+                // Targets are not used for pruning, see `GapAffineAligner`.
+                is_target: false,
+            }));
+        };
 
         let enforce_max_match_run = if let Some(primary) = coordinates.into_primary() {
             let start = self.start.into_primary().unwrap();
@@ -117,135 +177,104 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 // This is because we do not want the exact chaining to find new anchors (which actually already exist).
                 if match_run < self.max_match_run || !enforce_max_match_run {
                     // Match
-                    let new_cost = *cost;
-                    output.extend(std::iter::once(Node {
-                        identifier: Identifier {
+                    emit(
+                        Identifier {
                             coordinates: coordinates.increment_both(),
                             gap_type: GapType::None,
                             has_non_match,
-                            match_run: match_run + 1,
                         },
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::Match),
-                        cost: new_cost,
-                    }));
+                        AlignmentType::Match,
+                        cost,
+                        match_run + 1,
+                    );
                 }
             } else {
                 // Substitution
-                let new_cost = *cost + self.costs.substitution;
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
+                emit(
+                    Identifier {
                         coordinates: coordinates.increment_both(),
                         gap_type: GapType::None,
                         has_non_match: true,
-                        match_run: 0,
                     },
-                    predecessor,
-                    predecessor_alignment_type: Some(AlignmentType::Substitution),
-                    cost: new_cost,
-                }));
+                    AlignmentType::Substitution,
+                    cost + self.costs.substitution,
+                    0,
+                );
             }
         }
 
         if coordinates.can_increment_a_or_ancestor(self.end, Some(self.sequences)) {
             // Gap in b
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InB => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
+            emit(
+                Identifier {
                     coordinates: coordinates.increment_a(),
                     gap_type: GapType::InB,
                     has_non_match: true,
-                    match_run: 0,
                 },
-                predecessor,
-                predecessor_alignment_type: Some(AlignmentType::GapB),
-                cost: new_cost,
-            }));
+                AlignmentType::GapB,
+                cost + match gap_type {
+                    GapType::InB => self.costs.gap_extend,
+                    _ => self.costs.gap_open,
+                },
+                0,
+            );
         }
 
         if coordinates.can_increment_b_or_descendant(self.end, Some(self.sequences)) {
             // Gap in a
-            let new_cost = *cost
-                + match gap_type {
-                    GapType::InA => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
-                };
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
+            emit(
+                Identifier {
                     coordinates: coordinates.increment_b(),
                     gap_type: GapType::InA,
                     has_non_match: true,
-                    match_run: 0,
                 },
-                predecessor,
-                predecessor_alignment_type: Some(AlignmentType::GapA),
-                cost: new_cost,
-            }));
+                AlignmentType::GapA,
+                cost + match gap_type {
+                    GapType::InA => self.costs.gap_extend,
+                    _ => self.costs.gap_open,
+                },
+                0,
+            );
         }
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        if node.identifier.coordinates != self.end {
-            false
-        } else if self.start == self.end {
-            self.allow_direct_chaining
-        } else {
-            node.identifier.has_non_match || self.allow_all_matches
-        }
-    }
-
-    fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
-        None
-    }
-
-    fn memory_limit(&self) -> Option<usize> {
-        None
-    }
-
-    fn is_label_setting(&self) -> bool {
-        !self.costs.has_zero_cost()
+        self.is_target_identifier(&node.identifier)
     }
 }
 
-impl<Cost> Reset for Context<'_, '_, '_, Cost> {
-    fn reset(&mut self) {
-        unimplemented!()
-    }
-}
-
-impl<Cost: AStarCost> AStarNode for Node<Cost> {
+impl<Cost: AStarCost> MulticriteriaDijkstraNode for Node<Cost> {
     type Identifier = Identifier;
 
-    type EdgeType = AlignmentType;
-
-    type Cost = Cost;
+    type Cost = NodeCost<Cost>;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
-    fn cost(&self) -> Self::Cost {
+    fn cost(&self) -> &Self::Cost {
+        &self.cost
+    }
+}
+
+impl MulticriteriaDijkstraIdentifier for Identifier {}
+
+impl<Cost: Ord> MulticriteriaDijkstraCost for NodeCost<Cost> {
+    fn dominates(&self, other: &Self) -> bool {
+        self.cost <= other.cost && self.match_run <= other.match_run
+    }
+}
+
+impl<Cost: Ord + Copy> TwoCriteriaCost for NodeCost<Cost> {
+    type First = Cost;
+    type Second = u32;
+
+    fn first(&self) -> Self::First {
         self.cost
     }
 
-    fn a_star_lower_bound(&self) -> Self::Cost {
-        Cost::zero()
-    }
-
-    fn secondary_maximisable_score(&self) -> usize {
-        0
-    }
-
-    fn predecessor(&self) -> Option<&Self::Identifier> {
-        self.predecessor.as_ref()
-    }
-
-    fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
-        self.predecessor_alignment_type
+    fn second(&self) -> Self::Second {
+        self.match_run
     }
 }
 
@@ -255,26 +284,18 @@ impl<Cost: Display> Display for Node<Cost> {
     }
 }
 
+impl<Cost: Display> Display for NodeCost<Cost> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.cost, self.match_run)
+    }
+}
+
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "({}, {}, {})",
-            self.coordinates, self.gap_type, self.match_run,
+            self.coordinates, self.gap_type, self.has_non_match,
         )
     }
 }
-
-impl<Cost: Ord> PartialOrd for Node<Cost> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<Cost: Ord> Ord for Node<Cost> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost.cmp(&other.cost)
-    }
-}
-
-impl AStarIdentifier for Identifier {}

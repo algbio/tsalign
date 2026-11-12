@@ -33,9 +33,19 @@ fn start_end() {
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
-    assert_eq!(
-        alignment.alignment,
-        vec![(4, AlignmentType::Match), (1, AlignmentType::GapA)]
+    // The gap can be placed before or after the last T.
+    let expected_alignments = [
+        vec![(4, AlignmentType::Match), (1, AlignmentType::GapA)],
+        vec![
+            (3, AlignmentType::Match),
+            (1, AlignmentType::GapA),
+            (1, AlignmentType::Match),
+        ],
+    ];
+    assert!(
+        expected_alignments.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(3u8));
 }
@@ -192,18 +202,24 @@ fn max_match_run_1() {
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 1, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
-    assert_eq!(
-        alignment.alignment,
-        vec![
-            (1, AlignmentType::Match),
-            (1, AlignmentType::Substitution),
-            (1, AlignmentType::Match),
-            (1, AlignmentType::GapB),
-            (1, AlignmentType::Match),
-            (2, AlignmentType::Substitution),
-            (1, AlignmentType::Match),
-            (1, AlignmentType::GapA),
-        ]
+    // The last match and gap can be swapped.
+    let prefix = [
+        (1, AlignmentType::Match),
+        (1, AlignmentType::Substitution),
+        (1, AlignmentType::Match),
+        (1, AlignmentType::GapB),
+        (1, AlignmentType::Match),
+        (2, AlignmentType::Substitution),
+    ];
+    let expected_alignments = [
+        [(1, AlignmentType::Match), (1, AlignmentType::GapA)],
+        [(1, AlignmentType::GapA), (1, AlignmentType::Match)],
+    ]
+    .map(|suffix| prefix.iter().chain(&suffix).copied().collect::<Vec<_>>());
+    assert!(
+        expected_alignments.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(12u8));
 }

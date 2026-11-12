@@ -173,6 +173,44 @@ where
         self.targets
             .is_dominated_by_other(cost.first(), cost.second(), index)
     }
+
+    /// Returns true if the given front entry is pruned by a target node other than itself.
+    fn is_entry_dominated_by_target(&self, entry: &FrontEntry<Node::Cost>) -> bool {
+        self.targets
+            .is_dominated_by_other(entry.first, entry.second, entry.index)
+    }
+
+    /// Iterate over the Pareto fronts of all identifiers.
+    ///
+    /// The nodes of each front are ordered by increasing first criterion and decreasing second criterion.
+    /// Nodes dominated by a target node other than themselves are skipped.
+    pub fn iter_fronts(
+        &self,
+    ) -> impl Iterator<Item = (&Node::Identifier, impl Iterator<Item = &Node>)> {
+        self.fronts.iter().map(|(identifier, front)| {
+            (
+                identifier,
+                front
+                    .iter()
+                    .filter(|entry| !self.is_entry_dominated_by_target(entry))
+                    .map(|entry| &self.nodes[entry.index].node),
+            )
+        })
+    }
+
+    /// Returns the node with the smallest first criterion at the given identifier.
+    ///
+    /// Nodes dominated by a target node other than themselves are skipped.
+    pub fn min_first_node_at(&self, identifier: &Node::Identifier) -> Option<&Node>
+    where
+        Node::Identifier: Hash,
+    {
+        self.fronts
+            .get(identifier)?
+            .iter()
+            .find(|entry| !self.is_entry_dominated_by_target(entry))
+            .map(|entry| &self.nodes[entry.index].node)
+    }
 }
 
 impl<Node: MulticriteriaDijkstraNode> MulticriteriaDijkstraPruneList for PruneList<Node>
