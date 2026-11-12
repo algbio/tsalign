@@ -14,7 +14,9 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
+    alignment_history::history_vec::{
+        AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
+    },
     anchors::{Anchors, index::AnchorIndex},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,

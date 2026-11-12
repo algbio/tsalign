@@ -5,7 +5,9 @@ use log::{debug, trace};
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
-    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
+    alignment_history::history_vec::{
+        AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
+    },
     chaining_lower_bounds::{
         cost_array::LowerBoundCostArray, gap_affine::max_match_run_algo::Context,
     },

@@ -7,7 +7,7 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::history_vec::UnsignedIntAlignmentHistoryVec,
+    alignment_history::history_vec::unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
     windowed_min_mutation_chaining::ts_12_jump::Ts12JumpAligner,
 };

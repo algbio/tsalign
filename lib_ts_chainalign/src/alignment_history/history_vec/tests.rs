@@ -1,4 +1,6 @@
-use crate::alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec};
+use crate::alignment_history::history_vec::{
+    AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
+};
 
 #[test]
 fn required_capacity() {

@@ -2,7 +2,9 @@ use generic_a_star::cost::AStarCost;
 
 use crate::{
     alignment::{Alignment, sequences::AlignmentSequences},
-    alignment_history::history_vec::{AlignmentHistory, UnsignedIntAlignmentHistoryVec},
+    alignment_history::history_vec::{
+        AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
+    },
     anchors::Anchors,
     chain_align::{
         chainer::Identifier,

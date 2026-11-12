@@ -6,7 +6,7 @@ use crate::alignment::coordinates::{
     AlignmentCoordinates, PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
 };
 use crate::alignment::ts_kind::TsKind;
-use crate::alignment_history::history_vec::UnsignedIntAlignmentHistoryVec;
+use crate::alignment_history::history_vec::unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec;
 use crate::panic_on_extend::PanicOnExtend;
 use crate::windowed_min_mutation_chaining::gap_affine::GapAffineAligner;
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
