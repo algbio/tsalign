@@ -3,7 +3,7 @@ use std::fmt::Display;
 use generic_a_star::cost::AStarCost;
 use multicriteria_dijkstra::{
     MulticriteriaDijkstraContext,
-    node::{MulticriteriaDijkstraCost, MulticriteriaDijkstraIdentifier, MulticriteriaDijkstraNode},
+    node::{MulticriteriaDijkstraIdentifier, MulticriteriaDijkstraNode},
     prune_list::{IndexedNode, NodeWithIsTarget, NodeWithOptionalPredecessorAndIsTarget},
 };
 
@@ -12,7 +12,7 @@ use crate::{
         AlignmentType, GapType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
-    max_match_run_chaining::multicriteria_dijkstra::TwoCriteriaCost,
+    max_match_run_chaining::alignment_search::{AlignmentContext, AlignmentNode, NodeCost},
 };
 
 pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
@@ -39,16 +39,6 @@ pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
     pub gap_type: GapType,
     pub has_non_match: bool,
-}
-
-/// The cost of a node, consisting of the alignment cost and the length of the current run of matches.
-///
-/// A node dominates another node if it is not worse in both criteria.
-/// This is sound, because a smaller match run allows to extend the alignment with at least the same operations.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct NodeCost<Cost> {
-    pub cost: Cost,
-    pub match_run: u32,
 }
 
 impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
@@ -90,20 +80,6 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         } else {
             identifier.has_non_match || self.allow_all_matches
         }
-    }
-
-    /// Returns all identifiers that are targets.
-    pub fn target_identifiers(&self) -> impl Iterator<Item = Identifier> {
-        [GapType::None, GapType::InA, GapType::InB]
-            .into_iter()
-            .flat_map(|gap_type| {
-                [false, true].map(|has_non_match| Identifier {
-                    coordinates: self.end,
-                    gap_type,
-                    has_non_match,
-                })
-            })
-            .filter(|identifier| self.is_target_identifier(identifier))
     }
 }
 
@@ -243,6 +219,29 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
     }
 }
 
+impl<Cost: AStarCost> AlignmentContext for Context<'_, '_, '_, Cost> {
+    fn target_identifiers(&self) -> impl Iterator<Item = Identifier> {
+        [GapType::None, GapType::InA, GapType::InB]
+            .into_iter()
+            .flat_map(|gap_type| {
+                [false, true].map(|has_non_match| Identifier {
+                    coordinates: self.end,
+                    gap_type,
+                    has_non_match,
+                })
+            })
+            .filter(|identifier| self.is_target_identifier(identifier))
+    }
+}
+
+impl<Cost: AStarCost> AlignmentNode for Node<Cost> {
+    type AlignmentCost = Cost;
+
+    fn predecessor_alignment_type(&self) -> Option<AlignmentType> {
+        self.predecessor_alignment_type
+    }
+}
+
 impl<Cost: AStarCost> MulticriteriaDijkstraNode for Node<Cost> {
     type Identifier = Identifier;
 
@@ -259,34 +258,9 @@ impl<Cost: AStarCost> MulticriteriaDijkstraNode for Node<Cost> {
 
 impl MulticriteriaDijkstraIdentifier for Identifier {}
 
-impl<Cost: Ord> MulticriteriaDijkstraCost for NodeCost<Cost> {
-    fn dominates(&self, other: &Self) -> bool {
-        self.cost <= other.cost && self.match_run <= other.match_run
-    }
-}
-
-impl<Cost: Ord + Copy> TwoCriteriaCost for NodeCost<Cost> {
-    type First = Cost;
-    type Second = u32;
-
-    fn first(&self) -> Self::First {
-        self.cost
-    }
-
-    fn second(&self) -> Self::Second {
-        self.match_run
-    }
-}
-
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.identifier, self.cost)
-    }
-}
-
-impl<Cost: Display> Display for NodeCost<Cost> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.cost, self.match_run)
     }
 }
 

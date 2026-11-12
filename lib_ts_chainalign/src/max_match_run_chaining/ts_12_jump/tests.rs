@@ -254,8 +254,8 @@ fn max_match_run_1() {
     let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 1, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(
-        alignment.alignment,
+    // Multiple alignments are optimal.
+    let expected_alignments = [
         vec![
             (1, AlignmentType::Match),
             (5, AlignmentType::GapA),
@@ -266,11 +266,28 @@ fn max_match_run_1() {
                 1,
                 AlignmentType::TsStart {
                     jump: -10,
-                    ts_kind: TsKind::TS12
-                }
+                    ts_kind: TsKind::TS12,
+                },
             ),
             (1, AlignmentType::Match),
-        ]
+        ],
+        vec![
+            (1, AlignmentType::Match),
+            (14, AlignmentType::GapA),
+            (
+                1,
+                AlignmentType::TsStart {
+                    jump: -8,
+                    ts_kind: TsKind::TS12,
+                },
+            ),
+            (1, AlignmentType::Match),
+        ],
+    ];
+    assert!(
+        expected_alignments.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(18u8));
 }

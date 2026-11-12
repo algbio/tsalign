@@ -189,13 +189,27 @@ fn max_match_run_0() {
     let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 0, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(
-        alignment.alignment,
+    // Multiple alignments are optimal.
+    let expected_alignments = [
+        vec![
+            (1, AlignmentType::TsEnd { jump: 6 }),
+            (2, AlignmentType::Substitution),
+            (14, AlignmentType::GapA),
+        ],
         vec![
             (1, AlignmentType::TsEnd { jump: 7 }),
             (1, AlignmentType::Substitution),
             (15, AlignmentType::GapA),
-        ]
+        ],
+        vec![
+            (1, AlignmentType::TsEnd { jump: 8 }),
+            (16, AlignmentType::GapA),
+        ],
+    ];
+    assert!(
+        expected_alignments.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(18u8));
 }

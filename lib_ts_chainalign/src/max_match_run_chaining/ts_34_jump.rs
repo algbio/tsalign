@@ -1,4 +1,4 @@
-use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
+use generic_a_star::cost::AStarCost;
 
 use crate::{
     alignment::{
@@ -11,7 +11,14 @@ use crate::{
         ts_kind::{TsDescendant, TsKind},
     },
     costs::AlignmentCosts,
-    max_match_run_chaining::ts_34_jump::algo::{Context, Node},
+    max_match_run_chaining::{
+        alignment_search::{
+            Datastructures, iter_min_cost_nodes, new_dijkstra, search_best_target,
+            search_until_cost_limit,
+        },
+        multicriteria_dijkstra::PruneList,
+        ts_34_jump::algo::{Context, Node},
+    },
 };
 
 mod algo;
@@ -19,7 +26,7 @@ mod algo;
 mod tests;
 
 pub struct Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
-    a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
+    datastructures: Option<Datastructures<Node<Cost>>>,
     sequences: &'sequences AlignmentSequences,
     alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
@@ -38,7 +45,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         enforcement_offset: u8,
     ) -> Self {
         Self {
-            a_star_buffers: Some(Default::default()),
+            datastructures: Some(Default::default()),
             sequences,
             alignment_costs,
             rc_fn,
@@ -79,28 +86,17 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut a_star = AStar::<_>::new_with_buffers(context, self.a_star_buffers.take().unwrap());
+        let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
+        let (cost, alignment) = search_best_target(&mut dijkstra);
 
-        a_star.initialise();
-        let (cost, alignment) = match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => {
-                let alignment = a_star.reconstruct_path().into();
-
-                (cost, alignment)
-            }
-            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
-        };
-
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
         Self::fill_additional_targets(
-            &a_star,
+            dijkstra.prune_list(),
+            cost,
             descendant_start,
             start.ts_kind(),
             additional_primary_targets_output,
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
+        self.datastructures = Some(dijkstra.into_datastructures());
 
         (cost, alignment)
     }
@@ -127,35 +123,35 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
-        a_star.initialise();
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
+        let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
+        search_until_cost_limit(&mut dijkstra, cost_limit);
 
         let descendant_start = start.descendant();
         let ts_kind = start.ts_kind();
         Self::fill_additional_targets(
-            &a_star,
+            dijkstra.prune_list(),
+            cost_limit,
             descendant_start,
             ts_kind,
             additional_primary_targets_output,
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
+        self.datastructures = Some(dijkstra.into_datastructures());
     }
 
     fn fill_additional_targets(
-        a_star: &AStar<Context<Cost>>,
+        prune_list: &PruneList<Node<Cost>>,
+        cost_limit: Cost,
         descendant_start: usize,
         ts_kind: TsKind,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) {
         additional_primary_targets_output.extend(
-            a_star
-                .iter_closed_nodes()
+            iter_min_cost_nodes(prune_list, cost_limit)
                 .filter_map(|node| {
                     if let AlignmentCoordinates::Primary(primary) =
                         node.identifier.coordinates(ts_kind)
                     {
-                        Some((primary, node.identifier.has_non_match(), node.cost))
+                        Some((primary, node.identifier.has_non_match(), node.cost.cost))
                     } else {
                         None
                     }

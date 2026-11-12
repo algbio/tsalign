@@ -1,8 +1,4 @@
 use generic_a_star::cost::AStarCost;
-use multicriteria_dijkstra::{
-    MulticriteriaDijkstra, MulticriteriaDijkstraDatastructures,
-    prune_list::{MulticriteriaDijkstraPruneList, NodeWithOptionalPredecessor},
-};
 
 use crate::{
     alignment::{
@@ -14,7 +10,11 @@ use crate::{
     },
     costs::GapAffineCosts,
     max_match_run_chaining::{
-        gap_affine::algo::{Context, Identifier, Node, NodeCost},
+        alignment_search::{
+            Datastructures, iter_min_cost_nodes, new_dijkstra, search_best_target,
+            search_until_cost_limit,
+        },
+        gap_affine::algo::{Context, Identifier, Node},
         multicriteria_dijkstra::PruneList,
     },
 };
@@ -23,17 +23,9 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
-type Datastructures<Cost> = MulticriteriaDijkstraDatastructures<PruneList<Node<Cost>>>;
-type Dijkstra<'context, Cost> =
-    MulticriteriaDijkstra<PruneList<Node<Cost>>, Context<'context, 'context, 'context, Cost>>;
-
-/// Aligns with a bicriteria Dijkstra, minimising the alignment cost and the length of the current match run.
-///
-/// Target nodes are not reported to the prune list, since target pruning would also prune nodes with
-/// the same alignment cost as a target, but a larger match run.
-/// Instead, nodes whose alignment cost exceeds the best target cost (or the cost limit) are not inserted.
+/// Aligns with a bicriteria Dijkstra, see [`alignment_search`](crate::max_match_run_chaining::alignment_search).
 pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
-    datastructures: Option<Datastructures<Cost>>,
+    datastructures: Option<Datastructures<Node<Cost>>>,
     sequences: &'sequences AlignmentSequences,
     cost_table: &'cost_table GapAffineCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
@@ -116,8 +108,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut dijkstra = self.dijkstra(context);
-        let (cost, alignment) = Self::search_best_target(&mut dijkstra);
+        let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
+        let (cost, alignment) = search_best_target(&mut dijkstra);
 
         self.fill_additional_targets(
             dijkstra.prune_list(),
@@ -159,12 +151,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.max_match_run,
             self.enforcement_offset,
         );
-        let mut dijkstra = self.dijkstra(context);
-        // The match run is not limited, such that only the alignment cost is limited.
-        dijkstra.search_until_cost_limit(&NodeCost {
-            cost: cost_limit,
-            match_run: u32::MAX,
-        });
+        let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
+        search_until_cost_limit(&mut dijkstra, cost_limit);
 
         self.fill_additional_targets(
             dijkstra.prune_list(),
@@ -176,70 +164,6 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         self.datastructures = Some(dijkstra.into_datastructures());
     }
 
-    /// Creates a Dijkstra with the reused datastructures of this aligner.
-    ///
-    /// The datastructures must be returned with [`MulticriteriaDijkstra::into_datastructures`].
-    fn dijkstra<'context>(
-        &mut self,
-        context: Context<'context, 'context, 'context, Cost>,
-    ) -> Dijkstra<'context, Cost> {
-        let mut dijkstra = MulticriteriaDijkstra::from_datastructures(
-            self.datastructures.take().unwrap(),
-            context,
-        );
-        dijkstra.reset(|_| {});
-        dijkstra
-    }
-
-    /// Search all nodes with an alignment cost of at most the cost of the best target.
-    ///
-    /// Returns the cost of the best target and its alignment,
-    /// or `Cost::max_value()` and an empty alignment if no target was found.
-    fn search_best_target(dijkstra: &mut Dijkstra<'_, Cost>) -> (Cost, Alignment) {
-        use multicriteria_dijkstra::MulticriteriaDijkstraContext;
-
-        // Nodes with a cost exceeding the best target cost found so far are not inserted.
-        // Some nodes exceeding the final best target cost may be inserted before the best target is found.
-        let mut best_target_cost = Cost::max_value();
-        dijkstra.search_with_prune_condition(|context, node| {
-            if context.is_target(node) {
-                best_target_cost = best_target_cost.min(node.cost.cost);
-            }
-            node.cost.cost > best_target_cost
-        });
-
-        let prune_list = dijkstra.prune_list();
-        let Some(best_target) = dijkstra
-            .context()
-            .target_identifiers()
-            .filter_map(|identifier| prune_list.min_first_node_at(&identifier))
-            .min_by_key(|node| node.cost.cost)
-        else {
-            return (Cost::max_value(), Vec::new().into());
-        };
-
-        // Backtrack the alignment.
-        let mut alignment = Vec::new();
-        let mut current = prune_list
-            .iter_nodes_with_predecessor_at_identifier(&best_target.identifier)
-            .find(|node| node.node == best_target)
-            .unwrap();
-        loop {
-            let NodeWithOptionalPredecessor {
-                node,
-                predecessor_index,
-            } = current;
-            alignment.extend(node.predecessor_alignment_type);
-            let Some(predecessor_index) = predecessor_index else {
-                break;
-            };
-            current = prune_list.get(predecessor_index).unwrap();
-        }
-        alignment.reverse();
-
-        (best_target.cost.cost, alignment.into())
-    }
-
     /// Output the minimum cost of each node that is within the cost limit.
     fn fill_additional_targets(
         &self,
@@ -249,16 +173,12 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
-        for (identifier, mut front) in prune_list.iter_fronts() {
-            // The front is ordered by cost, so the first node has minimum cost.
-            let Some(node) = front.next() else {
-                continue;
-            };
+        for node in iter_min_cost_nodes(prune_list, cost_limit) {
+            let identifier = &node.identifier;
             let coordinates = identifier.coordinates;
             let cost = node.cost.cost;
 
-            if cost > cost_limit
-                || (start == coordinates && !self.allow_direct_chaining(start, coordinates))
+            if (start == coordinates && !self.allow_direct_chaining(start, coordinates))
                 || (start != coordinates
                     && !identifier.has_non_match
                     && !self.allow_all_matches(start, coordinates))
@@ -317,8 +237,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             u32::MAX,
             0,
         );
-        let mut dijkstra = self.dijkstra(context);
-        let (cost, alignment) = Self::search_best_target(&mut dijkstra);
+        let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
+        let (cost, alignment) = search_best_target(&mut dijkstra);
         self.datastructures = Some(dijkstra.into_datastructures());
 
         (cost, alignment)

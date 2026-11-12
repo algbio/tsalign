@@ -174,6 +174,16 @@ where
             .is_dominated_by_other(cost.first(), cost.second(), index)
     }
 
+    /// Returns the number of nodes that were inserted, including nodes that were pruned later.
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// Returns true if no nodes were inserted.
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     /// Returns true if the given front entry is pruned by a target node other than itself.
     fn is_entry_dominated_by_target(&self, entry: &FrontEntry<Node::Cost>) -> bool {
         self.targets
