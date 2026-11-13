@@ -320,6 +320,9 @@ enum InputAlphabet {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, ValueEnum)]
 pub enum InexactLowerBound {
     /// Compute a lower bound assuming that in every window of size `anchor_k` there have to be at least `max_anchor_mutations + 1` mutations.
+    ///
+    /// Currently disabled in the CLI because it is broken.
+    #[value(skip)]
     WindowedMinMutations,
     /// Compute a lower bound assuming that there is no match run longer than `anchor_k - 1 - max_anchor_mutations`,
     /// except for alignments that are shorter than `anchor_k` on both sequences.
