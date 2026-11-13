@@ -257,14 +257,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let gap1 = end.a() - start.a();
         let gap2 = end.b() - start.b();
         primary[[primary_start_anchor_index, primary_end_anchor_index]] = chaining_lower_bounds
-            .primary_lower_bound(gap1, gap2)
+            .primary_lower_bound_start_to_end(gap1, gap2)
             .max(max_exact_cost_function_cost + Cost::from_usize(1))
             .min(primary[[primary_start_anchor_index, primary_end_anchor_index]]);
         for (from_index, from_anchor) in anchors.enumerate_primaries() {
             let from_index = from_index + 1;
             let (gap1, gap2) = from_anchor.chaining_gaps_from_start(start);
             primary[[primary_start_anchor_index, from_index]] = chaining_lower_bounds
-                .primary_lower_bound(gap1, gap2)
+                .primary_lower_bound_from_start(gap1, gap2)
                 .max(max_exact_cost_function_cost + Cost::from_usize(1))
                 .min(primary[[primary_start_anchor_index, from_index]]);
 
@@ -306,7 +306,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 primary[[from_index, primary_end_anchor_index]] = Cost::zero();
             } else {
                 primary[[from_index, primary_end_anchor_index]] = chaining_lower_bounds
-                    .primary_lower_bound(gap1, gap2)
+                    .primary_lower_bound_to_end(gap1, gap2)
                     .max(max_exact_cost_function_cost + Cost::from_usize(1))
                     .min(primary[[from_index, primary_end_anchor_index]]);
             }
@@ -612,7 +612,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill remaining 12-jumps from start with lower bound.
                 let gap = anchor.chaining_jump_gap_from_start(start, ts_kind);
                 jump_12[[primary_start_anchor_index, index]] = chaining_lower_bounds
-                    .jump_12_lower_bound(gap)
+                    .jump_12_lower_bound_from_start(gap)
                     .max(
                         max_exact_cost_function_cost
                             + chaining_lower_bounds
@@ -626,7 +626,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill remaining 34-jumps to end with lower bound.
                 let gap = anchor.chaining_jump_gap_to_end(end, ts_kind);
                 jump_34[[index, primary_end_anchor_index]] = chaining_lower_bounds
-                    .jump_34_lower_bound(gap)
+                    .jump_34_lower_bound_to_end(gap)
                     .max(max_exact_cost_function_cost + Cost::from_usize(1))
                     .min(jump_34[[index, primary_end_anchor_index]]);
             }
@@ -753,14 +753,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let gap1 = end.a() - start.a();
         let gap2 = end.b() - start.b();
         primary[[primary_start_anchor_index, primary_end_anchor_index]] = chaining_lower_bounds
-            .primary_lower_bound(gap1, gap2)
+            .primary_lower_bound_start_to_end(gap1, gap2)
             .max(max_exact_cost_function_cost + Cost::from_usize(1))
             .min(primary[[primary_start_anchor_index, primary_end_anchor_index]]);
         for (from_index, from_anchor) in anchors.enumerate_primaries() {
             let from_index = from_index + 1;
             let (gap1, gap2) = from_anchor.chaining_gaps_from_start(start);
             primary[[primary_start_anchor_index, from_index]] = chaining_lower_bounds
-                .primary_lower_bound(gap1, gap2)
+                .primary_lower_bound_from_start(gap1, gap2)
                 .max(max_exact_cost_function_cost + Cost::from_usize(1))
                 .min(primary[[primary_start_anchor_index, from_index]]);
 
@@ -798,7 +798,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             // Fill remaining primary with lower bound.
             let (gap1, gap2) = from_anchor.chaining_gaps_to_end(end);
             primary[[from_index, primary_end_anchor_index]] = chaining_lower_bounds
-                .primary_lower_bound(gap1, gap2)
+                .primary_lower_bound_to_end(gap1, gap2)
                 .max(max_exact_cost_function_cost + Cost::from_usize(1))
                 .min(primary[[from_index, primary_end_anchor_index]]);
 
@@ -1103,7 +1103,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill remaining 12-jumps from start with lower bound.
                 let gap = anchor.chaining_jump_gap_from_start(start, ts_kind);
                 jump_12[[primary_start_anchor_index, index]] = chaining_lower_bounds
-                    .jump_12_lower_bound(gap)
+                    .jump_12_lower_bound_from_start(gap)
                     .max(
                         max_exact_cost_function_cost
                             + chaining_lower_bounds
@@ -1117,7 +1117,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 // Fill remaining 34-jumps to end with lower bound.
                 let gap = anchor.chaining_jump_gap_to_end(end, ts_kind);
                 jump_34[[index, primary_end_anchor_index]] = chaining_lower_bounds
-                    .jump_34_lower_bound(gap)
+                    .jump_34_lower_bound_to_end(gap)
                     .max(max_exact_cost_function_cost + Cost::from_usize(1))
                     .min(jump_34[[index, primary_end_anchor_index]]);
             }

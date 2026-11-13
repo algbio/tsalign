@@ -13,6 +13,8 @@ use crate::{
 
 mod cost_array;
 pub mod gap_affine;
+#[cfg(test)]
+mod tests;
 pub mod ts_jump;
 
 pub struct ChainingLowerBounds<Cost> {
@@ -148,6 +150,112 @@ impl<Cost: Copy> ChainingLowerBounds<Cost> {
 
     pub fn jump_34_lower_bound(&self, descendant_gap: usize) -> Cost {
         self.jump.lower_bound_34(descendant_gap)
+    }
+}
+
+/// Lower bounds for gaps that start at the start of the alignment or end at the end of the alignment.
+///
+/// For exact anchors, the lower bound tables assume that a gap starts and ends with a non-match,
+/// because a match right next to an anchor implies that the anchor shifted by one also exists,
+/// such that the chain can use the shifted anchor instead.
+/// The start and the end of the alignment are no anchors, so this assumption does not hold for gaps that touch them.
+/// Moreover, the aligner that computes the exact costs of gaps during chaining does not enforce non-matches next to anchors either,
+/// so the bounds for gaps that touch the start or end make no assumption about either end of the gap.
+///
+/// Since runs of matches are limited to `k - 1`, such a gap consists of at most `k - 1` matches at its start,
+/// at most `k - 1` matches at its end, and a remainder that starts and ends with a non-match, which is bounded by the tables.
+///
+/// For inexact anchors, the lower bound tables make no assumptions about the start and end of a gap,
+/// so these methods return the same values as the methods for gaps between anchors.
+impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
+    /// The maximum number of matches at the start or end of a gap that touches the start or end of the alignment,
+    /// or `None` if the lower bound tables do not need to be adjusted for these.
+    fn max_boundary_match_run(&self) -> Option<usize> {
+        (self.config.max_anchor_mutations == 0)
+            .then(|| usize::try_from(self.config.anchor_k - 1).unwrap())
+    }
+
+    /// A lower bound for a primary gap that may start and end with up to `max_match_run` matches.
+    ///
+    /// Gaps that consist of matches only are not covered, and need to be handled by the caller.
+    fn primary_lower_bound_with_boundary_matches(
+        &self,
+        gap1: usize,
+        gap2: usize,
+        max_match_run: usize,
+    ) -> Cost {
+        let mut result = Cost::max_value();
+        for start_matches in 0..=gap1.min(gap2).min(max_match_run) {
+            let remaining1 = gap1 - start_matches;
+            let remaining2 = gap2 - start_matches;
+            for end_matches in 0..=remaining1.min(remaining2).min(max_match_run) {
+                if remaining1 == end_matches && remaining2 == end_matches {
+                    // The gap consists of matches only.
+                    continue;
+                }
+                result = result.min(
+                    self.primary
+                        .lower_bound(remaining1 - end_matches, remaining2 - end_matches),
+                );
+            }
+        }
+        result
+    }
+
+    /// A lower bound for a primary gap from the start of the alignment to an anchor.
+    pub fn primary_lower_bound_from_start(&self, gap1: usize, gap2: usize) -> Cost {
+        let Some(max_match_run) = self.max_boundary_match_run() else {
+            return self.primary_lower_bound(gap1, gap2);
+        };
+        if gap1 == 0 && gap2 == 0 {
+            // Direct chaining from the start.
+            return Cost::zero();
+        }
+
+        self.primary_lower_bound_with_boundary_matches(gap1, gap2, max_match_run)
+    }
+
+    /// A lower bound for a primary gap from an anchor to the end of the alignment.
+    pub fn primary_lower_bound_to_end(&self, gap1: usize, gap2: usize) -> Cost {
+        // Gaps to the end are subject to the same conditions as gaps from the start.
+        self.primary_lower_bound_from_start(gap1, gap2)
+    }
+
+    /// A lower bound for a primary gap from the start to the end of the alignment.
+    pub fn primary_lower_bound_start_to_end(&self, gap1: usize, gap2: usize) -> Cost {
+        let Some(max_match_run) = self.max_boundary_match_run() else {
+            return self.primary_lower_bound(gap1, gap2);
+        };
+        if gap1 == gap2 && gap1 <= max_match_run {
+            // The alignment may consist of matches only.
+            return Cost::zero();
+        }
+
+        self.primary_lower_bound_with_boundary_matches(gap1, gap2, max_match_run)
+    }
+
+    /// A lower bound for a 12-jump from the start of the alignment to a secondary anchor.
+    pub fn jump_12_lower_bound_from_start(&self, descendant_gap: usize) -> Cost {
+        let Some(max_match_run) = self.max_boundary_match_run() else {
+            return self.jump_12_lower_bound(descendant_gap);
+        };
+
+        (0..=descendant_gap.min(max_match_run))
+            .map(|matches| self.jump.lower_bound_12(descendant_gap - matches))
+            .min()
+            .unwrap()
+    }
+
+    /// A lower bound for a 34-jump from a secondary anchor to the end of the alignment.
+    pub fn jump_34_lower_bound_to_end(&self, descendant_gap: usize) -> Cost {
+        let Some(max_match_run) = self.max_boundary_match_run() else {
+            return self.jump_34_lower_bound(descendant_gap);
+        };
+
+        (0..=descendant_gap.min(max_match_run))
+            .map(|matches| self.jump.lower_bound_34(descendant_gap - matches))
+            .min()
+            .unwrap()
     }
 }
 
