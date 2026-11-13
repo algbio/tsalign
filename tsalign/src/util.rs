@@ -51,6 +51,50 @@ pub fn infer_tschain_k(
     Ok(k)
 }
 
+/// Write a cache file such that concurrent readers never observe a partially written file.
+///
+/// The content is first written to a temporary file in the same directory, which is then renamed to `cache_file`.
+/// Since renaming within a directory is atomic, readers see either no file or a complete file.
+/// If multiple processes write the same cache file concurrently, the last rename wins, which is fine since they write identical content.
+///
+/// The temporary file has a random name and is created exclusively,
+/// so concurrent writers never share a temporary file, even on a shared file system accessed from multiple hosts.
+/// It is deleted if writing fails.
+pub fn write_cache_file_atomically(
+    cache_file: impl AsRef<Path>,
+    write: impl FnOnce(&mut std::io::BufWriter<&std::fs::File>) -> std::io::Result<()>,
+) -> Result<()> {
+    use std::io::Write;
+
+    let cache_file = cache_file.as_ref();
+    let file_name = cache_file
+        .file_name()
+        .with_context(|| format!("Cache file {cache_file:?} has no file name"))?
+        .to_string_lossy();
+    let directory = match cache_file.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+
+    // Keep the .tsc extension, such that temporary files are covered by the same ignore rules.
+    let temporary_file = tempfile::Builder::new()
+        .prefix(&format!(".{file_name}."))
+        .suffix(".tmp.tsc")
+        .tempfile_in(directory)
+        .with_context(|| format!("Creating temporary cache file in {directory:?}"))?;
+
+    let mut writer = std::io::BufWriter::new(temporary_file.as_file());
+    write(&mut writer)
+        .and_then(|()| writer.flush())
+        .with_context(|| format!("Writing temporary cache file {:?}", temporary_file.path()))?;
+    drop(writer);
+
+    temporary_file
+        .persist(cache_file)
+        .with_context(|| format!("Renaming temporary cache file to {cache_file:?}"))?;
+    Ok(())
+}
+
 pub fn tschain_preprocess_cache_file(
     alignment_costs: &AlignmentCosts<U32Cost>,
     cache_directory: impl AsRef<Path>,

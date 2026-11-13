@@ -15,7 +15,10 @@ use std::{fmt::Debug, fs::File, path::PathBuf};
 
 use crate::{
     align::{Cli, InexactLowerBound},
-    util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
+    util::{
+        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        write_cache_file_atomically,
+    },
 };
 
 pub fn align_a_star_chain_ts<
@@ -78,8 +81,7 @@ pub fn align_a_star_chain_ts<
         );
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
-        let mut file = File::create(&cache_file).unwrap();
-        chaining_lower_bounds.write(&mut file).unwrap();
+        write_cache_file_atomically(&cache_file, |file| chaining_lower_bounds.write(file)).unwrap();
         chaining_lower_bounds
     };
 

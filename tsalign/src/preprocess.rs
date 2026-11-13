@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    fs::{File, create_dir_all},
-    path::PathBuf,
-};
+use std::{collections::BTreeSet, fs::create_dir_all, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
@@ -26,7 +22,10 @@ use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 use crate::{
     align::InexactLowerBound,
-    util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
+    util::{
+        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        write_cache_file_atomically,
+    },
 };
 
 #[derive(Parser)]
@@ -144,9 +143,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                 cli.inexact_chaining_lower_bound.into(),
                 current_max_n,
             )?;
-            let mut file = File::create(&cache_file)
-                .with_context(|| format!("Creating cache file {cache_file:?}"))?;
-            lower_bounds.write(&mut file)?;
+            write_cache_file_atomically(&cache_file, |file| lower_bounds.write(file))?;
 
             current_max_n /= 2;
         }
@@ -191,9 +188,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
                     cli.inexact_chaining_lower_bound.into(),
                     current_max_n,
                 )?;
-                let mut file = File::create(&cache_file)
-                    .with_context(|| format!("Creating cache file {cache_file:?}"))?;
-                lower_bounds.write(&mut file)?;
+                write_cache_file_atomically(&cache_file, |file| lower_bounds.write(file))?;
             }
 
             current_max_n = next_max_n;
