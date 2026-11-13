@@ -99,8 +99,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
-        debug_assert_eq!(config.max_anchor_mutations, 0);
-
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
