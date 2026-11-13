@@ -25,6 +25,6 @@ binary-heap-plus.workspace = true
 clap.workspace = true
 integer-composition = "0.1.0"
 extend_map.workspace = true
-inexact-alignment-anchors = "2.0.0"
+inexact-alignment-anchors = "2.0.1"
 tagged-vec.workspace = true
 multicriteria-dijkstra = "0.1.3"

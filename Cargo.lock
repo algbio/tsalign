@@ -683,9 +683,9 @@ dependencies = [
 
 [[package]]
 name = "inexact-alignment-anchors"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36ba4831bc667a362fe0c55567a509cd3145c6c4cb64d2bdde253cfe0f5c0c66"
+checksum = "5fe076e652d0703187872648db47f94399a0f2b5918ac8fab7f5806ef1c1470f"
 dependencies = [
  "generic_a_star",
  "num-traits",
