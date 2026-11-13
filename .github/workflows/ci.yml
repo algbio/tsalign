@@ -97,7 +97,29 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: cargo test
-        run: cargo test --all-features
+        run: cargo test --all-features --workspace --exclude tsalign-tests
+
+  rust_e2e_test:
+    name: Rust end-to-end test
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # The tests build tsalign themselves with the e2e profile. Building it here first separates build and test time.
+      - name: cargo build (e2e profile)
+        run: cargo build --profile e2e -p tsalign --bin tsalign
+
+      - name: cargo test
+        run: cargo test --all-features -p tsalign-tests --no-fail-fast
 
   rust_doc:
     name: Rust doc

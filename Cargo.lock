@@ -1684,6 +1684,10 @@ version = "7.0.2"
 dependencies = [
  "anyhow",
  "clap",
+ "compact-genome",
+ "generic_a_star",
+ "lib_tsalign",
+ "toml",
  "tsalign",
 ]
 

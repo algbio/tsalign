@@ -41,3 +41,9 @@ split-debuginfo = "unpacked" # Keeps symbols out of the main object file
 
 [profile.release]
 debug = 1
+
+# Used by the end-to-end tests in tsalign-tests: release speed, but with assertions.
+[profile.e2e]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true
