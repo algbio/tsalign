@@ -730,18 +730,25 @@ impl<
                     TemplateSwitchDescendant::Reference => 0..self.query.len(),
                     TemplateSwitchDescendant::Query => 0..self.reference.len(),
                 };
-                let entrance_descendant_index = match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => entrance_reference_index,
-                    TemplateSwitchDescendant::Query => entrance_query_index,
-                };
+                let (entrance_descendant_index, entrance_anti_descendant_index) =
+                    match template_switch_descendant {
+                        TemplateSwitchDescendant::Reference => {
+                            (entrance_reference_index, entrance_query_index)
+                        }
+                        TemplateSwitchDescendant::Query => {
+                            (entrance_query_index, entrance_reference_index)
+                        }
+                    };
 
                 let descendant_inner_length = descendant_index - entrance_descendant_index;
                 let length_difference =
                     anti_descendant_gap - isize::try_from(descendant_inner_length).unwrap();
+                // The index in the anti-descendant at which the primary alignment continues after the template switch.
+                let anti_descendant_index =
+                    isize::try_from(entrance_anti_descendant_index).unwrap() + anti_descendant_gap;
 
                 if length_difference >= 0
-                    && descendant_index as isize + length_difference
-                        < anti_descendant_range.end as isize
+                    && anti_descendant_index < anti_descendant_range.end as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -764,8 +771,7 @@ impl<
                 }
 
                 if length_difference <= 0
-                    && descendant_index as isize + length_difference
-                        > anti_descendant_range.start as isize
+                    && anti_descendant_index > anti_descendant_range.start as isize
                 {
                     let new_cost = config
                         .length_difference_costs
