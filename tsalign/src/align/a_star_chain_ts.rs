@@ -63,7 +63,7 @@ pub fn align_a_star_chain_ts<
     } else {
         assert!(
             !cli.force_no_preprocessing,
-            "Forcing no preprocessing, but no cache file found."
+            "Forcing no preprocessing, but no cache file found at {cache_file:?}."
         );
 
         info!("Preprocessing...");
