@@ -1,3 +1,4 @@
+use generic_a_star::cost::AStarCost;
 use num_traits::real::Real;
 
 use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
@@ -249,4 +250,222 @@ fn template_switch_exit_off_diagonal() {
         b"GCTAAAGACAGGATTACATAACATACACGTCAAAGTTTCGTG",
     );
     assert_eq!((cost, template_switches), (6.0, 1.0));
+}
+
+/// Costs for testing the offset costs of forward template switches (issue #166).
+///
+/// Only forward template switches of the kinds selected by `qqf_cost` and `qrf_cost` are possible,
+/// all other base costs are infinite.
+/// The offset cost functions are given as two lines each (breakpoints and values).
+/// The inner of a template switch has a length of at least 10 and costs zero if it matches exactly,
+/// the anti-descendant must not advance during a forward template switch (at no cost),
+/// and length differences up to 100 cost zero.
+/// The edit costs are those of [`TS_END_TEST_COSTS`], i.e. a primary gap of length `l` costs `3 + (l - 1)`.
+fn forward_ts_offset_test_costs(
+    qqf_cost: &str,
+    qrf_cost: &str,
+    rq_qr_offset_costs: &str,
+    rr_qq_offset_costs: &str,
+) -> String {
+    let (_, edit_costs) = TS_END_TEST_COSTS
+        .split_once("# Primary Edit Costs")
+        .unwrap();
+
+    format!(
+        r#"# Limits
+
+left_flank_length = 0
+right_flank_length = 0
+
+# Base Cost
+
+rrf_cost = inf
+rqf_cost = inf
+qrf_cost = {qrf_cost}
+qqf_cost = {qqf_cost}
+rrr_cost = inf
+rqr_cost = inf
+qrr_cost = inf
+qqr_cost = inf
+
+# Jump Costs
+
+RQQROffset
+{rq_qr_offset_costs}
+
+RRQQOffset
+{rr_qq_offset_costs}
+
+Length
+   0 10 200
+ inf  0 inf
+
+LengthDifference
+ -inf -100 101
+  inf    0 inf
+
+ForwardAntiDescendantGap
+ -inf   1
+    0 inf
+
+ReverseAntiDescendantGap
+ -inf
+    0
+
+# Primary Edit Costs{edit_costs}"#
+    )
+}
+
+/// Offset costs that are zero for offset zero, seven for offsets in `-20..0` and `1..21`, and infinite otherwise.
+const FINITE_FORWARD_OFFSET_COSTS: &str = " -inf -20 0 1 21\n  inf   7 0 7 inf";
+/// Offset costs that are zero for offset zero and infinite otherwise.
+/// Since a forward template switch never has offset zero, this forbids forward template switches.
+const ZERO_ONLY_FORWARD_OFFSET_COSTS: &str = " -inf 0 1\n  inf 0 inf";
+/// Offset costs that are infinite everywhere.
+const INFINITE_OFFSET_COSTS: &str = " -inf\n  inf";
+
+/// Align with the given costs and return the cost, the number of template switches,
+/// and the cost of the computed alignment recomputed independently of the A* search with
+/// [`Alignment::compute_cost`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost).
+fn align_forward_ts_offset_test(costs: &str, reference: &[u8], query: &[u8]) -> (f64, f64, f64) {
+    let mut aligner = Aligner::<DnaAlphabet>::default();
+    aligner.set_costs_parse(costs).unwrap();
+    let result = aligner.align(
+        "reference",
+        reference,
+        "query",
+        query,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        TSMUncertaintyRangeExtensionMode::None,
+    );
+    println!("{result}");
+
+    let AlignmentResult::WithTarget {
+        alignment,
+        statistics,
+    } = &result
+    else {
+        panic!("No alignment found");
+    };
+    let config = TemplateSwitchConfig::<DnaAlphabet, U64Cost>::from_str(costs).unwrap();
+    let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(reference).unwrap();
+    let query = VectorGenome::<DnaAlphabet>::from_slice_u8(query).unwrap();
+    let recomputed_cost = alignment.compute_cost(
+        reference.as_genome_subsequence(),
+        query.as_genome_subsequence(),
+        0,
+        0,
+        &config,
+        false,
+    );
+
+    (
+        statistics.cost.raw(),
+        statistics.template_switch_amount.raw(),
+        recomputed_cost.as_primitive() as f64,
+    )
+}
+
+/// The query contains a tandem duplication of a 10 character segment `Y` of the reference.
+const TANDEM_DUPLICATION_REFERENCE: &[u8] = b"GCTAAAGACAATTACATAAC GTCAGCACGA AACTTGCATGGTCA";
+const TANDEM_DUPLICATION_QUERY: &[u8] =
+    b"GCTAAAGACAATTACATAAC GTCAGCACGA GTCAGCACGA AACTTGCATGGTCA";
+
+/// The query contains 12 additional `A`s inside a run of 12 `A`s of the reference.
+const HOMOPOLYMER_INSERTION_REFERENCE: &[u8] = b"GCTAAAGACAATTACATAAC AAAAAAAAAAAA AACTTGCATGGTCA";
+const HOMOPOLYMER_INSERTION_QUERY: &[u8] =
+    b"GCTAAAGACAATTACATAAC AAAAAAAAAAAA AAAAAAAAAAAA AACTTGCATGGTCA";
+
+fn without_spaces(sequence: &[u8]) -> Vec<u8> {
+    sequence.iter().copied().filter(|c| *c != b' ').collect()
+}
+
+/// Issue #166: the initial entrance of a forward template switch has offset -1 or 1,
+/// but its cost used to be computed for offset 0.
+///
+/// The query contains a tandem duplication of 10 characters, and only forward QQ template switches are allowed,
+/// with base cost 2 and offset cost 7 for offsets in `-20..0` (zero only for offset zero, which a forward template switch never has).
+/// Any alignment without template switch needs at least 10 insertions, costing at least `3 + 9 = 12`.
+/// Any template switch costs at least `2 + 7 = 9`, and the QQ template switch with offset -10 that copies
+/// the duplicated segment costs exactly 9, since its inner matches exactly and all other costs are zero.
+/// Hence the optimal cost is 9.
+/// With the bug, the offset cost was charged as `cost(0) + cost(-10) - cost(-1) = 0`, giving cost 2.
+#[test]
+fn issue_166_forward_qq_template_switch_pays_offset_costs() {
+    let costs = forward_ts_offset_test_costs(
+        "2",
+        "inf",
+        INFINITE_OFFSET_COSTS,
+        FINITE_FORWARD_OFFSET_COSTS,
+    );
+    let result = align_forward_ts_offset_test(
+        &costs,
+        &without_spaces(TANDEM_DUPLICATION_REFERENCE),
+        &without_spaces(TANDEM_DUPLICATION_QUERY),
+    );
+    assert_eq!(result, (9.0, 1.0, 9.0));
+}
+
+/// Same as [`issue_166_forward_qq_template_switch_pays_offset_costs`], but only forward QR template switches are allowed,
+/// such that the RQ/QR offset costs are used.
+/// The QR template switch with offset -10 copies the segment from the reference and costs exactly 9.
+#[test]
+fn issue_166_forward_qr_template_switch_pays_offset_costs() {
+    let costs = forward_ts_offset_test_costs(
+        "inf",
+        "2",
+        FINITE_FORWARD_OFFSET_COSTS,
+        INFINITE_OFFSET_COSTS,
+    );
+    let result = align_forward_ts_offset_test(
+        &costs,
+        &without_spaces(TANDEM_DUPLICATION_REFERENCE),
+        &without_spaces(TANDEM_DUPLICATION_QUERY),
+    );
+    assert_eq!(result, (9.0, 1.0, 9.0));
+}
+
+/// Issue #166: if the offset costs are finite only for offset zero, then forward template switches are impossible.
+///
+/// Only forward QQ template switches with base cost 1 are enabled, but their offset costs are infinite for all offsets except zero,
+/// which a forward template switch never has. Hence the optimal alignment has no template switch,
+/// and since the query contains 12 additional `A`s, its optimal cost is a single gap of length 12, costing `3 + 11 = 14`.
+/// With the bug, the initial entrances at offsets -1 and 1 were charged the finite cost of offset zero,
+/// such that a QQ template switch with offset -1 copying the `A`-run for cost 1 was found.
+#[test]
+fn issue_166_forward_qq_template_switch_with_infinite_offset_costs() {
+    let costs = forward_ts_offset_test_costs(
+        "1",
+        "inf",
+        INFINITE_OFFSET_COSTS,
+        ZERO_ONLY_FORWARD_OFFSET_COSTS,
+    );
+    let result = align_forward_ts_offset_test(
+        &costs,
+        &without_spaces(HOMOPOLYMER_INSERTION_REFERENCE),
+        &without_spaces(HOMOPOLYMER_INSERTION_QUERY),
+    );
+    assert_eq!(result, (14.0, 0.0, 14.0));
+}
+
+/// Same as [`issue_166_forward_qq_template_switch_with_infinite_offset_costs`], but only forward QR template switches are enabled,
+/// such that the RQ/QR offset costs are used.
+#[test]
+fn issue_166_forward_qr_template_switch_with_infinite_offset_costs() {
+    let costs = forward_ts_offset_test_costs(
+        "inf",
+        "1",
+        ZERO_ONLY_FORWARD_OFFSET_COSTS,
+        INFINITE_OFFSET_COSTS,
+    );
+    let result = align_forward_ts_offset_test(
+        &costs,
+        &without_spaces(HOMOPOLYMER_INSERTION_REFERENCE),
+        &without_spaces(HOMOPOLYMER_INSERTION_QUERY),
+    );
+    assert_eq!(result, (14.0, 0.0, 14.0));
 }
