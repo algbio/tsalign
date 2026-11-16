@@ -290,6 +290,22 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         error.display(anchors)
                                     )
                                 });
+                            if propagate_same_end() {
+                                for other in anchors.primary_same_end(index) {
+                                    if !chaining_cost_function.is_primary_to_end_exact(other) {
+                                        chaining_cost_function
+                                            .update_primary_to_end(other, cost, true);
+                                    }
+                                    chaining_cost_function
+                                        .update_additional_primary_targets(
+                                            other,
+                                            &mut self.additional_primary_targets_buffer,
+                                            anchors,
+                                            &mut self.total_redundant_gap_fillings,
+                                        )
+                                        .unwrap_or_else(|e| panic!("{}", e.display(anchors)));
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -350,6 +366,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 anchors,
                                 &mut self.total_redundant_gap_fillings,
                             );
+                            if propagate_same_end() {
+                                for other in anchors.secondary_same_end(index, ts_kind) {
+                                    if !chaining_cost_function
+                                        .is_jump_34_to_end_exact(other, ts_kind)
+                                    {
+                                        chaining_cost_function
+                                            .update_jump_34_to_end(other, ts_kind, cost, true);
+                                    }
+                                    chaining_cost_function.update_additional_34_jump_targets(
+                                        other,
+                                        &mut self.additional_primary_targets_buffer,
+                                        ts_kind,
+                                        anchors,
+                                        &mut self.total_redundant_gap_fillings,
+                                    );
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -441,6 +474,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         error.display(anchors)
                                     )
                                 });
+                            if propagate_same_end() {
+                                for other in anchors.primary_same_end(from_index) {
+                                    if !chaining_cost_function.is_primary_exact(other, to_index) {
+                                        chaining_cost_function
+                                            .update_primary(other, to_index, cost, true)
+                                            .unwrap_or_else(|e| panic!("{}", e.display(anchors)));
+                                    }
+                                    chaining_cost_function
+                                        .update_additional_primary_targets(
+                                            other,
+                                            &mut self.additional_primary_targets_buffer,
+                                            anchors,
+                                            &mut self.total_redundant_gap_fillings,
+                                        )
+                                        .unwrap_or_else(|e| panic!("{}", e.display(anchors)));
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -511,6 +561,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 anchors,
                                 &mut self.total_redundant_gap_fillings,
                             );
+                            if propagate_same_end() {
+                                for other in anchors.primary_same_end(from_index) {
+                                    if !chaining_cost_function
+                                        .is_jump_12_exact(other, to_index, ts_kind)
+                                    {
+                                        chaining_cost_function
+                                            .update_jump_12(other, to_index, ts_kind, cost, true);
+                                    }
+                                    chaining_cost_function.update_additional_12_jump_targets(
+                                        other,
+                                        &mut self.additional_secondary_targets_buffer,
+                                        ts_kind,
+                                        anchors,
+                                        &mut self.total_redundant_gap_fillings,
+                                    );
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -606,6 +673,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 anchors,
                                 &mut self.total_redundant_gap_fillings,
                             );
+                            if propagate_same_end() {
+                                for other in anchors.secondary_same_end(from_index, ts_kind) {
+                                    if !chaining_cost_function
+                                        .is_secondary_exact(other, to_index, ts_kind)
+                                    {
+                                        chaining_cost_function
+                                            .update_secondary(other, to_index, ts_kind, cost, true);
+                                    }
+                                    chaining_cost_function.update_additional_secondary_targets(
+                                        other,
+                                        &mut self.additional_secondary_targets_buffer,
+                                        ts_kind,
+                                        anchors,
+                                        &mut self.total_redundant_gap_fillings,
+                                    );
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound
@@ -684,6 +768,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 anchors,
                                 &mut self.total_redundant_gap_fillings,
                             );
+                            if propagate_same_end() {
+                                for other in anchors.secondary_same_end(from_index, ts_kind) {
+                                    if !chaining_cost_function
+                                        .is_jump_34_exact(other, to_index, ts_kind)
+                                    {
+                                        chaining_cost_function
+                                            .update_jump_34(other, to_index, ts_kind, cost, true);
+                                    }
+                                    chaining_cost_function.update_additional_34_jump_targets(
+                                        other,
+                                        &mut self.additional_primary_targets_buffer,
+                                        ts_kind,
+                                        anchors,
+                                        &mut self.total_redundant_gap_fillings,
+                                    );
+                                }
+                            }
                         }
                     }
                     current_upper_bound = current_upper_bound.saturating_add(
@@ -732,4 +833,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     fn gap_fill_alignments_per_chain(&self) -> &[u32] {
         &self.gap_fill_alignments_per_chain
     }
+}
+
+/// PROTOTYPE: propagate exact gap costs to all anchors with the same end coordinates.
+fn propagate_same_end() -> bool {
+    std::env::var("TSALIGN_SAME_END_PROPAGATION").as_deref() == Ok("1")
 }

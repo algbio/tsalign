@@ -24,6 +24,7 @@ use crate::{
     costs::AlignmentCosts,
 };
 
+pub mod domination;
 pub mod exact_kmer_matches;
 pub mod index;
 pub mod inexact_kmer_matches;
@@ -183,7 +184,7 @@ impl<Cost> Anchors<Cost> {
         let s2_rc = s2_rc.as_slice();
 
         // Compute anchors.
-        let mut primary: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+        let primary: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
             s1,
             s2,
             sequences.range1(),
@@ -193,8 +194,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
         )
         .unwrap()
-        .map(PrimaryAnchor::from)
-        .collect();
+        .collect::<Vec<_>>();
+        let mut primary: Vec<_> =
+            domination::process("P", false, primary, s1, s2, &costs.primary_costs)
+                .into_iter()
+                .map(PrimaryAnchor::from)
+                .collect();
         let secondary_11: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
             s1_rc,
             s1,
@@ -205,8 +210,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
         )
         .unwrap()
-        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
-        .collect();
+        .collect::<Vec<_>>();
+        let secondary_11: Vec<_> =
+            domination::process("S11", true, secondary_11, s1_rc, s1, &costs.secondary_costs)
+                .into_iter()
+                .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
+                .collect();
         let secondary_12: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
             s1_rc,
             s2,
@@ -217,8 +226,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
         )
         .unwrap()
-        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
-        .collect();
+        .collect::<Vec<_>>();
+        let secondary_12: Vec<_> =
+            domination::process("S12", true, secondary_12, s1_rc, s2, &costs.secondary_costs)
+                .into_iter()
+                .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
+                .collect();
         let secondary_21: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
             s2_rc,
             s1,
@@ -229,8 +242,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
         )
         .unwrap()
-        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
-        .collect();
+        .collect::<Vec<_>>();
+        let secondary_21: Vec<_> =
+            domination::process("S21", true, secondary_21, s2_rc, s1, &costs.secondary_costs)
+                .into_iter()
+                .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
+                .collect();
         let secondary_22: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
             s2_rc,
             s2,
@@ -241,8 +258,12 @@ impl<Cost> Anchors<Cost> {
             max_mutations,
         )
         .unwrap()
-        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
-        .collect();
+        .collect::<Vec<_>>();
+        let secondary_22: Vec<_> =
+            domination::process("S22", true, secondary_22, s2_rc, s2, &costs.secondary_costs)
+                .into_iter()
+                .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
+                .collect();
 
         let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
 
@@ -265,10 +286,37 @@ impl<Cost> Anchors<Cost> {
             duration.as_secs_f64() * 1e3,
         );
 
+        // PROTOTYPE: only compute anchor statistics.
+        if std::env::var("TSALIGN_ANCHOR_STATS_ONLY").as_deref() == Ok("1") {
+            std::process::exit(0);
+        }
+
         Self {
             primary,
             secondaries,
         }
+    }
+
+    /// PROTOTYPE: all other primary anchors with the same end as the given one.
+    pub fn primary_same_end(&self, index: AnchorIndex) -> Vec<AnchorIndex> {
+        let end = self.primary[index.as_usize()].end();
+        self.primary
+            .iter()
+            .enumerate()
+            .filter(|(i, a)| *i != index.as_usize() && a.end() == end)
+            .map(|(i, _)| i.into())
+            .collect()
+    }
+
+    /// PROTOTYPE: all other secondary anchors of the given kind with the same end as the given one.
+    pub fn secondary_same_end(&self, index: AnchorIndex, ts_kind: TsKind) -> Vec<AnchorIndex> {
+        let v = self.secondary_anchor_vec(ts_kind);
+        let end = v[index.as_usize()].end();
+        v.iter()
+            .enumerate()
+            .filter(|(i, a)| *i != index.as_usize() && a.end() == end)
+            .map(|(i, _)| i.into())
+            .collect()
     }
 
     pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {

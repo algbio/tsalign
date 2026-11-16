@@ -272,6 +272,15 @@ fn actually_align<
             false,
         );
         let cost_increased = evaluated_cost > current_lower_bound;
+        // PROTOTYPE: per-iteration statistics.
+        debug!(
+            "CHAIN_ITER {} lower_bound={} evaluated={} opened={} chain_len={}",
+            chaining_execution_count,
+            current_lower_bound,
+            evaluated_cost,
+            astar.performance_counters().opened_nodes,
+            chain.len()
+        );
         current_upper_bound = evaluated_cost;
 
         let evaluation_end_time = Instant::now();
