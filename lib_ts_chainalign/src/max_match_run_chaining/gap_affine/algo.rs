@@ -25,6 +25,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     allow_all_matches: bool,
     max_match_run: u32,
     enforcement_offset: u8,
+    enforce_non_match_next_to_anchors: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -46,6 +47,12 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
     ///
     /// * `allow_direct_chaining`: allow reaching the target with zero alignment operations.
     /// * `allow_all_matches`: allow reaching the target before any non-match was used. This still obeys the `max_match_run` parameter.
+    /// * `enforce_non_match_next_to_anchors`: require that the alignment starts with a non-match if it starts at an anchor,
+    ///   and that it ends with a non-match if it ends at an anchor.
+    ///   The start and end of the alignment are no anchors.
+    ///   This is used for exact anchors, where the lower bounds assume it.
+    ///   It does not exclude any alignment from the chaining,
+    ///   because a match right next to an exact anchor implies that the anchor shifted by one also exists.
     #[expect(clippy::too_many_arguments)]
     pub fn new(
         costs: &'costs GapAffineCosts<Cost>,
@@ -57,6 +64,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         allow_all_matches: bool,
         max_match_run: u32,
         enforcement_offset: u8,
+        enforce_non_match_next_to_anchors: bool,
     ) -> Self {
         Self {
             costs,
@@ -68,7 +76,26 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             allow_all_matches,
             max_match_run,
             enforcement_offset,
+            enforce_non_match_next_to_anchors,
         }
+    }
+
+    /// Returns true if the alignment must start with a non-match.
+    fn requires_start_non_match(&self) -> bool {
+        self.enforce_non_match_next_to_anchors
+            && self.start != self.sequences.primary_start().into()
+    }
+
+    /// Returns true if an alignment ending in the given node fulfils the condition on its last alignment operation.
+    ///
+    /// If non-matches are enforced next to anchors, then an alignment that ends at an anchor must end with a non-match.
+    /// Empty alignments and alignments ending at the end of the alignment are exempt.
+    pub fn fulfils_end_condition(&self, node: &Node<Cost>) -> bool {
+        let coordinates = node.identifier.coordinates;
+        !self.enforce_non_match_next_to_anchors
+            || coordinates == self.start
+            || coordinates == self.sequences.primary_end().into()
+            || node.cost.match_run == 0
     }
 
     /// Returns true if nodes with the given identifier are targets.
@@ -151,7 +178,10 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
             if is_match {
                 // Disallow runs of matches longer than the maximum.
                 // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                if match_run < self.max_match_run || !enforce_max_match_run {
+                // Also disallow starting with a match if a non-match is required at the start.
+                if (match_run < self.max_match_run || !enforce_max_match_run)
+                    && !(coordinates == self.start && self.requires_start_non_match())
+                {
                     // Match
                     emit(
                         Identifier {
@@ -215,7 +245,7 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        self.is_target_identifier(&node.identifier)
+        self.is_target_identifier(&node.identifier) && self.fulfils_end_condition(node)
     }
 }
 

@@ -158,12 +158,14 @@ impl<Cost: Copy> ChainingLowerBounds<Cost> {
 /// For exact anchors, the lower bound tables assume that a gap starts and ends with a non-match,
 /// because a match right next to an anchor implies that the anchor shifted by one also exists,
 /// such that the chain can use the shifted anchor instead.
-/// The start and the end of the alignment are no anchors, so this assumption does not hold for gaps that touch them.
-/// Moreover, the aligner that computes the exact costs of gaps during chaining does not enforce non-matches next to anchors either,
-/// so the bounds for gaps that touch the start or end make no assumption about either end of the gap.
+/// The aligners enforce this for exact anchors.
+/// The start and the end of the alignment are no anchors, so a gap may start with matches if it starts at the start,
+/// and it may end with matches if it ends at the end.
 ///
-/// Since runs of matches are limited to `k - 1`, such a gap consists of at most `k - 1` matches at its start,
-/// at most `k - 1` matches at its end, and a remainder that starts and ends with a non-match, which is bounded by the tables.
+/// Since runs of matches are limited to `k - 1`, a gap from the start to an anchor consists of at most `k - 1` matches
+/// and a remainder that starts and ends with a non-match, which is bounded by the tables.
+/// The same holds for gaps from an anchor to the end with the matches at the end,
+/// and for gaps from the start to the end with matches at both ends.
 ///
 /// For inexact anchors, the lower bound tables make no assumptions about the start and end of a gap,
 /// so these methods return the same values as the methods for gaps between anchors.
@@ -176,6 +178,8 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     }
 
     /// A lower bound for a primary gap that may start and end with up to `max_match_run` matches.
+    ///
+    /// This is used for gaps from the start to the end of the alignment.
     ///
     /// Gaps that consist of matches only are not covered, and need to be handled by the caller.
     fn primary_lower_bound_with_boundary_matches(
@@ -203,6 +207,8 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     }
 
     /// A lower bound for a primary gap from the start of the alignment to an anchor.
+    ///
+    /// The gap may start with up to `k - 1` matches, but ends with a non-match, unless it is empty.
     pub fn primary_lower_bound_from_start(&self, gap1: usize, gap2: usize) -> Cost {
         let Some(max_match_run) = self.max_boundary_match_run() else {
             return self.primary_lower_bound(gap1, gap2);
@@ -212,12 +218,22 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             return Cost::zero();
         }
 
-        self.primary_lower_bound_with_boundary_matches(gap1, gap2, max_match_run)
+        // If the gap consists of matches only, then the remainder is empty, which the table does not allow.
+        (0..=gap1.min(gap2).min(max_match_run))
+            .map(|start_matches| {
+                self.primary
+                    .lower_bound(gap1 - start_matches, gap2 - start_matches)
+            })
+            .min()
+            .unwrap()
     }
 
     /// A lower bound for a primary gap from an anchor to the end of the alignment.
+    ///
+    /// The gap starts with a non-match, unless it is empty, but may end with up to `k - 1` matches.
     pub fn primary_lower_bound_to_end(&self, gap1: usize, gap2: usize) -> Cost {
-        // Gaps to the end are subject to the same conditions as gaps from the start.
+        // The tables are symmetric with respect to reversing the gap,
+        // so this is the same as a gap from the start with the matches at its start.
         self.primary_lower_bound_from_start(gap1, gap2)
     }
 

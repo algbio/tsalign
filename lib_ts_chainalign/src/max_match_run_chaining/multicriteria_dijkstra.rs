@@ -221,6 +221,23 @@ where
             .find(|entry| !self.is_entry_dominated_by_target(entry))
             .map(|entry| &self.nodes[entry.index].node)
     }
+
+    /// Returns the node with the smallest first criterion among the nodes at the given identifier that match the filter.
+    pub fn min_first_node_at_matching(
+        &self,
+        identifier: &Node::Identifier,
+        mut filter: impl FnMut(&Node) -> bool,
+    ) -> Option<&Node>
+    where
+        Node::Identifier: Hash,
+    {
+        self.fronts
+            .get(identifier)?
+            .iter()
+            .filter(|entry| !self.is_entry_dominated_by_target(entry))
+            .map(|entry| &self.nodes[entry.index].node)
+            .find(|node| filter(node))
+    }
 }
 
 impl<Node: MulticriteriaDijkstraNode> MulticriteriaDijkstraPruneList for PruneList<Node>

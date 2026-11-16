@@ -13,7 +13,7 @@ use crate::{
     costs::AlignmentCosts,
     max_match_run_chaining::{
         alignment_search::{
-            Datastructures, iter_min_cost_nodes, new_dijkstra, search_best_target,
+            Datastructures, iter_min_cost_nodes_matching, new_dijkstra, search_best_target,
             search_until_cost_limit,
         },
         multicriteria_dijkstra::PruneList,
@@ -32,6 +32,7 @@ pub struct Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     max_match_run: u32,
     enforcement_offset: u8,
+    enforce_non_match_next_to_anchors: bool,
 }
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
@@ -51,6 +52,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             rc_fn,
             max_match_run,
             enforcement_offset,
+            enforce_non_match_next_to_anchors: enforcement_offset == 0,
         }
     }
 
@@ -84,12 +86,14 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             enforce_non_match,
             self.max_match_run,
             self.enforcement_offset,
+            self.enforce_non_match_next_to_anchors(),
         );
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         let (cost, alignment) = search_best_target(&mut dijkstra);
 
         Self::fill_additional_targets(
             dijkstra.prune_list(),
+            self.enforce_non_match_next_to_anchors(),
             cost,
             descendant_start,
             end.ts_kind(),
@@ -120,6 +124,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             true,
             self.max_match_run,
             self.enforcement_offset,
+            self.enforce_non_match_next_to_anchors(),
         );
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         search_until_cost_limit(&mut dijkstra, cost_limit);
@@ -130,6 +135,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         };
         Self::fill_additional_targets(
             dijkstra.prune_list(),
+            self.enforce_non_match_next_to_anchors(),
             cost_limit,
             descendant_start,
             end.ts_kind(),
@@ -141,28 +147,48 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         inserted_node_amount
     }
 
+    /// Do not enforce non-matches next to anchors.
+    ///
+    /// By default, non-matches are enforced next to anchors for exact anchors (`enforcement_offset == 0`),
+    /// where the lower bounds assume it.
+    /// This allows to use the aligner for alignments between arbitrary coordinates.
+    pub fn without_enforced_non_match_next_to_anchors(mut self) -> Self {
+        self.enforce_non_match_next_to_anchors = false;
+        self
+    }
+
+    /// Returns true if non-matches are enforced next to anchors.
+    fn enforce_non_match_next_to_anchors(&self) -> bool {
+        self.enforce_non_match_next_to_anchors
+    }
+
     fn fill_additional_targets(
         prune_list: &PruneList<Node<Cost>>,
+        enforce_non_match_next_to_anchors: bool,
         cost_limit: Cost,
         descendant_start: usize,
         ts_kind: TsKind,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
         additional_secondary_targets_output.extend(
-            iter_min_cost_nodes(prune_list, cost_limit)
-                .filter_map(|node| {
-                    if let AlignmentCoordinates::Secondary(secondary) =
-                        node.identifier.coordinates(ts_kind)
-                    {
-                        Some((secondary, node.identifier.has_non_match(), node.cost.cost))
-                    } else {
-                        None
-                    }
-                })
-                .filter(|(coordinates, has_non_match, _)| {
-                    *has_non_match != (descendant_start == coordinates.descendant())
-                })
-                .map(|(coordinates, _, cost)| (coordinates.into(), cost)),
+            // Additional targets are secondary anchors, so their secondary part needs to end with a non-match,
+            // like the target in `Context::fulfils_end_condition`.
+            iter_min_cost_nodes_matching(prune_list, cost_limit, |node| {
+                !enforce_non_match_next_to_anchors || node.cost.match_run == 0
+            })
+            .filter_map(|node| {
+                if let AlignmentCoordinates::Secondary(secondary) =
+                    node.identifier.coordinates(ts_kind)
+                {
+                    Some((secondary, node.identifier.has_non_match(), node.cost.cost))
+                } else {
+                    None
+                }
+            })
+            .filter(|(coordinates, has_non_match, _)| {
+                *has_non_match != (descendant_start == coordinates.descendant())
+            })
+            .map(|(coordinates, _, cost)| (coordinates.into(), cost)),
         );
     }
 }

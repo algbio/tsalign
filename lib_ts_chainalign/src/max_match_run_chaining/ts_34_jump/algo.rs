@@ -34,6 +34,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     enforce_non_match: bool,
     max_match_run: u32,
     enforcement_offset: u8,
+    enforce_non_match_next_to_anchors: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -76,6 +77,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         enforce_non_match: bool,
         max_match_run: u32,
         enforcement_offset: u8,
+        enforce_non_match_next_to_anchors: bool,
     ) -> Self {
         Self {
             costs,
@@ -86,7 +88,20 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             enforce_non_match,
             max_match_run,
             enforcement_offset,
+            enforce_non_match_next_to_anchors,
         }
+    }
+
+    /// Returns true if an alignment ending in the given node fulfils the condition on its last alignment operation.
+    ///
+    /// If non-matches are enforced next to anchors, then a primary part that ends at a primary anchor must end with a non-match,
+    /// unless it is empty.
+    /// The end of the alignment is no anchor.
+    /// The jump itself does not count as match, so jump nodes have a match run of zero.
+    pub fn fulfils_end_condition(&self, node: &Node<Cost>) -> bool {
+        !self.enforce_non_match_next_to_anchors
+            || node.identifier.coordinates(self.ts_kind()) == self.sequences.primary_end().into()
+            || node.cost.match_run == 0
     }
 
     /// Returns true if nodes with the given identifier are targets.
@@ -166,11 +181,15 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        if match_run < self.max_match_run
+                        // If non-matches are enforced next to anchors, the secondary part must start with a non-match,
+                        // since it starts at a secondary anchor.
+                        if (match_run < self.max_match_run
                             || (self.start.ancestor() - coordinates.ancestor()
                                 < self.enforcement_offset.into()
                                 && coordinates.descendant() - self.start.descendant()
-                                    < self.enforcement_offset.into())
+                                    < self.enforcement_offset.into()))
+                            && !(coordinates == self.start
+                                && self.enforce_non_match_next_to_anchors)
                         {
                             // Match
                             let new_cost = *cost;
@@ -403,7 +422,7 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        self.is_target_identifier(&node.identifier)
+        self.is_target_identifier(&node.identifier) && self.fulfils_end_condition(node)
     }
 }
 

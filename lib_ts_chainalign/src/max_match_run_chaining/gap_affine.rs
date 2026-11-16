@@ -11,11 +11,10 @@ use crate::{
     costs::GapAffineCosts,
     max_match_run_chaining::{
         alignment_search::{
-            Datastructures, iter_min_cost_nodes, new_dijkstra, search_best_target,
-            search_until_cost_limit,
+            Datastructures, Dijkstra, iter_min_cost_nodes_matching, new_dijkstra,
+            search_best_target, search_until_cost_limit,
         },
         gap_affine::algo::{Context, Identifier, Node},
-        multicriteria_dijkstra::PruneList,
     },
 };
 
@@ -31,6 +30,7 @@ pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     max_match_run: u32,
     enforcement_offset: u8,
+    enforce_non_match_next_to_anchors: bool,
 }
 
 impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
@@ -50,7 +50,23 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             rc_fn,
             max_match_run,
             enforcement_offset,
+            enforce_non_match_next_to_anchors: enforcement_offset == 0,
         }
+    }
+
+    /// Do not enforce non-matches next to anchors.
+    ///
+    /// By default, non-matches are enforced next to anchors for exact anchors (`enforcement_offset == 0`),
+    /// where the lower bounds assume it.
+    /// This allows to use the aligner for alignments between arbitrary coordinates.
+    pub fn without_enforced_non_match_next_to_anchors(mut self) -> Self {
+        self.enforce_non_match_next_to_anchors = false;
+        self
+    }
+
+    /// Returns true if non-matches are enforced next to anchors.
+    fn enforce_non_match_next_to_anchors(&self) -> bool {
+        self.enforce_non_match_next_to_anchors
     }
 
     /// Evaluate if `allow_direct_chaining` should be set in the alignment context.
@@ -107,12 +123,13 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.allow_all_matches(start, end),
             self.max_match_run,
             self.enforcement_offset,
+            self.enforce_non_match_next_to_anchors(),
         );
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         let (cost, alignment) = search_best_target(&mut dijkstra);
 
         self.fill_additional_targets(
-            dijkstra.prune_list(),
+            &dijkstra,
             start,
             cost,
             additional_primary_targets_output,
@@ -150,12 +167,13 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             true,
             self.max_match_run,
             self.enforcement_offset,
+            self.enforce_non_match_next_to_anchors(),
         );
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         search_until_cost_limit(&mut dijkstra, cost_limit);
 
         self.fill_additional_targets(
-            dijkstra.prune_list(),
+            &dijkstra,
             start,
             cost_limit,
             additional_primary_targets_output,
@@ -167,13 +185,17 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// Output the minimum cost of each node that is within the cost limit.
     fn fill_additional_targets(
         &self,
-        prune_list: &PruneList<Node<Cost>>,
+        dijkstra: &Dijkstra<Context<'_, '_, '_, Cost>>,
         start: AlignmentCoordinates,
         cost_limit: Cost,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) {
-        for node in iter_min_cost_nodes(prune_list, cost_limit) {
+        let prune_list = dijkstra.prune_list();
+        let context = dijkstra.context();
+        for node in iter_min_cost_nodes_matching(prune_list, cost_limit, |node| {
+            context.fulfils_end_condition(node)
+        }) {
             let identifier = &node.identifier;
             let coordinates = identifier.coordinates;
             let cost = node.cost.cost;
@@ -192,7 +214,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 ..*identifier
             };
             if prune_list
-                .min_first_node_at(&pair_identifier)
+                .min_first_node_at_matching(&pair_identifier, |node| {
+                    context.fulfils_end_condition(node)
+                })
                 .is_some_and(|pair| {
                     pair.cost.cost < cost || (pair.cost.cost == cost && !identifier.has_non_match)
                 })
@@ -236,6 +260,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             true,
             u32::MAX,
             0,
+            false,
         );
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         let (cost, alignment) = search_best_target(&mut dijkstra);

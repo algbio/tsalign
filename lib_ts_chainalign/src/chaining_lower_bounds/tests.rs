@@ -237,3 +237,38 @@ fn start_and_end_lower_bounds_are_at_most_the_inner_bounds() {
         }
     }
 }
+
+/// For exact anchors, a gap from the start to an anchor may start with matches, but must end with a non-match,
+/// since the aligners enforce non-matches next to anchors.
+/// A gap from the start to the end may also end with matches.
+///
+/// With k = 4 and a 5x5 gap, a gap from the start can have at most 3 leading matches,
+/// and the remaining 2x2 gap must start and end with a non-match (two substitutions, cost 4).
+/// A gap from the start to the end can be 3 matches, a substitution and a match (cost 2).
+#[test]
+fn start_and_end_lower_bounds_enforce_non_match_at_anchor() {
+    let lower_bounds = exact_lower_bounds(4);
+
+    assert_eq!(
+        lower_bounds.primary_lower_bound_from_start(5, 5),
+        U32Cost::from(4u32)
+    );
+    assert_eq!(
+        lower_bounds.primary_lower_bound_to_end(5, 5),
+        U32Cost::from(4u32)
+    );
+    assert_eq!(
+        lower_bounds.primary_lower_bound_start_to_end(5, 5),
+        U32Cost::from(2u32)
+    );
+
+    // Empty gaps allow direct chaining, and short gaps from the start to the end may consist of matches only.
+    assert_eq!(
+        lower_bounds.primary_lower_bound_from_start(0, 0),
+        U32Cost::from(0u32)
+    );
+    assert_eq!(
+        lower_bounds.primary_lower_bound_start_to_end(3, 3),
+        U32Cost::from(0u32)
+    );
+}

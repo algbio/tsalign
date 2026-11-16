@@ -1,4 +1,5 @@
 use generic_a_star::cost::U32Cost;
+use num_traits::bounds::UpperBounded;
 
 use crate::{
     alignment::{
@@ -49,7 +50,8 @@ fn start_end() {
 
     let start = PrimaryAlignmentCoordinates::new(0, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 5, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -99,7 +101,8 @@ fn partial_alignment() {
 
     let start = PrimaryAlignmentCoordinates::new(1, 1);
     let end = SpecificSecondaryAlignmentCoordinates::new(1, 4, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -148,7 +151,8 @@ fn gap_directions() {
 
     let start = PrimaryAlignmentCoordinates::new(9, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 18, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -204,7 +208,8 @@ fn max_match_run_0() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 0, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 0, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -251,7 +256,8 @@ fn max_match_run_1() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 1, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 1, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     // Multiple alignments are optimal.
@@ -320,7 +326,8 @@ fn max_match_run_2() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -376,7 +383,8 @@ fn only_jump() {
 
     let start = PrimaryAlignmentCoordinates::new(5, 6);
     let end = SpecificSecondaryAlignmentCoordinates::new(3, 6, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -420,7 +428,8 @@ fn only_jump_start() {
 
     let start = PrimaryAlignmentCoordinates::new(0, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 0, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -464,7 +473,8 @@ fn only_jump_end() {
 
     let start = PrimaryAlignmentCoordinates::new(10, 10);
     let end = SpecificSecondaryAlignmentCoordinates::new(10, 10, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0)
+        .without_enforced_non_match_next_to_anchors();
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -478,4 +488,96 @@ fn only_jump_end() {
         ),]
     );
     assert_eq!(cost, U32Cost::from(2u8));
+}
+
+/// With exact anchors, the parts of the alignment that touch an anchor must be non-matches next to the anchor.
+/// The jump itself counts as non-match, and the start and end of the alignment are no anchors.
+#[test]
+fn enforce_non_match_next_to_anchors() {
+    let cost_table = AlignmentCosts {
+        primary_costs: GapAffineCosts::new(
+            U32Cost::from(2u8),
+            U32Cost::from(3u8),
+            U32Cost::from(1u8),
+        ),
+        secondary_costs: GapAffineCosts::new(
+            U32Cost::from(4u8),
+            U32Cost::from(6u8),
+            U32Cost::from(2u8),
+        ),
+        ts_base_cost: U32Cost::from(2u8).into(),
+        ts_limits: TsLimits {
+            inter_jump_12: -100..100,
+            intra_jump_12: -100..100,
+            jump_34: -100..100,
+            length_23: 0..100,
+            ancestor_gap: -100..100,
+        },
+    };
+    let is_non_match_or_jump = |alignment_type: &AlignmentType| {
+        matches!(
+            alignment_type,
+            AlignmentType::Substitution
+                | AlignmentType::GapA
+                | AlignmentType::GapB
+                | AlignmentType::TsStart { .. }
+        )
+    };
+
+    for (seq1, seq2) in [
+        (b"ACCGTA".to_vec(), b"TACGGT".to_vec()),
+        (b"AAAAAA".to_vec(), b"TTTTT".to_vec()),
+        (b"ACGTAC".to_vec(), b"GTACGT".to_vec()),
+    ] {
+        let sequences = AlignmentSequences::new_complete(seq1.clone(), seq2.clone());
+        let primary_start = sequences.primary_start();
+
+        for primary_a in 0..=seq1.len() {
+            for primary_b in 0..=seq2.len() {
+                for ancestor in 0..=seq1.len() {
+                    for descendant in 0..=seq2.len() {
+                        let primary = PrimaryAlignmentCoordinates::new(primary_a, primary_b);
+                        let secondary = SpecificSecondaryAlignmentCoordinates::new(
+                            ancestor,
+                            descendant,
+                            TsKind::TS12,
+                        );
+                        if descendant < primary_b {
+                            continue;
+                        }
+                        let (start, end) = (primary, secondary);
+                        let start_is_anchor = start != primary_start;
+                        let end_is_anchor = true;
+
+                        let mut enforced =
+                            Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
+                        let mut unenforced =
+                            Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0)
+                                .without_enforced_non_match_next_to_anchors();
+                        let (cost, alignment) = enforced.align(start, end, &mut Vec::new());
+                        let (unenforced_cost, _) = unenforced.align(start, end, &mut Vec::new());
+                        let context = format!(
+                            "{} vs {} from {start} to {end}: {alignment:?}",
+                            String::from_utf8_lossy(&seq1),
+                            String::from_utf8_lossy(&seq2)
+                        );
+
+                        assert!(cost >= unenforced_cost, "{context}");
+                        if cost == U32Cost::max_value() {
+                            continue;
+                        }
+
+                        let first = alignment.alignment.first().unwrap().1;
+                        let last = alignment.alignment.last().unwrap().1;
+                        if start_is_anchor {
+                            assert!(is_non_match_or_jump(&first), "{context}");
+                        }
+                        if end_is_anchor {
+                            assert!(is_non_match_or_jump(&last), "{context}");
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

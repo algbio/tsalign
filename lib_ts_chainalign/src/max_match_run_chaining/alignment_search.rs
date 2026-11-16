@@ -112,10 +112,12 @@ pub fn search_best_target<Context: AlignmentContext>(
     });
 
     let prune_list = dijkstra.prune_list();
-    let Some(best_target) = dijkstra
-        .context()
+    let context = dijkstra.context();
+    let Some(best_target) = context
         .target_identifiers()
-        .filter_map(|identifier| prune_list.min_first_node_at(&identifier))
+        .filter_map(|identifier| {
+            prune_list.min_first_node_at_matching(&identifier, |node| context.is_target(node))
+        })
         .min_by_key(|node| node.alignment_cost())
     else {
         return (AlignmentCostOf::<Context>::max_value(), Vec::new().into());
@@ -143,16 +145,17 @@ pub fn search_best_target<Context: AlignmentContext>(
     (best_target.alignment_cost(), alignment.into())
 }
 
-/// Iterate over the node with minimum alignment cost of each identifier,
+/// Iterate over the node with minimum alignment cost among the nodes that match the filter of each identifier,
 /// if that cost is at most the cost limit.
-pub fn iter_min_cost_nodes<Node: AlignmentNode>(
+pub fn iter_min_cost_nodes_matching<Node: AlignmentNode>(
     prune_list: &PruneList<Node>,
     cost_limit: Node::AlignmentCost,
+    filter: impl Fn(&Node) -> bool,
 ) -> impl Iterator<Item = &Node> {
     prune_list
         .iter_fronts()
-        // The front is ordered by alignment cost, so the first node has minimum cost.
-        .filter_map(|(_, mut front)| front.next())
+        // The front is ordered by alignment cost, so the first matching node has minimum cost.
+        .filter_map(move |(_, mut front)| front.find(|node| filter(node)))
         .filter(move |node| node.alignment_cost() <= cost_limit)
 }
 
