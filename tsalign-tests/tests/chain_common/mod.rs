@@ -7,12 +7,29 @@
 //! * the process succeeds and reports an alignment;
 //! * recomputing the cost of the reported alignment with lib_tsalign gives the reported cost,
 //!   and the alignment consumes both sequences completely;
-//! * the cost lies between the classic A* aligner's optimum with template switches and its optimum without them;
-//! * an alignment without template switches has exactly the cost of the classic optimum without template switches,
-//!   regardless of `k` and the maximum number of anchor mutations;
-//! * the cost does not increase when the anchors become less restrictive in a way that keeps every template switch supported
-//!   (see [`anchors_dominate`]);
-//! * swapping reference and query does not change the cost.
+//! * the reported cost is at most the reported chain cost, and equal to it for exact anchors;
+//! * the cost is at least the classic A* aligner's optimum with template switches;
+//! * for exact anchors, the cost is at most the classic optimum without template switches,
+//!   and an alignment without template switches has exactly the cost of the classic optimum without template switches,
+//!   regardless of `k`;
+//!   for inexact anchors, an alignment without template switches costs at least the classic optimum without them;
+//! * for exact anchors, the cost does not increase when the anchors become less restrictive in a way that keeps
+//!   every template switch supported (see [`anchors_dominate`]);
+//! * swapping reference and query does not change the chain cost.
+//!
+//! tschainalign finds alignments that are optimal with regard to the anchors, not globally optimal alignments.
+//! For inexact anchors (`max_anchor_mutations >= 1`), the chain cost is the sum of the costs of the gaps and anchors,
+//! which are aligned independently, while the reported cost is the cost of the final alignment as a whole,
+//! which may be lower (adjacent gaps are merged, and anchors are re-aligned without the limit on the mutations),
+//! see [issue #221](https://github.com/algbio/tsalign/issues/221).
+//! The chaining minimises the chain cost, so the reported cost is not optimal among the alignments that
+//! the anchors support, and depends on how ties between chains of equal chain cost are broken.
+//! Moreover, the chain cost of an alignment may be larger than its cost, so a chain that represents the optimal
+//! alignment without template switches may be more expensive than another chain.
+//! Hence, for inexact anchors, the following checks are not applied:
+//! the upper bound by the optimum without template switches, the exact cost of alignments without template switches
+//! and their independence of `k` and `max_anchor_mutations`, monotonicity, and the symmetry of the reported cost
+//! (the chain cost is still checked for symmetry).
 //!
 //! tschainalign checks the length of template switches only based on the anchors,
 //! so the jump aligners may make a template switch shorter or longer than the config allows.
@@ -223,7 +240,7 @@ pub fn check_case(case: &Case) -> Result<(), String> {
         None
     };
 
-    let mut costs: Vec<(Params, u32, u32)> = Vec::new();
+    let mut costs: Vec<(Params, u32, Option<u32>, u32)> = Vec::new();
     for &(k, max_anchor_mutations) in &case.grid {
         let params = format!("k = {k}, max_anchor_mutations = {max_anchor_mutations}");
         let result = match run_chain(reference, query, k, max_anchor_mutations) {
@@ -240,14 +257,36 @@ pub fn check_case(case: &Case) -> Result<(), String> {
                 .map(|violation| format!("{params}: {violation}")),
         );
 
+        let is_exact = max_anchor_mutations == 0;
+        match result.chain_cost {
+            None => violations.push(format!("{params}: no chain cost reported")),
+            // The cost of the alignment as a whole is at most the sum of the costs of its parts (issue #221).
+            Some(chain_cost) if result.cost > chain_cost => violations.push(format!(
+                "{params}: cost {} is larger than the chain cost {chain_cost}",
+                result.cost
+            )),
+            // Exact anchors consist of matches only, so the alignment costs exactly as much as its parts.
+            Some(chain_cost) if is_exact && result.cost != chain_cost => {
+                violations.push(format!(
+                    "{params}: cost {} differs from the chain cost {chain_cost}, although the anchors are exact",
+                    result.cost
+                ))
+            }
+            Some(_) => {}
+        }
+
         if let Some(no_ts_cost) = no_ts_cost {
-            if result.cost > no_ts_cost {
+            // For inexact anchors, the chain cost of an alignment may be larger than its cost (issue #221),
+            // so the chaining may prefer a more expensive alignment over the optimal alignment without template switches.
+            if is_exact && result.cost > no_ts_cost {
                 violations.push(format!(
                     "{params}: cost {} is larger than the cost {no_ts_cost} of the optimal alignment without template switches",
                     result.cost
                 ));
             }
-            if result.template_switch_amount == 0 && result.cost != no_ts_cost {
+            if result.template_switch_amount == 0
+                && (result.cost < no_ts_cost || (is_exact && result.cost > no_ts_cost))
+            {
                 violations.push(format!(
                     "{params}: alignment without template switches has cost {}, but the optimal alignment without template switches has cost {no_ts_cost}",
                     result.cost
@@ -269,14 +308,25 @@ pub fn check_case(case: &Case) -> Result<(), String> {
         costs.push((
             (k, max_anchor_mutations),
             result.cost,
+            result.chain_cost,
             result.template_switch_amount,
         ));
     }
 
-    // Alignments without template switches do not depend on k or max_anchor_mutations.
+    // The following checks reason about the optimality of the reported alignment among the alignments supported by the anchors.
+    // For inexact anchors, the chaining does not optimise the reported cost, but the chain cost, which may be larger
+    // than the cost of the reported alignment, and the chain cost of the same alignment may differ between different
+    // k and max_anchor_mutations (issue #221). So these checks are only applied to exact anchors.
+    let exact_costs: Vec<_> = costs
+        .iter()
+        .filter(|&&((_, m), ..)| m == 0)
+        .map(|&(params, cost, _, ts)| (params, cost, ts))
+        .collect();
+
+    // Alignments without template switches do not depend on k.
     // (This also follows from comparing against the classic aligner, but holds even if the classic aligner fails.)
-    for &((k1, m1), cost1, ts1) in &costs {
-        for &((k2, m2), cost2, ts2) in &costs {
+    for &((k1, m1), cost1, ts1) in &exact_costs {
+        for &((k2, m2), cost2, ts2) in &exact_costs {
             if (k1, m1) < (k2, m2) && ts1 == 0 && ts2 == 0 && cost1 != cost2 {
                 violations.push(format!(
                     "alignments without template switches have different costs: {cost1} for k = {k1}, max_anchor_mutations = {m1} \
@@ -288,8 +338,8 @@ pub fn check_case(case: &Case) -> Result<(), String> {
 
     // Monotonicity: if every template switch supported by the anchors of (k1, m1) is also supported by the anchors of (k2, m2),
     // then the cost for (k2, m2) is at most the cost for (k1, m1).
-    for &((k1, m1), cost1, _) in &costs {
-        for &((k2, m2), cost2, _) in &costs {
+    for &((k1, m1), cost1, _) in &exact_costs {
+        for &((k2, m2), cost2, _) in &exact_costs {
             if (k1, m1) != (k2, m2) && anchors_dominate((k2, m2), (k1, m1)) && cost2 > cost1 {
                 violations.push(format!(
                     "cost {cost2} for k = {k2}, max_anchor_mutations = {m2} is larger than cost {cost1} for k = {k1}, max_anchor_mutations = {m1}, \
@@ -299,10 +349,13 @@ pub fn check_case(case: &Case) -> Result<(), String> {
         }
     }
 
-    // Symmetry: swapping reference and query does not change the cost.
+    // Symmetry: swapping reference and query does not change the chain cost.
+    // For inexact anchors, chains of equal chain cost may represent alignments of different costs (issue #221),
+    // so the reported cost may depend on the order of the sequences.
+    // For exact anchors, the reported cost equals the chain cost, which is checked above.
     if case.check_symmetry {
         let mut seen_mutations = Vec::new();
-        for &((k, max_anchor_mutations), cost, _) in &costs {
+        for &((k, max_anchor_mutations), _, chain_cost, _) in &costs {
             if seen_mutations.contains(&max_anchor_mutations) {
                 continue;
             }
@@ -310,10 +363,11 @@ pub fn check_case(case: &Case) -> Result<(), String> {
 
             match run_chain(query, reference, k, max_anchor_mutations) {
                 RunOutcome::Success(result) => {
-                    if result.cost != cost {
+                    if result.chain_cost != chain_cost {
                         violations.push(format!(
-                            "k = {k}, max_anchor_mutations = {max_anchor_mutations}: cost {} with swapped reference and query differs from cost {cost}",
-                            result.cost
+                            "k = {k}, max_anchor_mutations = {max_anchor_mutations}: chain cost {} with swapped reference and query differs from chain cost {}",
+                            display_optional(result.chain_cost),
+                            display_optional(chain_cost),
                         ));
                     }
                 }
@@ -329,6 +383,10 @@ pub fn check_case(case: &Case) -> Result<(), String> {
     } else {
         Err(failure_report(case, &violations))
     }
+}
+
+fn display_optional(value: Option<u32>) -> String {
+    value.map_or_else(|| "<missing>".to_string(), |value| value.to_string())
 }
 
 /// The minimum length of the inner alignment of a template switch in [`CONFIG`].
@@ -349,6 +407,10 @@ const MIN_TS_LENGTH: u32 = 10;
 ///
 /// In general, a smaller k may increase the cost if anchors are inexact:
 /// e.g. an inner alignment of length 10 with one mismatch in the middle is supported by k = 10, m = 1, but not by k = 6, m = 1.
+///
+/// Note that supporting a template switch does not imply that the chaining finds the alignment for inexact anchors,
+/// since the chain cost of an alignment may be larger than its cost, see [issue #221](https://github.com/algbio/tsalign/issues/221).
+/// Hence, the monotonicity check in [`check_case`] uses this only for exact anchors.
 fn anchors_dominate(stronger: Params, weaker: Params) -> bool {
     let ((k_strong, m_strong), (k_weak, m_weak)) = (stronger, weaker);
     if k_strong > k_weak || m_strong < m_weak {
@@ -468,6 +530,9 @@ fn tsa_config() -> &'static TemplateSwitchConfig<DnaAlphabet, U32Cost> {
 #[derive(Debug, Clone)]
 pub struct ChainResult {
     pub cost: u32,
+    /// The cost of the chain that the alignment was built from (tschainalign only).
+    /// It may be larger than `cost` for inexact anchors, see [issue #221](https://github.com/algbio/tsalign/issues/221).
+    pub chain_cost: Option<u32>,
     pub template_switch_amount: u32,
     pub alignment: Alignment<AlignmentType>,
 }
@@ -607,6 +672,16 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
     if !cost.is_finite() || cost < 0.0 || cost.fract() != 0.0 {
         return Err(format!("invalid cost {cost}"));
     }
+    let chain_cost = match value.get("chain_cost") {
+        None => None,
+        Some(chain_cost) => {
+            let chain_cost = chain_cost.as_float().ok_or("chain cost is not a number")?;
+            if !chain_cost.is_finite() || chain_cost < 0.0 || chain_cost.fract() != 0.0 {
+                return Err(format!("invalid chain cost {chain_cost}"));
+            }
+            Some(chain_cost as u32)
+        }
+    };
     let template_switch_amount = value
         .get("template_switch_amount")
         .and_then(|v| v.as_float())
@@ -617,6 +692,7 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
 
     Ok(ChainResult {
         cost: cost as u32,
+        chain_cost,
         template_switch_amount: template_switch_amount as u32,
         alignment,
     })

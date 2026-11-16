@@ -29,7 +29,7 @@ use std::{
 
 use crate::{
     alignment::{
-        AlignmentType,
+        Alignment, AlignmentType,
         sequences::AlignmentSequences,
         ts_kind::{TsAncestor, TsDescendant},
     },
@@ -361,14 +361,20 @@ fn actually_align<
     let mut descendant_consumed = 0usize;
 
     debug!("Evaluating final chain");
-    let (evaluated_cost, alignments) = chain_evaluator.evaluate_chain(
+    let (chain_cost, alignments) = chain_evaluator.evaluate_chain(
         anchors,
         &chain,
         config,
         astar.context_mut().chaining_cost_function,
         true,
     );
-    assert_eq!(evaluated_cost, result.cost());
+    // Both are chain costs: the sum of the costs of the gaps and anchors of the chain.
+    assert_eq!(chain_cost, result.cost());
+
+    let cost = alignment_costs.alignment_cost(alignments.iter().flat_map(Alignment::iter_unpacked));
+    debug!("Chain cost: {chain_cost}");
+    debug!("Cost of the final alignment: {cost}");
+    check_final_alignment_cost(cost, chain_cost, alignment_costs, config);
 
     for alignment in alignments {
         use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType as TsAlignAlignmentType;
@@ -497,7 +503,7 @@ fn actually_align<
         sequences.primary_end().b(),
     );
 
-    AlignmentResult::new_with_target::<AlphabetType, _>(
+    let mut alignment_result = AlignmentResult::new_with_target::<AlphabetType, _>(
         tsalign_alignment.into_inner(),
         VectorGenome::from_slice_u8(sequences.seq1())
             .unwrap()
@@ -508,12 +514,56 @@ fn actually_align<
         sequences.seq1_name(),
         sequences.seq2_name(),
         alignment_range,
-        result.without_node_identifier(),
+        AStarResult::FoundTarget {
+            identifier: (),
+            cost,
+        },
         duration_seconds,
         0,
         0,
         0,
         sequences.seq1().len(),
         sequences.seq2().len(),
-    )
+    );
+    alignment_result.statistics_mut().chain_cost = Some(chain_cost.as_f64().try_into().unwrap());
+    alignment_result
+}
+
+/// Checks the cost of the final alignment against the cost of the chain it was built from.
+///
+/// tschainalign finds alignments that are optimal with regard to the anchors, not globally optimal alignments.
+/// The chain cost is the sum of the costs of the gaps and anchors of the chain, which are aligned independently.
+/// For inexact anchors, the cost of the final alignment may be lower than the chain cost
+/// (see [issue #221](https://github.com/algbio/tsalign/issues/221)):
+///
+/// * If a gap (or anchor) alignment ends with a gap and the following anchor (or gap) alignment starts with a gap
+///   of the same kind, then the final alignment contains a single gap, which pays the gap open cost only once.
+///   This can happen between a gap and an anchor, an anchor and a gap, two adjacent anchors (with an empty gap),
+///   and between the primary (secondary) parts of 12- and 34-jumps and the adjacent primary (secondary) anchors.
+///   The gap state is reset at the start and the end of a template switch, so it is not carried over the jumps.
+/// * The final evaluation re-aligns each anchor without the limit on the number of mutations,
+///   which may be cheaper than the anchor cost, which is limited to `max_anchor_mutations` mutations.
+///
+/// Merging gaps never increases the cost if the gap extend cost is at most the gap open cost,
+/// so then the cost of the final alignment is at most the chain cost.
+/// Exact anchors consist of matches only, so they neither merge gaps nor have a cheaper re-alignment,
+/// and the costs are equal.
+fn check_final_alignment_cost<Cost: AStarCost>(
+    cost: Cost,
+    chain_cost: Cost,
+    alignment_costs: &AlignmentCosts<Cost>,
+    config: &ChainingLowerBoundConfig,
+) {
+    if alignment_costs.gap_merging_never_increases_cost() {
+        assert!(
+            cost <= chain_cost,
+            "The cost {cost} of the final alignment is larger than the chain cost {chain_cost}"
+        );
+    }
+    if config.max_anchor_mutations == 0 {
+        assert_eq!(
+            cost, chain_cost,
+            "With exact anchors, the cost of the final alignment must equal the chain cost"
+        );
+    }
 }

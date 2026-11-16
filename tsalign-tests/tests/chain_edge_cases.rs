@@ -307,6 +307,61 @@ fn inversion_with_one_mismatch() {
     assert_finds_template_switch(&case, (12, 1));
     assert_finds_template_switch(&case, (10, 1));
     assert_finds_template_switch(&case, (6, 1));
+
+    // The optimal alignment (`13=[TS:7=1X6=]13=`, cost 6) contains no indels, so its chain cost equals its cost
+    // (no effect of issue #221). For k = 10 with one mutation, it is supported by a single secondary anchor
+    // that contains the mismatch, with the remaining matches of the inner alignment in the secondary parts
+    // of the 12- and 34-jumps. So tschainalign should find it.
+    // It currently reports cost 8 instead, because the 12- and 34-jump aligners require a non-match in every jump
+    // between anchors with a non-empty descendant gap, also for inexact anchors, where the alternative
+    // of chaining anchors that are shifted by one (`is_direct_free_predecessor_of`) does not exist.
+    assert_cost(&case, (10, 1), classic_cost(&case, true));
+}
+
+/// Two template switches with a short primary part in between.
+/// tschainalign needs a primary anchor between two template switches, so it cannot find the optimal alignment
+/// with two directly adjacent template switches (cost 4). But e.g. `7=[TS:12=]6=1D5=[TS:13=]14=` with cost 7
+/// is supported for k = 12 with one mutation (a single primary anchor `6=1D5=` between the template switches),
+/// and `7=[TS:12=]6=1D6=[TS:12=]14=` with cost 7 is supported for k = 10 with two mutations
+/// (a primary anchor that contains the deletion, with the remaining matches in the primary parts of the 34- and 12-jumps).
+/// The deletion lies inside of the primary anchor, so the chain cost equals the cost (no effect of issue #221).
+/// For k = 10 with two mutations, tschainalign currently reports cost 9 instead, because the 12- and 34-jump aligners
+/// require a non-match in every jump between anchors with a non-empty descendant gap, also for inexact anchors.
+/// This was found by `chain_random` (`uniform with template switches`, seed 6840257638022643715).
+#[test]
+fn template_switches_around_inexact_primary_anchor() {
+    let case = Case::new(
+        "template_switches_around_inexact_primary_anchor",
+        b"GCTCAAGAAGAAGAAATTATCCAAGCGAATTCGCGATAAGCTGCGTGACACGTTGA",
+        b"GCTCAAGGCGAATTCGCTTTATCCAGCGAATCAACGTGTCACGGCGTGACACGTTGA",
+    )
+    .with_grid([(12, 1), (10, 2)]);
+    run_case(&case);
+    assert_cost(&case, (12, 1), 7);
+    assert_cost(&case, (10, 2), 7);
+}
+
+/// The chain cost is the sum of the costs of the gaps and anchors of the chain, which are aligned independently.
+/// Here, the chain cost is 16, but adjacent gaps of the gap and anchor alignments merge into longer gaps
+/// in the reported alignment `1=[TS:10=]1=1D4=[TS:5=3D5=]`, which costs only 14 (issue #221).
+/// tschainalign used to report the chain cost instead of the cost of the alignment.
+/// This was found by `chain_random` (`repetitive mutated`, seed 6840257646612578306).
+#[test]
+fn reported_cost_is_cost_of_alignment() {
+    let case = Case::new(
+        "reported_cost_is_cost_of_alignment",
+        b"CGTTTATAAAAAAAAAATTTGAAGTTTAGTCAATATAAAAATAAAATTAGGAACT",
+        b"CTTTTATAAAAATAAAAATTATGAAGTTCAGTCTAATATATATAATAAAATTTAAAT",
+    )
+    .with_grid([(6, 1)]);
+    run_case(&case);
+    let result = chain_result(&case, (6, 1));
+    assert_eq!(
+        (result.cost, result.chain_cost),
+        (14, Some(16)),
+        "expected cost 14 and chain cost 16, got alignment {}",
+        result.alignment
+    );
 }
 
 /// An inversion of length 10 (the minimum) with one mismatch in the middle.

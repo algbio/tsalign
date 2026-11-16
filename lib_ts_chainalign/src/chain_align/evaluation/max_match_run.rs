@@ -9,7 +9,10 @@ use crate::{
         sequences::AlignmentSequences,
     },
     anchors::Anchors,
-    chain_align::{chainer::Identifier, evaluation::ChainEvaluator},
+    chain_align::{
+        chainer::Identifier,
+        evaluation::{ChainEvaluator, check_anchor_alignment_cost},
+    },
     chaining_cost_function::ChainingCostFunction,
     config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
@@ -265,7 +268,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                     anchors.primary(index).end(),
                                 );
 
-                            assert_eq!(anchor_alignment_cost, anchors.primary(index).cost());
+                            check_anchor_alignment_cost(
+                                anchor_alignment_cost,
+                                anchors.primary(index).cost(),
+                                anchors.primary(index),
+                            );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
                         } else {
@@ -326,9 +333,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .into_specific(ts_kind),
                                 );
 
-                            assert_eq!(
+                            check_anchor_alignment_cost(
                                 anchor_alignment_cost,
-                                anchors.secondary(index, ts_kind).cost()
+                                anchors.secondary(index, ts_kind).cost(),
+                                anchors.secondary(index, ts_kind),
                             );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
@@ -407,7 +415,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                     anchors.primary(from_index).end(),
                                 );
 
-                            assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
+                            check_anchor_alignment_cost(
+                                anchor_alignment_cost,
+                                anchors.primary(from_index).cost(),
+                                anchors.primary(from_index),
+                            );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
                         } else {
@@ -482,7 +494,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                     anchors.primary(from_index).end(),
                                 );
 
-                            assert_eq!(anchor_alignment_cost, anchors.primary(from_index).cost());
+                            check_anchor_alignment_cost(
+                                anchor_alignment_cost,
+                                anchors.primary(from_index).cost(),
+                                anchors.primary(from_index),
+                            );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
                         } else {
@@ -573,9 +589,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .into_specific(ts_kind),
                                 );
 
-                            assert_eq!(
+                            check_anchor_alignment_cost(
                                 anchor_alignment_cost,
-                                anchors.secondary(from_index, ts_kind).cost()
+                                anchors.secondary(from_index, ts_kind).cost(),
+                                anchors.secondary(from_index, ts_kind),
                             );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);
@@ -650,9 +667,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                         .into_specific(ts_kind),
                                 );
 
-                            assert_eq!(
+                            check_anchor_alignment_cost(
                                 anchor_alignment_cost,
-                                anchors.secondary(from_index, ts_kind).cost()
+                                anchors.secondary(from_index, ts_kind).cost(),
+                                anchors.secondary(from_index, ts_kind),
                             );
                             alignments.push(anchor_alignment);
                             alignments.push(alignment);

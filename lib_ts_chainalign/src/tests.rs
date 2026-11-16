@@ -108,6 +108,25 @@ fn chain_align(
     max_anchor_mutations: u8,
     costs: &AlignmentCosts<U32Cost>,
 ) -> (u32, u32) {
+    let result = chain_align_full(reference, query, k, max_anchor_mutations, costs);
+    let statistics = result.statistics();
+    (
+        statistics.cost.raw() as u32,
+        statistics.template_switch_amount.raw() as u32,
+    )
+}
+
+/// Align with tschainalign and return the result.
+fn chain_align_full(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+    costs: &AlignmentCosts<U32Cost>,
+) -> lib_tsalign::a_star_aligner::alignment_result::AlignmentResult<
+    lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
+    U32Cost,
+> {
     use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
     use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 
@@ -127,7 +146,7 @@ fn chain_align(
         max_exact_cost_function_cost: U32Cost::from(0u32),
         ..Default::default()
     };
-    let result = crate::align::<DnaAlphabet>(
+    crate::align::<DnaAlphabet>(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
@@ -137,11 +156,6 @@ fn chain_align(
         "reference",
         "query",
         &lower_bounds,
-    );
-    let statistics = result.statistics();
-    (
-        statistics.cost.raw() as u32,
-        statistics.template_switch_amount.raw() as u32,
     )
 }
 
@@ -588,6 +602,83 @@ fn duplicate_gap_targets_with_several_inexact_anchors_at_the_same_start() {
             "k = {k}, m = {max_anchor_mutations}, reference = {}, query = {}",
             String::from_utf8_lossy(reference),
             String::from_utf8_lossy(query),
+        );
+    }
+}
+
+/// tschainalign aligns the gaps and anchors of a chain independently, and the chain cost is the sum of their costs.
+/// If the alignment of a gap ends with a deletion and the alignment of the following inexact anchor starts with a deletion,
+/// then the chain pays the gap open cost twice, while the final alignment contains a single gap
+/// (see [issue #221](https://github.com/algbio/tsalign/issues/221)).
+/// The reported cost is the cost of the final alignment, which merges the gaps.
+#[test]
+fn alignment_cost_merges_gaps_across_parts() {
+    use AlignmentType::{GapA, GapB, Match, Substitution, TsEnd, TsStart};
+
+    use crate::alignment::{Alignment, ts_kind::TsKind};
+
+    let costs = ts_costs();
+    let cost = |alignment: &[AlignmentType]| costs.alignment_cost(alignment.iter().copied());
+
+    // A gap alignment `2=1D` followed by an anchor alignment `1D3=`.
+    let gap = Alignment::from(vec![Match, Match, GapB]);
+    let anchor = Alignment::from(vec![GapB, Match, Match, Match]);
+    let chain_cost =
+        costs.alignment_cost(gap.iter_unpacked()) + costs.alignment_cost(anchor.iter_unpacked());
+    assert_eq!(chain_cost, U32Cost::from(6u32));
+    let alignment_cost = costs.alignment_cost(gap.iter_unpacked().chain(anchor.iter_unpacked()));
+    assert_eq!(alignment_cost, U32Cost::from(4u32));
+
+    // Gaps of different kinds are not merged.
+    assert_eq!(cost(&[GapB, GapA]), U32Cost::from(6u32));
+    assert_eq!(cost(&[GapA, GapA, Substitution]), U32Cost::from(6u32));
+
+    // The gap state is reset at the start and at the end of a template switch,
+    // and secondary gaps use the secondary costs.
+    let ts_start = TsStart {
+        jump: 5,
+        ts_kind: TsKind::TS12,
+    };
+    let ts_end = TsEnd { jump: -3 };
+    assert_eq!(
+        cost(&[GapB, ts_start, GapB, GapB, Substitution, ts_end, GapB]),
+        U32Cost::from(3u32 + 2 + 3 + 2 + 4 + 3)
+    );
+}
+
+/// A deletion (or insertion) of three characters followed by three matches at the end of the alignment,
+/// with k = 4 and one anchor mutation.
+/// The gap aligners allow at most k - 1 - max_anchor_mutations = 2 consecutive matches,
+/// so the three matches need to be covered by an anchor, which has to contain the last character of the gap: `1D3=`.
+/// So the chain consists of the gap `2D` (cost 3 + 1) and the anchor `1D3=` (cost 3), and its chain cost is 7.
+/// But the reported alignment `10=3D3=` contains a single gap, and costs 5 (issue #221).
+/// The substitution cost is larger than in the default costs, such that the alternative `10=1X3D2=` is more expensive.
+///
+/// tschainalign used to report the chain cost.
+#[test]
+fn double_gap_open_between_gap_and_inexact_anchor() {
+    let costs = AlignmentCosts::new(
+        GapAffineCosts::new(4u32, 3, 1).into_costs::<U32Cost>(),
+        GapAffineCosts::new(4u32, 3, 2).into_costs::<U32Cost>(),
+        TsBaseCost::new([10_000u32; 4].map(U32Cost::from)),
+        TsLimits::new_unlimited(),
+    );
+    let long = b"CATGCATTACGGGACT";
+    let short = b"CATGCATTACACT";
+
+    for (reference, query) in [(&long[..], &short[..]), (short, long)] {
+        let result = chain_align_full(reference, query, 4, 1, &costs);
+        let statistics = result.statistics();
+        assert_eq!(
+            (
+                statistics.cost.raw(),
+                statistics.chain_cost.map(|cost| cost.raw())
+            ),
+            (5.0, Some(7.0)),
+            "reference = {}, query = {}, alignment = {}",
+            String::from_utf8_lossy(reference),
+            String::from_utf8_lossy(query),
+            result.cigar(),
         );
     }
 }
