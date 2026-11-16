@@ -4,6 +4,10 @@ use num_traits::real::Real;
 use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 
 use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
+use crate::a_star_aligner::alignment_result::alignment::Alignment;
+use crate::a_star_aligner::template_switch_distance::{
+    TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
+};
 
 use super::*;
 
@@ -328,8 +332,21 @@ const INFINITE_OFFSET_COSTS: &str = " -inf\n  inf";
 /// and the cost of the computed alignment recomputed independently of the A* search with
 /// [`Alignment::compute_cost`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost).
 fn align_forward_ts_offset_test(costs: &str, reference: &[u8], query: &[u8]) -> (f64, f64, f64) {
+    align_and_recompute_cost(costs, Default::default(), reference, query)
+}
+
+/// Align with the given costs and min length strategy and return the cost, the number of template switches,
+/// and the cost of the computed alignment recomputed independently of the A* search with
+/// [`Alignment::compute_cost`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost).
+fn align_and_recompute_cost(
+    costs: &str,
+    min_length_strategy: MinLengthStrategySelector,
+    reference: &[u8],
+    query: &[u8],
+) -> (f64, f64, f64) {
     let mut aligner = Aligner::<DnaAlphabet>::default();
     aligner.set_costs_parse(costs).unwrap();
+    aligner.set_min_length_strategy(min_length_strategy);
     let result = aligner.align(
         "reference",
         reference,
@@ -468,4 +485,299 @@ fn issue_166_forward_qr_template_switch_with_infinite_offset_costs() {
         &without_spaces(HOMOPOLYMER_INSERTION_QUERY),
     );
     assert_eq!(result, (14.0, 0.0, 14.0));
+}
+
+/// The min length strategies that keep the classic aligner exact.
+/// [`MinLengthStrategySelector::PreprocessFilter`] is a heuristic that discards template switches whose inner
+/// does not start with an exact match of minimum length, so it is excluded.
+fn exact_min_length_strategies() -> [MinLengthStrategySelector; 4] {
+    [
+        MinLengthStrategySelector::None,
+        MinLengthStrategySelector::Lookahead,
+        MinLengthStrategySelector::PreprocessPrice,
+        MinLengthStrategySelector::PreprocessLookahead,
+    ]
+}
+
+/// Compute the cost of the given alignment independently of the A* search with
+/// [`Alignment::compute_cost_and_lengths`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost_and_lengths),
+/// including the geometry costs, and return it together with the number of consumed reference and query characters.
+fn recompute_cost_and_lengths(
+    costs: &str,
+    reference: &[u8],
+    query: &[u8],
+    alignment: &[(usize, AlignmentType)],
+) -> (f64, usize, usize) {
+    let config = TemplateSwitchConfig::<DnaAlphabet, U64Cost>::from_str(costs).unwrap();
+    let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(reference).unwrap();
+    let query = VectorGenome::<DnaAlphabet>::from_slice_u8(query).unwrap();
+    let alignment = Alignment::from(alignment.to_vec());
+    let (cost, reference_length, query_length) = alignment.compute_cost_and_lengths(
+        reference.as_genome_subsequence(),
+        query.as_genome_subsequence(),
+        0,
+        0,
+        &config,
+        false,
+    );
+    (cost.as_primitive() as f64, reference_length, query_length)
+}
+
+/// Check that `witness` is a valid alignment of `reference` and `query` of cost `expected_cost`,
+/// and that the classic aligner finds an alignment of cost at most `expected_cost` with each exact min length strategy.
+///
+/// The witness is checked first, so a failure of the second part means that the classic aligner misses an alignment
+/// that its own cost model accepts.
+fn assert_classic_aligner_finds_witness_cost(
+    costs: &str,
+    reference: &[u8],
+    query: &[u8],
+    witness: &[(usize, AlignmentType)],
+    expected_cost: f64,
+) {
+    assert_eq!(
+        recompute_cost_and_lengths(costs, reference, query, witness),
+        (expected_cost, reference.len(), query.len()),
+        "the witness alignment is invalid or has an unexpected cost"
+    );
+
+    let results: Vec<_> = exact_min_length_strategies()
+        .into_iter()
+        .map(|min_length_strategy| {
+            let name = format!("{min_length_strategy:?}");
+            (
+                name,
+                align_and_recompute_cost(costs, min_length_strategy, reference, query),
+            )
+        })
+        .collect();
+    for (name, (cost, _, recomputed_cost)) in &results {
+        assert_eq!(
+            cost, recomputed_cost,
+            "{name}: reported cost differs from recomputed cost"
+        );
+    }
+    assert!(
+        results
+            .iter()
+            .all(|(_, (cost, _, _))| *cost <= expected_cost),
+        "expected cost at most {expected_cost} with all exact min length strategies, but got {results:?}"
+    );
+}
+
+/// A reverse template switch with descendant `descendant`, ancestor `ancestor` and the given first offset,
+/// whose inner consists of 9 secondary matches followed by one secondary insertion,
+/// and whose anti-descendant gap is 10.
+fn reverse_ts_with_trailing_insertion(
+    descendant: TemplateSwitchDescendant,
+    ancestor: TemplateSwitchAncestor,
+    first_offset: isize,
+) -> [(usize, AlignmentType); 4] {
+    [
+        (
+            1,
+            AlignmentType::TemplateSwitchEntrance {
+                descendant,
+                ancestor,
+                direction: TemplateSwitchDirection::Reverse,
+                uncertainty_range: None,
+                first_offset,
+            },
+        ),
+        (9, AlignmentType::SecondaryMatch),
+        (1, AlignmentType::SecondaryInsertion),
+        (
+            1,
+            AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap: 10,
+            },
+        ),
+    ]
+}
+
+/// The tschainalign end-to-end test case `inversion_9_start`.
+/// The first 9 characters of the query are the reverse complement of the first 9 characters of the reference,
+/// followed by an extra `C`, and the last 30 characters are equal.
+const INVERSION_9_START_REFERENCE: &[u8] = b"AATCGGAAC C TGGTACTAGGCATAAGACGATTCGTGCGAA";
+const INVERSION_9_START_QUERY: &[u8] = b"GTTCCGATT C TGGTACTAGGCATAAGACGATTCGTGCGAA";
+
+/// The alignment `[TSQRR:[-]:[-]:9:9=1I:10]30=` reported by tschainalign for `inversion_9_start`.
+fn inversion_9_start_witness(
+    descendant: TemplateSwitchDescendant,
+    ancestor: TemplateSwitchAncestor,
+) -> Vec<(usize, AlignmentType)> {
+    let mut witness = reverse_ts_with_trailing_insertion(descendant, ancestor, 9).to_vec();
+    witness.push((30, AlignmentType::PrimaryMatch));
+    witness
+}
+
+/// The alignment reported by tschainalign for `inversion_9_start` is valid under the cost model of the classic aligner
+/// and costs 5.
+///
+/// It is a reverse QR template switch entering at `(0, 0)` with first offset 9 (base cost 2, offset cost 0).
+/// Its ancestor runs backwards through `reference[0..9]`, whose reverse complement matches `query[0..9]`,
+/// and then the ancestor is exhausted, so the 10th descendant character `query[9]` is a secondary insertion (cost 3).
+/// The descendant length is 10, which is the minimum template switch length (length cost 0),
+/// and the anti-descendant gap is 10 (length difference 0, reverse anti-descendant gap cost 0).
+/// The remaining 30 characters match.
+#[test]
+fn ts_at_sequence_start_with_ancestor_shorter_than_min_length_is_valid() {
+    let reference = without_spaces(INVERSION_9_START_REFERENCE);
+    let query = without_spaces(INVERSION_9_START_QUERY);
+    let witness = inversion_9_start_witness(
+        TemplateSwitchDescendant::Query,
+        TemplateSwitchAncestor::Reference,
+    );
+    assert_eq!(
+        recompute_cost_and_lengths(TS_END_TEST_COSTS, &reference, &query, &witness),
+        (5.0, 40, 40)
+    );
+}
+
+/// The classic aligner must find the cost-5 alignment of
+/// [`ts_at_sequence_start_with_ancestor_shorter_than_min_length_is_valid`] (or a cheaper one).
+///
+/// It reports cost 8 instead (`[TSRQR:[0,0]:[0,0]:10:1D9=1I:10]30=`), with every min length strategy:
+/// the template switch entrance only generates the secondary root of a reverse template switch if the ancestor index
+/// is at least the minimum template switch length (10), but here the ancestor index is `0 + 9 = 9`,
+/// because the inner consumes only 9 ancestor characters (the 10th descendant character is a secondary insertion).
+#[test]
+fn ts_at_sequence_start_with_ancestor_shorter_than_min_length() {
+    let reference = without_spaces(INVERSION_9_START_REFERENCE);
+    let query = without_spaces(INVERSION_9_START_QUERY);
+    assert_classic_aligner_finds_witness_cost(
+        TS_END_TEST_COSTS,
+        &reference,
+        &query,
+        &inversion_9_start_witness(
+            TemplateSwitchDescendant::Query,
+            TemplateSwitchAncestor::Reference,
+        ),
+        5.0,
+    );
+}
+
+/// Same as [`ts_at_sequence_start_with_ancestor_shorter_than_min_length`], but with reference and query swapped,
+/// such that the witness is a reverse RQ template switch.
+#[test]
+fn ts_at_sequence_start_with_ancestor_shorter_than_min_length_swapped() {
+    let reference = without_spaces(INVERSION_9_START_QUERY);
+    let query = without_spaces(INVERSION_9_START_REFERENCE);
+    assert_classic_aligner_finds_witness_cost(
+        TS_END_TEST_COSTS,
+        &reference,
+        &query,
+        &inversion_9_start_witness(
+            TemplateSwitchDescendant::Reference,
+            TemplateSwitchAncestor::Query,
+        ),
+        5.0,
+    );
+}
+
+/// Control for [`ts_at_sequence_start_with_ancestor_shorter_than_min_length`]:
+/// with a common prefix of 5 characters, the witness template switch enters at `(5, 5)` with first offset 9,
+/// so its ancestor index is `5 + 9 = 14`, which is at least the minimum template switch length.
+/// Then the classic aligner finds the cost-5 alignment.
+#[test]
+fn ts_with_ancestor_shorter_than_min_length_after_prefix() {
+    let prefix = b"CTGAC";
+    let reference = [
+        prefix.as_slice(),
+        &without_spaces(INVERSION_9_START_REFERENCE),
+    ]
+    .concat();
+    let query = [prefix.as_slice(), &without_spaces(INVERSION_9_START_QUERY)].concat();
+    let mut witness = vec![(5, AlignmentType::PrimaryMatch)];
+    witness.extend(inversion_9_start_witness(
+        TemplateSwitchDescendant::Query,
+        TemplateSwitchAncestor::Reference,
+    ));
+    assert_classic_aligner_finds_witness_cost(TS_END_TEST_COSTS, &reference, &query, &witness, 5.0);
+}
+
+/// Like [`ts_at_sequence_start_with_ancestor_shorter_than_min_length`], but the template switch does not start
+/// at the start of the alignment: it enters at `(20, 20)` with first offset -11, such that the ancestor runs backwards
+/// through `reference[0..9]` (ancestor index `20 - 11 = 9`).
+///
+/// The query copies the reverse complement of the first 9 characters of the reference plus an extra `C`
+/// in place of the 10 characters `Z` of the reference.
+/// The witness costs 5 (base cost 2, secondary insertion 3, all geometry costs 0).
+/// The classic aligner reports cost 7, since it neither walks the first offset below ancestor index 10
+/// nor generates a secondary root with ancestor index below 10.
+/// Hence the bug is not about template switches at the start of the alignment,
+/// but about the ancestor index of reverse template switches being smaller than the minimum template switch length.
+#[test]
+fn ts_with_ancestor_shorter_than_min_length_at_ancestor_start() {
+    //               [ A9  ]                    [  Z   ]
+    let reference = b"AATCGGAAC CTAGTCAGGTA ACAGTAGCAG GCATAAGACGATTCGTGCGA";
+    //               [ A9  ]                    [rc(A9)]C
+    let query = b"AATCGGAAC CTAGTCAGGTA GTTCCGATT C GCATAAGACGATTCGTGCGA";
+    let mut witness = vec![(20, AlignmentType::PrimaryMatch)];
+    witness.extend(reverse_ts_with_trailing_insertion(
+        TemplateSwitchDescendant::Query,
+        TemplateSwitchAncestor::Reference,
+        -11,
+    ));
+    witness.push((20, AlignmentType::PrimaryMatch));
+    assert_classic_aligner_finds_witness_cost(
+        TS_END_TEST_COSTS,
+        &without_spaces(reference),
+        &without_spaces(query),
+        &witness,
+        5.0,
+    );
+}
+
+/// The forward analogue of [`ts_with_ancestor_shorter_than_min_length_at_ancestor_start`]:
+/// a forward QR template switch whose ancestor ends at the end of the reference and consumes only 9 characters.
+///
+/// Only forward QR template switches with base cost 2 are allowed, and their offset costs are 1 for offsets in
+/// `1..21` (see [`forward_ts_offset_test_costs`]).
+/// The query contains an insertion of 10 characters `X`, which are the last 9 characters of the reference plus an extra `C`.
+/// The witness is a forward QR template switch entering at `(20, 20)` with first offset 2
+/// (ancestor `reference[22..31]`), whose inner has 9 secondary matches followed by a secondary insertion,
+/// and whose anti-descendant gap is 0. It costs `2 + 1 + 3 = 6`.
+/// The classic aligner reports cost 7, since it requires `ancestor_index + 10 <= reference.len()` for forward
+/// template switches, but here `22 + 10 > 31`.
+#[test]
+fn forward_ts_with_ancestor_shorter_than_min_length_at_ancestor_end() {
+    let costs = forward_ts_offset_test_costs(
+        "inf",
+        "2",
+        " -inf -20 0 1 21\n  inf   1 0 1 inf",
+        INFINITE_OFFSET_COSTS,
+    );
+    let reference = b"GCTAAAGACAATTACATAAC GT CAGCACGAT";
+    //                                         [    X    ]
+    let query = b"GCTAAAGACAATTACATAAC CAGCACGAT C GT CAGCACGAT";
+    let witness = [
+        (20, AlignmentType::PrimaryMatch),
+        (
+            1,
+            AlignmentType::TemplateSwitchEntrance {
+                descendant: TemplateSwitchDescendant::Query,
+                ancestor: TemplateSwitchAncestor::Reference,
+                direction: TemplateSwitchDirection::Forward,
+                uncertainty_range: None,
+                first_offset: 2,
+            },
+        ),
+        (9, AlignmentType::SecondaryMatch),
+        (1, AlignmentType::SecondaryInsertion),
+        (
+            1,
+            AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap: 0,
+            },
+        ),
+        (11, AlignmentType::PrimaryMatch),
+    ];
+    assert_classic_aligner_finds_witness_cost(
+        &costs,
+        &without_spaces(reference),
+        &without_spaces(query),
+        &witness,
+        6.0,
+    );
 }
