@@ -3,3 +3,4 @@
 /*.log
 /callgrind.out.*
 *.tsc
+/.claude/worktrees

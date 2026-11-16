@@ -14,6 +14,8 @@ Guidance for Claude Code when working in this repository.
   The agent commits on its worktree branch; review the result and merge or cherry-pick it.
   Agents that only read and investigate can use the shared working tree.
   Commit everything an agent needs before starting it, since a worktree only contains committed code.
+  New worktrees are created from `main`, not from the current branch, so tell the agent to first
+  `git reset --hard <current branch>` in its (unchanged) worktree. Worktrees live in `.claude/worktrees/` (gitignored).
 - Long-running commands (e.g. the end-to-end tests, release builds) should run in the background.
 - Temporary files (scratch data, logs, prototypes) go into `tmp/` in the repository root, which is gitignored.
   Never use the system `/tmp` (this is a shared server).
