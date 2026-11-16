@@ -528,3 +528,105 @@ fn enforce_non_match_next_to_anchors() {
         }
     }
 }
+
+/// Costs of the `test_files/config/chainalign` config with unlimited template switch geometry.
+fn chainalign_costs() -> AlignmentCosts<U32Cost> {
+    AlignmentCosts::new(
+        GapAffineCosts::new(2u32, 3, 1).into_costs::<U32Cost>(),
+        GapAffineCosts::new(4u32, 3, 2).into_costs::<U32Cost>(),
+        U32Cost::from(2u8).into(),
+        TsLimits::new_unlimited(),
+    )
+}
+
+/// The `(max_match_run, enforcement_offset)` parameters of the aligners as used by the chaining cost function
+/// for k = 4 with exact anchors and with one anchor mutation.
+const K4_ALIGNER_PARAMETERS: [(u32, u8); 2] = [(3, 0), (2, 4)];
+
+/// The reference is an inner sequence followed by `CC`, and the query is the reverse complement
+/// of the inner sequence followed by `CC`.
+/// The optimal alignment is a template switch that covers the inner sequence completely followed by `2=` (cost 2).
+fn template_switch_then_matches() -> AlignmentSequences {
+    AlignmentSequences::new_complete(b"GATTACAGGCTTACCC".to_vec(), b"GTAAGCCTGTAATCCC".to_vec())
+}
+
+/// A 34-jump from the last secondary anchor of an optimal template switch to the end of the alignment,
+/// with anchors of length k = 4 (exact, and with one mutation).
+///
+/// The secondary anchor `SA((4, 0], [10, 14))` of kind 21 ends directly at the template switch exit:
+/// the descendant (seq1) is at position 14 and the ancestor (seq2) was read in reverse until position 0.
+/// The optimal 34-jump is the jump back to `(14, 14)` followed by `2=` (the `CC` at the end,
+/// shorter than k so no primary anchor covers it), so it costs 0
+/// (the template switch base cost is counted in the 12-jump).
+///
+/// The end of the alignment is no anchor, so this primary part may consist of matches only.
+/// But `Ts34JumpAligner::align` enforces a non-match whenever the descendant gap is non-empty
+/// (`enforce_non_match`, independently of `enforce_non_match_next_to_anchors`),
+/// which forces a deletion into the primary part (jump + `1D1=`, cost 3).
+#[test]
+fn jump_then_matches_to_alignment_end() {
+    let sequences = template_switch_then_matches();
+    let costs = chainalign_costs();
+    let start = SpecificSecondaryAlignmentCoordinates::new(0, 14, TsKind::TS21);
+    let end = sequences.primary_end();
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        let mut aligner = Ts34JumpAligner::new(
+            &sequences,
+            &costs,
+            &rc_fn,
+            max_match_run,
+            enforcement_offset,
+        );
+        let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
+
+        assert_eq!(
+            (cost, alignment.alignment),
+            (
+                U32Cost::from(0u8),
+                vec![
+                    (1, AlignmentType::TsEnd { jump: 14 }),
+                    (2, AlignmentType::Match),
+                ]
+            ),
+            "max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}"
+        );
+    }
+}
+
+/// Same as [`jump_then_matches_to_alignment_end`], but via `align_until_cost_limit`,
+/// which the chaining cost function uses to compute the exact costs of 34-jumps to the end.
+///
+/// With cost limit 0 (`max_exact_cost_function_cost = 0`), the end of the alignment must be reported with cost 0.
+/// Currently, `fill_additional_targets` only reports nodes with a non-match if the descendant gap is non-empty,
+/// so the optimal jump + `2=` is not reported.
+#[test]
+fn jump_then_matches_to_alignment_end_until_cost_limit() {
+    let sequences = template_switch_then_matches();
+    let costs = chainalign_costs();
+    let start = SpecificSecondaryAlignmentCoordinates::new(0, 14, TsKind::TS21);
+    let end = sequences.primary_end();
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        let mut aligner = Ts34JumpAligner::new(
+            &sequences,
+            &costs,
+            &rc_fn,
+            max_match_run,
+            enforcement_offset,
+        );
+        let mut targets = Vec::new();
+        aligner.align_until_cost_limit(start, U32Cost::from(0u8), &mut targets);
+
+        let end_cost = targets
+            .iter()
+            .filter(|(coordinates, _)| *coordinates == end)
+            .map(|(_, cost)| *cost)
+            .min();
+        assert_eq!(
+            end_cost,
+            Some(U32Cost::from(0u8)),
+            "max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}: {targets:?}"
+        );
+    }
+}

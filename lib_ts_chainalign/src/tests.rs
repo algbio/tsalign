@@ -234,6 +234,10 @@ fn short_sequences_with_matches_at_start_and_end() {
 /// Known bug (2026-11-13): if the primary part between the start and the template switch
 /// (or between the template switch and the end) is shorter than k, tschainalign shortens the template switch
 /// and aligns e.g. `3=1X[TS]` with cost 4 instead of `2=[TS]` with cost 2.
+/// Cause: the 12-jump (34-jump) aligner requires a non-match in every jump with a non-empty descendant gap,
+/// also when the jump starts at the start (ends at the end) of the alignment, which is no anchor
+/// (see `ts_12_jump::tests::matches_from_alignment_start_then_jump` and
+/// `ts_34_jump::tests::jump_then_matches_to_alignment_end`).
 #[test]
 fn template_switch_next_to_matches_at_start_and_end() {
     let costs = ts_costs();
@@ -489,4 +493,52 @@ fn intra_template_switches_off_the_main_diagonal() {
         failures.len(),
         failures.join("\n")
     );
+}
+
+/// A template switch directly after a primary prefix and/or directly before a primary suffix,
+/// for all prefix/suffix lengths from 1 to k + 1.
+///
+/// The prefix and suffix are equal in both sequences and the inner part of the query is the reverse complement
+/// of the inner part of the reference, so a single template switch over the inner part aligns the sequences
+/// with cost 2 (the template switch base cost).
+/// This is optimal, because the sequences differ and every operation costs at least 2.
+///
+/// If the prefix (suffix) is at least k long, then there is a primary anchor directly before (after) the template switch
+/// and the template switch is entered (exited) by a jump between anchors.
+/// If it is shorter than k, there is no primary anchor, and the template switch is entered by a 12-jump
+/// from the start of the alignment that consists of matches only (or exited by a 34-jump to the end of the alignment
+/// that consists of matches only).
+/// Currently, the 12-/34-jump aligners require a non-match in such jumps (bug B),
+/// so the cases with a prefix or suffix of length 1 to k - 2 fail (cost 4 with one such flank, 6 with two),
+/// both for exact anchors and for anchors with one mutation.
+/// Length k - 1 works by accident: the inner part and its reverse complement both start with `G` and end with `C`,
+/// so the primary matches next to the template switch can be extended to length k, which gives a primary anchor
+/// (with a template switch that is one shorter, but still costs 2).
+#[test]
+fn template_switch_next_to_flanks_shorter_than_k() {
+    let costs = ts_costs();
+    let inner = b"GATTACAGGCTTAC";
+    let flank_source = b"ACCTGACT";
+
+    let mut failures = Vec::new();
+    for (k, max_anchor_mutations) in [(4u32, 0u8), (6, 0), (4, 1)] {
+        for flank_length in 1..=k as usize + 1 {
+            let flank = &flank_source[..flank_length];
+            for (prefix, suffix) in [(flank, &b""[..]), (b"", flank), (flank, flank)] {
+                let reference = [prefix, inner, suffix].concat();
+                let query = [prefix, &reverse_complement(inner), suffix].concat();
+                let (cost, template_switches) =
+                    chain_align(&reference, &query, k, max_anchor_mutations, &costs);
+                if (cost, template_switches) != (2, 1) {
+                    failures.push(format!(
+                        "k = {k}, m = {max_anchor_mutations}, prefix = {}, suffix = {}: cost {cost}, {template_switches} template switches",
+                        String::from_utf8_lossy(prefix),
+                        String::from_utf8_lossy(suffix),
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(failures.is_empty(), "Failures:\n{}", failures.join("\n"));
 }
