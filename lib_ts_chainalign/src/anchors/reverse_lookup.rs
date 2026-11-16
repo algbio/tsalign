@@ -29,7 +29,7 @@ pub trait PartialIntoAnchorIndex {
 
 impl<
     Cost: Ord,
-    Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates> + Clone,
     CoordinateIter: Iterator<Item = Coordinates>,
     AnchorIter: Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>,
 > Iterator for PrimaryAnchorToIndexIter<CoordinateIter, AnchorIter>
@@ -45,12 +45,10 @@ impl<
                     self.coordinate_iter.next().unwrap();
                 }
                 Ordering::Equal => {
-                    let result = Some(
-                        self.coordinate_iter
-                            .next()
-                            .unwrap()
-                            .partial_into(*anchor_index),
-                    );
+                    // Do not advance the coordinate iterator, since further anchors may start at the same coordinates.
+                    // Duplicates of the coordinates (with higher costs) are skipped by the `Less` branch
+                    // once the anchors have advanced beyond them.
+                    let result = Some(coordinate_anchor.clone().partial_into(*anchor_index));
                     self.anchor_iter.next().unwrap();
                     return result;
                 }
@@ -66,7 +64,7 @@ impl<
 
 impl<
     Cost: Ord,
-    Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
+    Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates> + Clone,
     CoordinateIter: Iterator<Item = Coordinates>,
     AnchorIter: Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>,
 > Iterator for SecondaryAnchorToIndexIter<CoordinateIter, AnchorIter>
@@ -82,12 +80,10 @@ impl<
                     self.coordinate_iter.next().unwrap();
                 }
                 Ordering::Equal => {
-                    let result = Some(
-                        self.coordinate_iter
-                            .next()
-                            .unwrap()
-                            .partial_into(*anchor_index),
-                    );
+                    // Do not advance the coordinate iterator, since further anchors may start at the same coordinates.
+                    // Duplicates of the coordinates (with higher costs) are skipped by the `Less` branch
+                    // once the anchors have advanced beyond them.
+                    let result = Some(coordinate_anchor.clone().partial_into(*anchor_index));
                     self.anchor_iter.next().unwrap();
                     return result;
                 }
@@ -102,11 +98,20 @@ impl<
 }
 
 impl<Cost> Anchors<Cost> {
-    /// Returns an iterator over the primary anchor indices that correspond to the given primary alignment coordinates.
+    /// Returns an iterator over the primary anchors that start at the given primary alignment coordinates.
     ///
-    /// If a pair of primary alignment coordinates does not correspond to a primary anchor, then the iterator returns `Some(None)`.
+    /// For each primary anchor whose start is among the given coordinates, the iterator returns
+    /// the first item with these coordinates, converted with [`PartialIntoAnchorIndex::partial_into`].
+    /// If several anchors start at the same coordinates, then the same item is returned for each of them,
+    /// and if the coordinates occur several times, then only the first occurrence is used.
+    /// Anchors whose start is not among the given coordinates and coordinates that are not the start of an anchor are skipped.
+    ///
+    /// The items must be sorted by their coordinates.
+    /// If the items are pairs of coordinates and costs (e.g. the targets reached by a gap aligner, which may
+    /// report the same coordinates several times with different costs), then they must be sorted by coordinates and then by cost,
+    /// such that each anchor gets the minimum cost of its start coordinates.
     pub fn primary_anchor_to_index_iter<
-        Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = PrimaryAlignmentCoordinates> + Clone,
     >(
         &self,
         iter: impl IntoIterator<Item = Coordinates>,
@@ -120,11 +125,11 @@ impl<Cost> Anchors<Cost> {
         }
     }
 
-    /// Returns an iterator over the secondary anchor indices that correspond to the given secondary alignment coordinates.
+    /// Returns an iterator over the secondary anchors of the given kind that start at the given secondary alignment coordinates.
     ///
-    /// If a pair of secondary alignment coordinates does not correspond to a secondary anchor, then the iterator returns `Some(None)`.
+    /// Works like [`Self::primary_anchor_to_index_iter`], see there for the requirements on the order of the items.
     pub fn secondary_anchor_to_index_iter<
-        Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates>,
+        Coordinates: PartialIntoAnchorIndex<IntoPartSource = AnySecondaryAlignmentCoordinates> + Clone,
     >(
         &self,
         iter: impl IntoIterator<Item = Coordinates>,

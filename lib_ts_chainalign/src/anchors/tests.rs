@@ -9,11 +9,14 @@ use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::range::{AnySecondaryAlignmentRange, PrimaryAlignmentRange},
+        coordinates::{
+            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+            range::{AnySecondaryAlignmentRange, PrimaryAlignmentRange},
+        },
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    anchors::{Anchors, PrimaryAnchor, SecondaryAnchor},
+    anchors::{Anchors, PrimaryAnchor, SecondaryAnchor, index::AnchorIndex},
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
 };
 
@@ -1188,4 +1191,201 @@ fn coordinates_inexact_1_rev() {
         anchors.secondary_anchor_vec(TsKind::TS11),
         &expected_secondary_22,
     );
+}
+
+/// Computes the expected result of the reverse lookup:
+/// every anchor whose start is among the coordinates gets the minimum cost of these coordinates.
+fn expected_reverse_lookup<Coordinates: Copy + Eq>(
+    anchor_starts: impl IntoIterator<Item = (AnchorIndex, Coordinates)>,
+    coordinates: &[(Coordinates, U16Cost)],
+) -> Vec<(AnchorIndex, U16Cost)> {
+    anchor_starts
+        .into_iter()
+        .filter_map(|(index, start)| {
+            coordinates
+                .iter()
+                .filter(|(coordinates, _)| *coordinates == start)
+                .map(|(_, cost)| *cost)
+                .min()
+                .map(|cost| (index, cost))
+        })
+        .sorted()
+        .collect()
+}
+
+#[test]
+fn primary_reverse_lookup_duplicate_coordinates_and_starts() {
+    let mut primary = [
+        // Anchor before the first coordinate.
+        (PrimaryAlignmentRange::new_from_ranges(0..2, 0..2), 0),
+        // Three anchors with the same start but different ends, and only two coordinates.
+        (PrimaryAlignmentRange::new_from_ranges(1..3, 1..3), 1),
+        (PrimaryAlignmentRange::new_from_ranges(1..2, 1..3), 1),
+        (PrimaryAlignmentRange::new_from_ranges(1..3, 1..2), 2),
+        // Anchor without matching coordinate.
+        (PrimaryAlignmentRange::new_from_ranges(2..4, 3..5), 0),
+        // Anchor with a single matching coordinate.
+        (PrimaryAlignmentRange::new_from_ranges(3..5, 3..5), 0),
+        // Two anchors with the same start and three coordinates.
+        (PrimaryAlignmentRange::new_from_ranges(4..6, 4..6), 0),
+        (PrimaryAlignmentRange::new_from_ranges(4..6, 4..7), 1),
+        // Anchor after the last coordinate.
+        (PrimaryAlignmentRange::new_from_ranges(7..9, 7..9), 0),
+    ]
+    .map(|(range, cost)| PrimaryAnchor::new(range, U16Cost::from(cost as u16)))
+    .to_vec();
+    primary.sort_unstable();
+    let anchors = Anchors {
+        primary,
+        secondaries: Default::default(),
+    };
+
+    let mut coordinates = [
+        ((0, 1), 3),
+        ((1, 1), 2),
+        ((1, 1), 4),
+        ((1, 2), 9),
+        ((3, 3), 5),
+        ((4, 4), 6),
+        ((4, 4), 1),
+        ((4, 4), 8),
+        ((5, 5), 0),
+    ]
+    .map(|((a, b), cost)| {
+        (
+            PrimaryAlignmentCoordinates::new(a, b),
+            U16Cost::from(cost as u16),
+        )
+    })
+    .to_vec();
+    // The reverse lookup requires the coordinates to be sorted by coordinates and then by cost.
+    coordinates.sort_unstable();
+
+    let actual: Vec<_> = anchors
+        .primary_anchor_to_index_iter(coordinates.iter().copied())
+        .sorted()
+        .collect();
+    let expected = expected_reverse_lookup(
+        anchors
+            .enumerate_primaries()
+            .map(|(index, anchor)| (index, anchor.start())),
+        &coordinates,
+    );
+    assert_eq!(expected.len(), 6);
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn secondary_reverse_lookup_duplicate_coordinates_and_starts() {
+    for ts_kind in TsKind::iter() {
+        let mut secondary = [
+            // Anchor before the first coordinate.
+            ((10, 8, 0..2), 0),
+            // Three anchors with the same start but different ends, and only two coordinates.
+            ((8, 6, 8..10), 0),
+            ((8, 7, 8..10), 1),
+            ((8, 6, 8..9), 1),
+            // Anchor without matching coordinate.
+            ((8, 6, 9..11), 0),
+            // Anchor with a single matching coordinate.
+            ((7, 5, 3..5), 0),
+            // Nine anchors with the same start and three coordinates (the reproduction from the e2e tests).
+            ((5, 2, 11..14), 0),
+            ((5, 2, 11..13), 1),
+            ((5, 2, 11..12), 2),
+            ((5, 3, 11..14), 1),
+            ((5, 3, 11..13), 0),
+            ((5, 3, 11..12), 1),
+            ((5, 4, 11..14), 2),
+            ((5, 4, 11..13), 1),
+            ((5, 4, 11..12), 1),
+            // Anchor after the last coordinate.
+            ((2, 0, 0..2), 0),
+        ]
+        .map(|((ancestor_offset, ancestor_limit, descendant), cost)| {
+            SecondaryAnchor::new_from_ranges(
+                ancestor_offset,
+                ancestor_limit,
+                descendant,
+                U16Cost::from(cost as u16),
+            )
+        })
+        .to_vec();
+        secondary.sort_unstable();
+        let mut secondaries: [Vec<_>; 4] = Default::default();
+        secondaries[ts_kind.index()] = secondary;
+        let anchors = Anchors {
+            primary: Vec::new(),
+            secondaries,
+        };
+
+        let mut coordinates = [
+            ((9, 0), 3),
+            ((8, 8), 7),
+            ((8, 8), 2),
+            ((7, 3), 5),
+            ((5, 11), 10),
+            ((5, 11), 4),
+            ((5, 11), 10),
+            ((5, 12), 1),
+            ((3, 0), 0),
+        ]
+        .map(|((ancestor, descendant), cost)| {
+            (
+                AnySecondaryAlignmentCoordinates::new(ancestor, descendant),
+                U16Cost::from(cost as u16),
+            )
+        })
+        .to_vec();
+        // The reverse lookup requires the coordinates to be sorted by coordinates and then by cost.
+        coordinates.sort_unstable();
+
+        let actual: Vec<_> = anchors
+            .secondary_anchor_to_index_iter(coordinates.iter().copied(), ts_kind)
+            .sorted()
+            .collect();
+        let expected = expected_reverse_lookup(
+            anchors
+                .enumerate_secondaries(ts_kind)
+                .map(|(index, anchor)| (index, anchor.start())),
+            &coordinates,
+        );
+        assert_eq!(expected.len(), 13);
+        assert_eq!(actual, expected, "S{}", ts_kind.digits());
+
+        // Other TS kinds have no anchors.
+        for other_ts_kind in TsKind::iter().filter(|other| *other != ts_kind) {
+            assert_eq!(
+                anchors
+                    .secondary_anchor_to_index_iter(coordinates.iter().copied(), other_ts_kind)
+                    .count(),
+                0,
+            );
+        }
+    }
+}
+
+#[test]
+fn reverse_lookup_without_costs() {
+    let mut primary = [
+        PrimaryAlignmentRange::new_from_ranges(1..3, 1..3),
+        PrimaryAlignmentRange::new_from_ranges(1..2, 1..3),
+        PrimaryAlignmentRange::new_from_ranges(1..3, 1..2),
+        PrimaryAlignmentRange::new_from_ranges(2..4, 2..4),
+    ]
+    .map(|range| PrimaryAnchor::new(range, U16Cost::zero()))
+    .to_vec();
+    primary.sort_unstable();
+    let anchors = Anchors {
+        primary,
+        secondaries: Default::default(),
+    };
+    let coordinates = [(1, 1), (1, 1), (3, 3)].map(|(a, b)| PrimaryAlignmentCoordinates::new(a, b));
+
+    let actual: Vec<_> = anchors
+        .primary_anchor_to_index_iter(coordinates)
+        .sorted()
+        .collect();
+    // Each anchor is reported exactly once, even though its start coordinates are duplicated.
+    assert_eq!(actual, [0usize, 1, 2].map(AnchorIndex::from));
 }

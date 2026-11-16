@@ -542,3 +542,52 @@ fn template_switch_next_to_flanks_shorter_than_k() {
 
     assert!(failures.is_empty(), "Failures:\n{}", failures.join("\n"));
 }
+
+/// The costs of `test_files/config/chainalign`:
+/// template switches of cost 2 with a 23-alignment of length at least 10 and offsets between -300 and 300.
+fn chainalign_config_costs() -> AlignmentCosts<U32Cost> {
+    AlignmentCosts::new(
+        GapAffineCosts::new(2u32, 3, 1).into_costs::<U32Cost>(),
+        GapAffineCosts::new(4u32, 3, 2).into_costs::<U32Cost>(),
+        TsBaseCost::new([2u32, 2, 2, 2].map(U32Cost::from)),
+        TsLimits {
+            inter_jump_12: -300..301,
+            intra_jump_12: -300..301,
+            jump_34: isize::MIN..isize::MAX,
+            length_23: 10..200,
+            ancestor_gap: isize::MIN..isize::MAX,
+        },
+    )
+}
+
+/// The gap aligners report the same coordinates several times with different costs (one per internal state),
+/// and with inexact anchors, several anchors start at the same coordinates.
+/// The reverse lookup from coordinates to anchors used to pair the n-th duplicate of the coordinates
+/// with the n-th anchor starting there, such that some anchors got a too high exact cost and others none.
+/// Here, `align(S12(8,8) -> S12(4,12))` reports (5,11) with costs 4, 10 and 10, and nine S12 anchors start at (5,11),
+/// so an anchor whose exact cost is 4 got cost 10, and filling the additional secondary targets
+/// later panicked in a debug assertion (left 4, right 10).
+///
+/// The optimal cost (computed with the classic aligner) is 6 in both directions.
+/// Larger `max_anchor_mutations` are left out, since they make the test slow.
+#[test]
+fn duplicate_gap_targets_with_several_inexact_anchors_at_the_same_start() {
+    let costs = chainalign_config_costs();
+    let a = b"TGGCGCAGGGCTCCCA";
+    let b = b"TGGGAGCGCTGCGCCA";
+    for (reference, query, k, max_anchor_mutations) in [
+        (&a[..], &b[..], 3, 1),
+        (b, a, 3, 1),
+        // The reported reproduction (the e2e edge case `max_anchor_mutations_k_minus_one` with swapped sequences).
+        (a, b, 3, 2),
+    ] {
+        let (cost, _) = chain_align(reference, query, k, max_anchor_mutations, &costs);
+        assert_eq!(
+            cost,
+            6,
+            "k = {k}, m = {max_anchor_mutations}, reference = {}, query = {}",
+            String::from_utf8_lossy(reference),
+            String::from_utf8_lossy(query),
+        );
+    }
+}
