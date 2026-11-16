@@ -9,6 +9,11 @@ Guidance for Claude Code when working in this repository.
   delegate it to a subagent (or run it in the background) so that the main session stays responsive
   for the user. Give the agent a self-contained brief (goal, relevant files, constraints such as "do not commit"),
   and review its result before reporting or committing it.
+- **Agents that change code work in their own git worktree** (`isolation: "worktree"`), so that concurrent agents
+  and the main session do not see each other's (temporary) edits or mix them into commits.
+  The agent commits on its worktree branch; review the result and merge or cherry-pick it.
+  Agents that only read and investigate can use the shared working tree.
+  Commit everything an agent needs before starting it, since a worktree only contains committed code.
 - Long-running commands (e.g. the end-to-end tests, release builds) should run in the background.
 - Temporary files (scratch data, logs, prototypes) go into `tmp/` in the repository root, which is gitignored.
   Never use the system `/tmp` (this is a shared server).
@@ -21,7 +26,7 @@ Guidance for Claude Code when working in this repository.
 Rust workspace for aligning two DNA sequences while allowing for template switch mutations (TSMs, four-point model).
 
 | Crate | Purpose |
-|---|---|
+| --- | --- |
 | `lib_tsalign` | Classic aligner: A* over the full template switch alignment graph (exact). Also the alignment/result types and the `.tsa` config format. |
 | `lib_ts_chainalign` | tschainalign: anchor (k-mer) based chaining aligner with precomputed lower bounds; supports inexact anchors (`max_anchor_mutations`). |
 | `tsalign` | CLI (`tsalign align`, `tsalign preprocess`, `tsalign show`). |
