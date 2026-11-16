@@ -524,10 +524,13 @@ fn recompute_cost_and_lengths(
 }
 
 /// Check that `witness` is a valid alignment of `reference` and `query` of cost `expected_cost`,
-/// and that the classic aligner finds an alignment of cost at most `expected_cost` with each exact min length strategy.
+/// and that the classic aligner finds an alignment of cost exactly `expected_cost` with each exact min length strategy,
+/// i.e. that the witness is optimal.
 ///
-/// The witness is checked first, so a failure of the second part means that the classic aligner misses an alignment
-/// that its own cost model accepts.
+/// The witness is checked first, so a reported cost above `expected_cost` means that the classic aligner misses
+/// an alignment that its own cost model accepts.
+/// A reported cost below `expected_cost` (which is recomputed independently of the A* search)
+/// means that the witness is not optimal.
 fn assert_classic_aligner_finds_witness_cost(
     costs: &str,
     reference: &[u8],
@@ -560,8 +563,8 @@ fn assert_classic_aligner_finds_witness_cost(
     assert!(
         results
             .iter()
-            .all(|(_, (cost, _, _))| *cost <= expected_cost),
-        "expected cost at most {expected_cost} with all exact min length strategies, but got {results:?}"
+            .all(|(_, (cost, _, _))| *cost == expected_cost),
+        "expected cost {expected_cost} with all exact min length strategies, but got {results:?}"
     );
 }
 
@@ -634,12 +637,12 @@ fn ts_at_sequence_start_with_ancestor_shorter_than_min_length_is_valid() {
     );
 }
 
-/// The classic aligner must find the cost-5 alignment of
-/// [`ts_at_sequence_start_with_ancestor_shorter_than_min_length_is_valid`] (or a cheaper one).
+/// The classic aligner must find an alignment of cost 5, which is optimal,
+/// like the one of [`ts_at_sequence_start_with_ancestor_shorter_than_min_length_is_valid`].
 ///
-/// It reports cost 8 instead (`[TSRQR:[0,0]:[0,0]:10:1D9=1I:10]30=`), with every min length strategy:
-/// the template switch entrance only generates the secondary root of a reverse template switch if the ancestor index
-/// is at least the minimum template switch length (10), but here the ancestor index is `0 + 9 = 9`,
+/// It used to report cost 8 instead (`[TSRQR:[0,0]:[0,0]:10:1D9=1I:10]30=`), with every min length strategy:
+/// the template switch entrance only generated the secondary root of a reverse template switch if the ancestor index
+/// was at least the minimum template switch length (10), but here the ancestor index is `0 + 9 = 9`,
 /// because the inner consumes only 9 ancestor characters (the 10th descendant character is a secondary insertion).
 #[test]
 fn ts_at_sequence_start_with_ancestor_shorter_than_min_length() {
@@ -678,7 +681,8 @@ fn ts_at_sequence_start_with_ancestor_shorter_than_min_length_swapped() {
 /// Control for [`ts_at_sequence_start_with_ancestor_shorter_than_min_length`]:
 /// with a common prefix of 5 characters, the witness template switch enters at `(5, 5)` with first offset 9,
 /// so its ancestor index is `5 + 9 = 14`, which is at least the minimum template switch length.
-/// Then the classic aligner finds the cost-5 alignment.
+/// Then the classic aligner found the optimal cost-5 alignment even before the ancestor index of template switch
+/// entrances stopped being bounded by the minimum template switch length.
 #[test]
 fn ts_with_ancestor_shorter_than_min_length_after_prefix() {
     let prefix = b"CTGAC";
@@ -702,10 +706,10 @@ fn ts_with_ancestor_shorter_than_min_length_after_prefix() {
 ///
 /// The query copies the reverse complement of the first 9 characters of the reference plus an extra `C`
 /// in place of the 10 characters `Z` of the reference.
-/// The witness costs 5 (base cost 2, secondary insertion 3, all geometry costs 0).
-/// The classic aligner reports cost 7, since it neither walks the first offset below ancestor index 10
-/// nor generates a secondary root with ancestor index below 10.
-/// Hence the bug is not about template switches at the start of the alignment,
+/// The witness costs 5 (base cost 2, secondary insertion 3, all geometry costs 0), which is optimal.
+/// The classic aligner used to report cost 7, since it neither walked the first offset below ancestor index 10
+/// nor generated a secondary root with ancestor index below 10.
+/// Hence the bug was not about template switches at the start of the alignment,
 /// but about the ancestor index of reverse template switches being smaller than the minimum template switch length.
 #[test]
 fn ts_with_ancestor_shorter_than_min_length_at_ancestor_start() {
@@ -737,8 +741,8 @@ fn ts_with_ancestor_shorter_than_min_length_at_ancestor_start() {
 /// The query contains an insertion of 10 characters `X`, which are the last 9 characters of the reference plus an extra `C`.
 /// The witness is a forward QR template switch entering at `(20, 20)` with first offset 2
 /// (ancestor `reference[22..31]`), whose inner has 9 secondary matches followed by a secondary insertion,
-/// and whose anti-descendant gap is 0. It costs `2 + 1 + 3 = 6`.
-/// The classic aligner reports cost 7, since it requires `ancestor_index + 10 <= reference.len()` for forward
+/// and whose anti-descendant gap is 0. It costs `2 + 1 + 3 = 6`, which is optimal.
+/// The classic aligner used to report cost 7, since it required `ancestor_index + 10 <= reference.len()` for forward
 /// template switches, but here `22 + 10 > 31`.
 #[test]
 fn forward_ts_with_ancestor_shorter_than_min_length_at_ancestor_end() {
