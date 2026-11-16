@@ -613,9 +613,9 @@ fn matches_then_template_switch() -> AlignmentSequences {
 /// followed directly by the jump, so it costs only the template switch base cost 2.
 ///
 /// The start of the alignment is no anchor, so this primary part may consist of matches only.
-/// But `Ts12JumpAligner::align` enforces a non-match whenever the descendant gap is non-empty
-/// (`enforce_non_match`, independently of `enforce_non_match_next_to_anchors`),
-/// which forces a deletion into the primary part (`1=1D` + jump, cost 5).
+/// `Ts12JumpAligner::align` used to enforce a non-match whenever the descendant gap is non-empty
+/// (`enforce_non_match`, independently of `enforce_non_match_next_to_anchors`), also from the start,
+/// which forced a deletion into the primary part (`1=1D` + jump, cost 5).
 #[test]
 fn matches_from_alignment_start_then_jump() {
     let sequences = matches_then_template_switch();
@@ -658,8 +658,8 @@ fn matches_from_alignment_start_then_jump() {
 ///
 /// With cost limit 2 (the template switch base cost, i.e. `max_exact_cost_function_cost = 0`),
 /// the anchor start `(16, 2)` must be reported with cost 2.
-/// Currently, `fill_additional_targets` only reports nodes with a non-match if the descendant gap is non-empty,
-/// so the optimal `2=` + jump is not reported.
+/// `fill_additional_targets` used to report only nodes with a non-match if the descendant gap is non-empty,
+/// also from the start, so the optimal `2=` + jump was not reported.
 #[test]
 fn matches_from_alignment_start_then_jump_until_cost_limit() {
     let sequences = matches_then_template_switch();

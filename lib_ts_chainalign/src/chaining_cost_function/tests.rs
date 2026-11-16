@@ -379,8 +379,8 @@ fn create_chainalign_cost_function(
 /// The 12-jump from the start to this anchor is `2=` followed by the jump, which costs only the template switch
 /// base cost 2, so the cost function entry must be exactly 2.
 ///
-/// Currently, the 12-jump aligner requires a non-match in the jump because the descendant gap (2) is non-empty,
-/// so the exact value is not found within the cost limit, and the entry is set to the lower bound,
+/// The 12-jump aligner used to require a non-match in the jump because the descendant gap (2) is non-empty,
+/// so the exact value was not found within the cost limit, and the entry was set to the lower bound,
 /// which is raised to `max_exact_cost_function_cost + ts_base_cost + 1 = 3`.
 #[test]
 fn jump_12_from_start_after_matches_shorter_than_k() {
@@ -419,8 +419,8 @@ fn jump_12_from_start_after_matches_shorter_than_k() {
 /// The 34-jump from this anchor to the end is the jump followed by `2=`, which costs 0
 /// (the template switch base cost is counted in the 12-jump), so the cost function entry must be exactly 0.
 ///
-/// Currently, the 34-jump aligner requires a non-match in the jump because the descendant gap (2) is non-empty,
-/// so the exact value is not found within the cost limit, and the entry is set to the lower bound,
+/// The 34-jump aligner used to require a non-match in the jump because the descendant gap (2) is non-empty,
+/// so the exact value was not found within the cost limit, and the entry was set to the lower bound,
 /// which is raised to `max_exact_cost_function_cost + 1 = 1`.
 #[test]
 fn jump_34_to_end_before_matches_shorter_than_k() {

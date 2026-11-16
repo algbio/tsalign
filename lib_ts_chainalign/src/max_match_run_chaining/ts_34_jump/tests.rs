@@ -560,9 +560,9 @@ fn template_switch_then_matches() -> AlignmentSequences {
 /// (the template switch base cost is counted in the 12-jump).
 ///
 /// The end of the alignment is no anchor, so this primary part may consist of matches only.
-/// But `Ts34JumpAligner::align` enforces a non-match whenever the descendant gap is non-empty
-/// (`enforce_non_match`, independently of `enforce_non_match_next_to_anchors`),
-/// which forces a deletion into the primary part (jump + `1D1=`, cost 3).
+/// `Ts34JumpAligner::align` used to enforce a non-match whenever the descendant gap is non-empty
+/// (`enforce_non_match`, independently of `enforce_non_match_next_to_anchors`), also to the end,
+/// which forced a deletion into the primary part (jump + `1D1=`, cost 3).
 #[test]
 fn jump_then_matches_to_alignment_end() {
     let sequences = template_switch_then_matches();
@@ -598,8 +598,8 @@ fn jump_then_matches_to_alignment_end() {
 /// which the chaining cost function uses to compute the exact costs of 34-jumps to the end.
 ///
 /// With cost limit 0 (`max_exact_cost_function_cost = 0`), the end of the alignment must be reported with cost 0.
-/// Currently, `fill_additional_targets` only reports nodes with a non-match if the descendant gap is non-empty,
-/// so the optimal jump + `2=` is not reported.
+/// `fill_additional_targets` used to report only nodes with a non-match if the descendant gap is non-empty,
+/// also at the end, so the optimal jump + `2=` was not reported.
 #[test]
 fn jump_then_matches_to_alignment_end_until_cost_limit() {
     let sequences = template_switch_then_matches();

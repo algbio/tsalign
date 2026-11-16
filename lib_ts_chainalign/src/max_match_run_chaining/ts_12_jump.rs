@@ -68,14 +68,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         end: SpecificSecondaryAlignmentCoordinates,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) -> (Cost, Alignment) {
-        // Enfore non-match if there is a gap between the anchors in the descendant.
-        // This is to match the lower-bound computation.
-        // It also discourages chains to deviate from the alignment geometry boundaries.
-        let descendant_start = match end.ts_kind().descendant {
-            TsDescendant::Seq1 => start.a(),
-            TsDescendant::Seq2 => start.b(),
-        };
-        let enforce_non_match = descendant_start != end.descendant();
+        let descendant_start = Self::descendant_start(start, end.ts_kind());
+        let enforce_non_match = self.enforce_non_match(start, descendant_start, end.descendant());
 
         let context = Context::new(
             self.alignment_costs,
@@ -94,6 +88,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             dijkstra.prune_list(),
             self.enforce_non_match_next_to_anchors(),
+            self.is_alignment_start(start),
             cost,
             descendant_start,
             end.ts_kind(),
@@ -115,13 +110,19 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         cost_limit: Cost,
         additional_secondary_targets_output: &mut impl Extend<(AnySecondaryAlignmentCoordinates, Cost)>,
     ) -> usize {
+        let descendant_start = Self::descendant_start(start, end.ts_kind());
+        // Targets are not used when searching until the cost limit, so the end only bounds the search space.
+        // The non-match condition for the reported coordinates is applied in `fill_additional_targets`,
+        // this only keeps the context consistent with `align`.
+        let enforce_non_match = self.enforce_non_match(start, descendant_start, end.descendant());
+
         let context = Context::new(
             self.alignment_costs,
             self.sequences,
             self.rc_fn,
             start,
             end,
-            true,
+            enforce_non_match,
             self.max_match_run,
             self.enforcement_offset,
             self.enforce_non_match_next_to_anchors(),
@@ -129,13 +130,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         let mut dijkstra = new_dijkstra(&mut self.datastructures, context);
         search_until_cost_limit(&mut dijkstra, cost_limit);
 
-        let descendant_start = match end.ts_kind().descendant {
-            TsDescendant::Seq1 => start.a(),
-            TsDescendant::Seq2 => start.b(),
-        };
         Self::fill_additional_targets(
             dijkstra.prune_list(),
             self.enforce_non_match_next_to_anchors(),
+            self.is_alignment_start(start),
             cost_limit,
             descendant_start,
             end.ts_kind(),
@@ -162,9 +160,49 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         self.enforce_non_match_next_to_anchors
     }
 
+    /// Returns true if the given start is the start of the alignment, which is no anchor.
+    fn is_alignment_start(&self, start: PrimaryAlignmentCoordinates) -> bool {
+        start == self.sequences.primary_start()
+    }
+
+    /// Returns the descendant ordinate of the given start.
+    fn descendant_start(start: PrimaryAlignmentCoordinates, ts_kind: TsKind) -> usize {
+        match ts_kind.descendant {
+            TsDescendant::Seq1 => start.a(),
+            TsDescendant::Seq2 => start.b(),
+        }
+    }
+
+    /// Returns true if a 12-jump from `start` to a secondary anchor starting at `descendant_end` in the descendant
+    /// must contain a non-match.
+    ///
+    /// A non-match is enforced if there is a gap between the anchors in the descendant.
+    /// This is to match the lower-bound computation of 12-jumps between anchors.
+    /// It also discourages chains to deviate from the alignment geometry boundaries.
+    ///
+    /// The start of the alignment is no anchor, so a jump from there may consist of matches only,
+    /// and there is no other way to represent such a jump.
+    /// The lower bounds of 12-jumps from the start allow this as well.
+    ///
+    /// This is independent of [`Self::enforce_non_match_next_to_anchors`].
+    fn enforce_non_match(
+        &self,
+        start: PrimaryAlignmentCoordinates,
+        descendant_start: usize,
+        descendant_end: usize,
+    ) -> bool {
+        descendant_start != descendant_end && !self.is_alignment_start(start)
+    }
+
+    /// Fills the secondary coordinates reached with at most the given cost limit into the output.
+    ///
+    /// If the descendant gap is empty, only nodes without non-match are reported.
+    /// If it is non-empty, only nodes with a non-match are reported (see [`Self::enforce_non_match`]),
+    /// unless the jump starts at the start of the alignment, where nodes without non-match are reported as well.
     fn fill_additional_targets(
         prune_list: &PruneList<Node<Cost>>,
         enforce_non_match_next_to_anchors: bool,
+        is_alignment_start: bool,
         cost_limit: Cost,
         descendant_start: usize,
         ts_kind: TsKind,
@@ -186,7 +224,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 }
             })
             .filter(|(coordinates, has_non_match, _)| {
-                *has_non_match != (descendant_start == coordinates.descendant())
+                if descendant_start == coordinates.descendant() {
+                    !*has_non_match
+                } else {
+                    *has_non_match || is_alignment_start
+                }
             })
             .map(|(coordinates, _, cost)| (coordinates.into(), cost)),
         );

@@ -231,10 +231,10 @@ fn short_sequences_with_matches_at_start_and_end() {
 /// The lower bounds for 12-jumps from the start and 34-jumps to the end used to assume
 /// that the primary part of the jump starts (or ends) with a non-match.
 ///
-/// Known bug (2026-11-13): if the primary part between the start and the template switch
-/// (or between the template switch and the end) is shorter than k, tschainalign shortens the template switch
-/// and aligns e.g. `3=1X[TS]` with cost 4 instead of `2=[TS]` with cost 2.
-/// Cause: the 12-jump (34-jump) aligner requires a non-match in every jump with a non-empty descendant gap,
+/// If the primary part between the start and the template switch (or between the template switch and the end)
+/// is shorter than k, tschainalign used to shorten the template switch
+/// and align e.g. `3=1X[TS]` with cost 4 instead of `2=[TS]` with cost 2,
+/// because the 12-jump (34-jump) aligner required a non-match in every jump with a non-empty descendant gap,
 /// also when the jump starts at the start (ends at the end) of the alignment, which is no anchor
 /// (see `ts_12_jump::tests::matches_from_alignment_start_then_jump` and
 /// `ts_34_jump::tests::jump_then_matches_to_alignment_end`).
@@ -508,10 +508,10 @@ fn intra_template_switches_off_the_main_diagonal() {
 /// If it is shorter than k, there is no primary anchor, and the template switch is entered by a 12-jump
 /// from the start of the alignment that consists of matches only (or exited by a 34-jump to the end of the alignment
 /// that consists of matches only).
-/// Currently, the 12-/34-jump aligners require a non-match in such jumps (bug B),
-/// so the cases with a prefix or suffix of length 1 to k - 2 fail (cost 4 with one such flank, 6 with two),
+/// The 12-/34-jump aligners used to require a non-match in such jumps,
+/// so the cases with a prefix or suffix of length 1 to k - 2 failed (cost 4 with one such flank, 6 with two),
 /// both for exact anchors and for anchors with one mutation.
-/// Length k - 1 works by accident: the inner part and its reverse complement both start with `G` and end with `C`,
+/// Length k - 1 worked by accident: the inner part and its reverse complement both start with `G` and end with `C`,
 /// so the primary matches next to the template switch can be extended to length k, which gives a primary anchor
 /// (with a template switch that is one shorter, but still costs 2).
 #[test]
