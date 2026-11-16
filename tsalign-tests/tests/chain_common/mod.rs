@@ -495,7 +495,6 @@ impl std::fmt::Display for RunOutcome {
 
 /// Align with tschainalign.
 pub fn run_chain(reference: &[u8], query: &[u8], k: u32, max_anchor_mutations: u8) -> RunOutcome {
-    let max_n = tsalign::util::infer_tschain_max_n(reference.len(), query.len());
     let mut args: Vec<String> = [
         "align",
         "--alignment-method",
@@ -511,27 +510,15 @@ pub fn run_chain(reference: &[u8], query: &[u8], k: u32, max_anchor_mutations: u
         max_anchor_mutations.to_string(),
     ]);
 
-    // The preprocess subcommand only creates lower bounds for max_n >= k.
-    // In other cases, let the aligner preprocess into a private cache directory.
-    let private_cache;
-    if max_n >= k as usize {
-        let cache = match preprocessed_cache(k, max_anchor_mutations) {
-            Ok(cache) => cache,
-            Err(message) => return RunOutcome::Failure { message },
-        };
-        args.extend([
-            "--cache-directory".to_string(),
-            cache.display().to_string(),
-            "--force-no-preprocessing".to_string(),
-        ]);
-    } else {
-        private_cache = unique_path("cache");
-        fs::create_dir_all(&private_cache).unwrap();
-        args.extend([
-            "--cache-directory".to_string(),
-            private_cache.display().to_string(),
-        ]);
-    }
+    let cache = match preprocessed_cache(k, max_anchor_mutations) {
+        Ok(cache) => cache,
+        Err(message) => return RunOutcome::Failure { message },
+    };
+    args.extend([
+        "--cache-directory".to_string(),
+        cache.display().to_string(),
+        "--force-no-preprocessing".to_string(),
+    ]);
 
     run_align(reference, query, args)
 }

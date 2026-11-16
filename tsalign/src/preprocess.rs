@@ -122,7 +122,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         info!("Computing up to max_n = {max_n}");
 
         let mut current_max_n = max_n;
-        while current_max_n >= 1 && current_max_n >= k.try_into()? {
+        // Also preprocess for max_n < k, since the aligner needs lower bounds for sequences shorter than k as well.
+        while current_max_n >= 1 {
             info!("Preprocessing for max_n = {current_max_n}...");
             let lower_bounds = preprocess(
                 current_max_n,
@@ -146,12 +147,6 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
             write_cache_file_atomically(&cache_file, |file| lower_bounds.write(file))?;
 
             current_max_n /= 2;
-        }
-
-        if current_max_n >= 1 {
-            info!(
-                "Not preprocessing for max_n = {current_max_n} or below, because it is smaller than k = {k}"
-            );
         }
     } else {
         info!("Using all possible inferred ks for each length");
