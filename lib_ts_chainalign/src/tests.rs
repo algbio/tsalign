@@ -327,3 +327,166 @@ fn random_short_sequences_without_template_switches() {
         failures.join("\n")
     );
 }
+
+/// Align with tschainalign and return the reported alignment.
+fn chain_align_result(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    costs: &AlignmentCosts<U32Cost>,
+) -> lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment<
+    lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
+> {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+    use lib_tsalign::a_star_aligner::{
+        alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
+    };
+
+    use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
+
+    let max_n = reference.len().max(query.len()).max(1).next_power_of_two();
+    let lower_bounds = ChainingLowerBounds::new(
+        max_n,
+        ChainingLowerBoundConfig {
+            anchor_k: k,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+        costs.clone(),
+    );
+    let performance_parameters = AlignmentPerformanceParameters {
+        max_exact_cost_function_cost: U32Cost::from(0u32),
+        ..Default::default()
+    };
+    match crate::align::<DnaAlphabet>(
+        reference.to_vec(),
+        query.to_vec(),
+        AlignmentRange::new_complete(reference.len(), query.len()),
+        0,
+        &performance_parameters,
+        &rc_fn,
+        "reference",
+        "query",
+        &lower_bounds,
+    ) {
+        AlignmentResult::WithTarget { alignment, .. } => alignment,
+        AlignmentResult::WithoutTarget { .. } => panic!("No alignment found"),
+    }
+}
+
+/// The amount of reference and query characters consumed by an alignment,
+/// following the semantics of lib_tsalign: after a template switch, the descendant continues after the characters
+/// consumed by the template switch, and the anti-descendant continues at its entrance index plus the anti-descendant gap.
+fn consumed_lengths(
+    alignment: &lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment<
+        lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
+    >,
+) -> (usize, usize) {
+    use lib_tsalign::a_star_aligner::template_switch_distance::{
+        AlignmentType as T, TemplateSwitchDescendant,
+    };
+
+    let (mut reference, mut query) = (0isize, 0isize);
+    let mut descendant_is_reference = false;
+    let mut entrance_anti_descendant = 0isize;
+    for alignment_type in alignment.iter_flat_cloned() {
+        match alignment_type {
+            T::PrimaryMatch | T::PrimarySubstitution => {
+                reference += 1;
+                query += 1;
+            }
+            T::PrimaryInsertion => query += 1,
+            T::PrimaryDeletion => reference += 1,
+            T::TemplateSwitchEntrance { descendant, .. } => {
+                descendant_is_reference = descendant == TemplateSwitchDescendant::Reference;
+                entrance_anti_descendant = if descendant_is_reference {
+                    query
+                } else {
+                    reference
+                };
+            }
+            T::SecondaryMatch | T::SecondarySubstitution | T::SecondaryInsertion => {
+                if descendant_is_reference {
+                    reference += 1;
+                } else {
+                    query += 1;
+                }
+            }
+            T::SecondaryDeletion => {}
+            T::TemplateSwitchExit {
+                anti_descendant_gap,
+            } => {
+                if descendant_is_reference {
+                    query = entrance_anti_descendant + anti_descendant_gap;
+                } else {
+                    reference = entrance_anti_descendant + anti_descendant_gap;
+                }
+            }
+            other => panic!("Unexpected alignment type {other:?}"),
+        }
+    }
+    (
+        usize::try_from(reference).unwrap(),
+        usize::try_from(query).unwrap(),
+    )
+}
+
+/// Intra template switches (the ancestor is the descendant sequence) that start off the main diagonal.
+/// The anti-descendant gap of such a template switch used to be computed relative to the descendant
+/// instead of the anti-descendant, such that the reported alignment did not consume the sequences completely.
+#[test]
+fn intra_template_switches_off_the_main_diagonal() {
+    let costs = ts_costs();
+    let mut state = 0x1257_u64;
+    let mut next = |limit: usize| {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((state >> 33) % limit as u64) as usize
+    };
+
+    let mut failures = Vec::new();
+    for _ in 0..30 {
+        let reference: Vec<u8> = (0..30 + next(10)).map(|_| b"ACGT"[next(4)]).collect();
+        // Insert characters before the template switch, such that it starts off the main diagonal.
+        let insertion: Vec<u8> = (0..1 + next(4)).map(|_| b"ACGT"[next(4)]).collect();
+        let split = 5 + next(5);
+        let mut query = [&reference[..split], &insertion, &reference[split..]].concat();
+        // Replace a segment of the query by the reverse complement of an earlier segment of the query.
+        let length = 8 + next(5);
+        let target = query.len() - length - next(4);
+        let source = next(target - length);
+        let inner = reverse_complement(&query[source..source + length]);
+        query[target..target + length].copy_from_slice(&inner);
+
+        for (reference, query) in [(&reference, &query), (&query, &reference)] {
+            for k in [4, 5] {
+                let result =
+                    std::panic::catch_unwind(|| chain_align_result(reference, query, k, &costs));
+                let context = format!(
+                    "k = {k}, reference = {}, query = {}",
+                    String::from_utf8_lossy(reference),
+                    String::from_utf8_lossy(query)
+                );
+                match result {
+                    Ok(alignment) => {
+                        let lengths = consumed_lengths(&alignment);
+                        if lengths != (reference.len(), query.len()) {
+                            failures.push(format!(
+                                "{context}: alignment {alignment} consumes {lengths:?}"
+                            ));
+                        }
+                    }
+                    Err(_) => failures.push(format!("{context}: panicked")),
+                }
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}

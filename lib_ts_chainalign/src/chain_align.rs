@@ -28,7 +28,11 @@ use std::{
 };
 
 use crate::{
-    alignment::{AlignmentType, sequences::AlignmentSequences},
+    alignment::{
+        AlignmentType,
+        sequences::AlignmentSequences,
+        ts_kind::{TsAncestor, TsDescendant},
+    },
     anchors::Anchors,
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
@@ -348,6 +352,15 @@ fn actually_align<
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
     let mut is_primary = true;
     let mut anti_primary_gap = 0isize;
+    // The current primary coordinates, needed to convert the jumps of intra template switches.
+    let mut primary_a = sequences.primary_start().a();
+    let mut primary_b = sequences.primary_start().b();
+    // The descendant and anti-descendant indices at the entrance of the current template switch,
+    // and the amount of descendant characters consumed by it so far.
+    let mut ts_descendant_is_seq1 = false;
+    let mut entrance_descendant = 0usize;
+    let mut entrance_anti_descendant = 0usize;
+    let mut descendant_consumed = 0usize;
 
     debug!("Evaluating final chain");
     let (evaluated_cost, alignments) = chain_evaluator.evaluate_chain(
@@ -367,32 +380,41 @@ fn actually_align<
                 AlignmentType::Match => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimaryMatch
                     } else {
                         anti_primary_gap -= multiplicity as isize;
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondaryMatch
                     },
                 ),
                 AlignmentType::Substitution => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimarySubstitution
                     } else {
                         anti_primary_gap -= multiplicity as isize;
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondarySubstitution
                     },
                 ),
                 AlignmentType::GapA => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimaryInsertion
                     } else {
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondaryInsertion
                     },
                 ),
                 AlignmentType::GapB => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
                         TsAlignAlignmentType::PrimaryDeletion
                     } else {
                         anti_primary_gap -= multiplicity as isize;
@@ -403,7 +425,30 @@ fn actually_align<
                     assert!(is_primary);
                     assert_eq!(multiplicity, 1);
                     is_primary = false;
-                    anti_primary_gap = jump;
+
+                    ts_descendant_is_seq1 = ts_kind.descendant == TsDescendant::Seq1;
+                    (entrance_descendant, entrance_anti_descendant) = if ts_descendant_is_seq1 {
+                        (primary_a, primary_b)
+                    } else {
+                        (primary_b, primary_a)
+                    };
+                    descendant_consumed = 0;
+
+                    // The jumps are relative to the ancestor, and the 34-jump ends in the anti-descendant.
+                    // For inter template switches, the ancestor is the anti-descendant,
+                    // so the sum of the jumps and the ancestor movement is the anti-descendant gap.
+                    // For intra template switches, the ancestor is the descendant,
+                    // so the 12-jump needs to be shifted from the descendant to the anti-descendant.
+                    let is_intra = matches!(
+                        (ts_kind.ancestor, ts_kind.descendant),
+                        (TsAncestor::Seq1, TsDescendant::Seq1)
+                            | (TsAncestor::Seq2, TsDescendant::Seq2)
+                    );
+                    anti_primary_gap = if is_intra {
+                        jump + entrance_descendant as isize - entrance_anti_descendant as isize
+                    } else {
+                        jump
+                    };
 
                     tsalign_alignment.push_n(
                         multiplicity,
@@ -420,11 +465,23 @@ fn actually_align<
                     assert!(!is_primary);
                     assert_eq!(multiplicity, 1);
                     is_primary = true;
+                    let anti_descendant_gap = anti_primary_gap + jump;
+
+                    // Continue the primary alignment after the template switch.
+                    let descendant = entrance_descendant + descendant_consumed;
+                    let anti_descendant =
+                        usize::try_from(entrance_anti_descendant as isize + anti_descendant_gap)
+                            .unwrap();
+                    (primary_a, primary_b) = if ts_descendant_is_seq1 {
+                        (descendant, anti_descendant)
+                    } else {
+                        (anti_descendant, descendant)
+                    };
 
                     tsalign_alignment.push_n(
                         multiplicity,
                         TsAlignAlignmentType::TemplateSwitchExit {
-                            anti_descendant_gap: anti_primary_gap + jump,
+                            anti_descendant_gap,
                         },
                     )
                 }
