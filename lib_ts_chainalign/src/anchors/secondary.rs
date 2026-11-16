@@ -178,13 +178,15 @@ impl<Cost> SecondaryAnchor<Cost> {
 
     /// Returns the length of the 2-3 alignment of a TS that starts in `self` and ends in `until`.
     ///
-    /// The length is the maximum of the difference of the two sequences.
+    /// Like in tsalign, the length of a TS is the length of its inner alignment in the descendant.
+    ///
+    /// This considers only the anchors, and ignores the parts of the inner alignment that are
+    /// aligned by the jump aligners before the first and after the last anchor.
     pub fn ts_length_until(&self, until: &Self) -> usize {
         let start = self.start();
         let end = until.end();
 
-        (start.ancestor().checked_sub(end.ancestor()).unwrap())
-            .max(end.descendant().checked_sub(start.descendant()).unwrap())
+        end.descendant().checked_sub(start.descendant()).unwrap()
     }
 }
 

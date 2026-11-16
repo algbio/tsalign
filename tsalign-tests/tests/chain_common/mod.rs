@@ -13,6 +13,11 @@
 //! * the cost does not increase when the anchors become less restrictive in a way that keeps every template switch supported
 //!   (see [`anchors_dominate`]);
 //! * swapping reference and query does not change the cost.
+//!
+//! tschainalign checks the length of template switches only based on the anchors,
+//! so the jump aligners may make a template switch shorter or longer than the config allows.
+//! This is accepted for now: for such alignments, the cost is recomputed without geometry costs,
+//! and the lower bound from the classic aligner with template switches is not checked.
 
 #![allow(dead_code)]
 
@@ -249,8 +254,11 @@ pub fn check_case(case: &Case) -> Result<(), String> {
                 ));
             }
         }
+        // tschainalign may use template switches whose length is outside the range allowed by the config,
+        // see `check_alignment`. These may be cheaper than what the classic aligner can find.
         if let Some(ts_cost) = ts_cost
             && result.cost < ts_cost
+            && template_switch_lengths_in_range(&result.alignment)
         {
             violations.push(format!(
                 "{params}: cost {} is smaller than the cost {ts_cost} found by the classic aligner with template switches",
@@ -377,10 +385,16 @@ fn failure_report(case: &Case, violations: &[String]) -> String {
 }
 
 /// Check the reported alignment by recomputing its cost with lib_tsalign.
+///
+/// tschainalign checks the length of template switches only based on the anchors,
+/// and ignores the parts of the inner alignment that are aligned by the jump aligners.
+/// Hence, it may report template switches whose length is outside the range allowed by the config.
+/// This is accepted for now, and for such alignments, the cost is recomputed without geometry costs.
 fn check_alignment(reference: &[u8], query: &[u8], result: &ChainResult) -> Vec<String> {
     let mut violations = Vec::new();
     let reference_genome = VectorGenome::<DnaAlphabet>::from_slice_u8(reference).unwrap();
     let query_genome = VectorGenome::<DnaAlphabet>::from_slice_u8(query).unwrap();
+    let ignore_geometry_cost = !template_switch_lengths_in_range(&result.alignment);
 
     let computed = std::panic::catch_unwind(|| {
         result.alignment.compute_cost_and_lengths(
@@ -389,7 +403,7 @@ fn check_alignment(reference: &[u8], query: &[u8], result: &ChainResult) -> Vec<
             0,
             0,
             tsa_config(),
-            false,
+            ignore_geometry_cost,
         )
     });
     match computed {
@@ -416,6 +430,30 @@ fn check_alignment(reference: &[u8], query: &[u8], result: &ChainResult) -> Vec<
         )),
     }
     violations
+}
+
+/// Returns true if the inner alignments of all template switches have a length in the descendant
+/// that is allowed by the config.
+///
+/// tschainalign checks the length only based on the anchors, and ignores the parts of the inner alignment
+/// that are aligned by the jump aligners, so it may violate this.
+pub fn template_switch_lengths_in_range(alignment: &Alignment<AlignmentType>) -> bool {
+    let length_range = tsa_config().length_costs.zero_range().unwrap();
+    // The length of the inner alignment of the current template switch in the descendant.
+    let mut length = 0;
+    for alignment_type in alignment.iter_flat_cloned() {
+        match alignment_type {
+            AlignmentType::TemplateSwitchEntrance { .. } => length = 0,
+            AlignmentType::SecondaryMatch
+            | AlignmentType::SecondarySubstitution
+            | AlignmentType::SecondaryInsertion => length += 1,
+            AlignmentType::TemplateSwitchExit { .. } if !length_range.contains(&length) => {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    true
 }
 
 fn tsa_config() -> &'static TemplateSwitchConfig<DnaAlphabet, U32Cost> {

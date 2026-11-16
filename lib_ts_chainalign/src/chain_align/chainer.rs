@@ -20,7 +20,6 @@ pub struct Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost> {
     pub anchors: &'anchors Anchors<Cost>,
     pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
     pub ts_limits: &'ts_limits TsLimits,
-    pub k: usize,
     pub max_successors: usize,
 }
 
@@ -79,14 +78,12 @@ impl<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
         anchors: &'anchors Anchors<Cost>,
         chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
         ts_limits: &'ts_limits TsLimits,
-        k: usize,
         max_successors: usize,
     ) -> Self {
         Self {
             anchors,
             chaining_cost_function,
             ts_limits,
-            k,
             max_successors,
         }
     }
@@ -215,7 +212,14 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 successor_index,
                                 predecessor,
                                 cost,
-                                self.ts_limits.length_23.contains(&self.k),
+                                self.ts_limits.length_23.contains(
+                                    &self
+                                        .anchors
+                                        .secondary(successor_index, ts_kind)
+                                        .ts_length_until(
+                                            self.anchors.secondary(successor_index, ts_kind),
+                                        ),
+                                ),
                             ))
                         })
                         .flatten(),
@@ -322,7 +326,14 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 successor_index,
                                 predecessor,
                                 cost,
-                                self.ts_limits.length_23.contains(&self.k),
+                                self.ts_limits.length_23.contains(
+                                    &self
+                                        .anchors
+                                        .secondary(successor_index, ts_kind)
+                                        .ts_length_until(
+                                            self.anchors.secondary(successor_index, ts_kind),
+                                        ),
+                                ),
                             ))
                         })
                         .flatten(),

@@ -144,12 +144,10 @@ fn actually_align<
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
 
-    let k = usize::try_from(config.anchor_k).unwrap();
     let context = Context::new(
         anchors,
         chaining_cost_function,
         &alignment_costs.ts_limits,
-        k,
         performance_parameters.max_successors,
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
