@@ -238,12 +238,13 @@ fn generate(
         .collect()
 }
 
-/// Length of a random sequence: mostly up to 80, sometimes up to 100.
+/// Length of a random sequence: mostly up to 30, sometimes up to 40.
+/// With longer sequences, single runs with inexact anchors may take minutes (issue #223).
 fn random_length(rng: &mut Rng) -> usize {
     if rng.chance(0.8) {
-        rng.range(20, 80)
+        rng.range(15, 30)
     } else {
-        rng.range(80, 100)
+        rng.range(30, 40)
     }
 }
 
@@ -267,7 +268,8 @@ fn with_template_switches(
     rng: &mut Rng,
     sequence: fn(&mut Rng, usize) -> Vec<u8>,
 ) -> (Vec<u8>, Vec<u8>) {
-    let length = rng.range(35, 100);
+    // With longer sequences, single runs with inexact anchors may take minutes (issue #223).
+    let length = rng.range(30, 45);
     let reference = sequence(rng, length);
     let mut query = reference.clone();
     for _ in 0..rng.range(1, 2) {
