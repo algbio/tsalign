@@ -19,6 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # python_bindings (pyo3 0.26) is built here; pin Python to a version pyo3 0.26
+      # supports, because the runners' default is now 3.15, which pyo3 0.26 rejects.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
@@ -37,7 +44,7 @@ jobs:
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: 
+        with:
           components: rustfmt
 
       - name: cargo format
@@ -53,6 +60,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      # python_bindings (pyo3 0.26) is built here; pin Python (see rust_check).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -73,9 +86,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # python_bindings (pyo3 0.26) is built here; pin Python (see rust_check).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: 
+        with:
           components: clippy
           toolchain: ${{matrix.toolchain}}
 
@@ -92,6 +111,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      # python_bindings (pyo3 0.26) is built here; pin Python (see rust_check).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -132,6 +157,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # python_bindings (pyo3 0.26) is built here; pin Python (see rust_check).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
@@ -150,6 +181,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      # python_bindings (pyo3 0.26) is built here; pin Python to a version pyo3 0.26
+      # supports. This job (macOS/Windows) was failing because the runners' default
+      # is now Python 3.15, which pyo3 0.26 rejects.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
