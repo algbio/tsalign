@@ -239,7 +239,8 @@ fn generate(
 }
 
 /// Length of a random sequence: mostly up to 30, sometimes up to 40.
-/// With longer sequences, single runs with inexact anchors may take minutes (issue #223).
+/// With longer sequences, single runs with inexact anchors may take minutes (issue #223): this is an
+/// inherent property of inexact-anchor chaining on low-complexity/repetitive input, not a bug to fix.
 fn random_length(rng: &mut Rng) -> usize {
     if rng.chance(0.8) {
         rng.range(15, 30)
@@ -268,7 +269,8 @@ fn with_template_switches(
     rng: &mut Rng,
     sequence: fn(&mut Rng, usize) -> Vec<u8>,
 ) -> (Vec<u8>, Vec<u8>) {
-    // With longer sequences, single runs with inexact anchors may take minutes (issue #223).
+    // With longer sequences, single runs with inexact anchors may take minutes (issue #223): inherent to
+    // inexact-anchor chaining on low-complexity/repetitive input, not a bug to fix.
     let length = rng.range(30, 45);
     let reference = sequence(rng, length);
     let mut query = reference.clone();
