@@ -4,7 +4,9 @@
 //! Some tests additionally assert concrete expectations, such as a cost of zero for identical sequences
 //! or that a template switch is found if the anchors support it.
 
-use chain_common::{Case, Params, RunOutcome, run_case, run_chain, run_classic};
+use chain_common::{
+    Case, Params, RunOutcome, read_pair_fasta, run_case, run_chain, run_chain_unpruned, run_classic,
+};
 
 mod chain_common;
 
@@ -86,6 +88,32 @@ fn assert_cost(case: &Case, params: Params, expected: u32) {
         "{}: k = {}, max_anchor_mutations = {}: expected cost {expected}, got {} with alignment {}",
         case.name, params.0, params.1, result.cost, result.alignment
     );
+}
+
+/// Assert that the chain has the given cost, both with and without pruning dominated anchors.
+///
+/// Other than the reported cost, the chain cost does not depend on how ties between optimal chains are broken.
+fn assert_chain_cost(case: &Case, params: Params, expected: u32) {
+    let (k, max_anchor_mutations) = params;
+    let pruned = chain_result(case, params);
+    let unpruned = match run_chain_unpruned(&case.reference, &case.query, k, max_anchor_mutations) {
+        RunOutcome::Success(result) => result,
+        other => panic!(
+            "{}: k = {k}, max_anchor_mutations = {max_anchor_mutations} without pruning dominated anchors: {other}",
+            case.name
+        ),
+    };
+    for (name, result) in [("with", pruned), ("without", unpruned)] {
+        assert_eq!(
+            result.chain_cost,
+            Some(expected),
+            "{}: k = {k}, max_anchor_mutations = {max_anchor_mutations} {name} pruning dominated anchors: \
+             expected chain cost {expected}, got cost {} with alignment {}",
+            case.name,
+            result.cost,
+            result.alignment
+        );
+    }
 }
 
 /// Assert that the anchors for `params` support a template switch that makes the alignment cheaper
@@ -487,4 +515,43 @@ fn intra_sequence_template_switch() {
     let case = Case::new("intra_sequence_template_switch", &reference, &query);
     run_case(&case);
     assert_finds_template_switch(&case, (6, 0));
+}
+
+/// Inputs whose optimal chain needs an inexact anchor with a side of length `k + 1`.
+///
+/// Such anchors are dominated: they are a shorter anchor with the same start plus one alignment column.
+/// Dominated primary anchors are pruned before chaining, which provably does not change the cost of the optimal chain.
+/// Dominated secondary anchors must not be pruned, because the length of a template switch is measured on its
+/// secondary anchors: in `twin_in_place_inversion` with k = 9, the secondary anchor `1I9=` is the only one that
+/// reaches the minimum template switch length of 10, and without it, the template switch is lost and the cost
+/// increases from 5 to 18 (nine substitutions).
+/// A prototype that pruned dominated secondary anchors changed the costs of all of these inputs.
+///
+/// The expected chain costs were computed without pruning.
+/// For `twin_in_place_inversion`, 5 is also the cost of the optimal alignment found by the classic aligner.
+#[test]
+fn dominated_anchors_required_for_template_switches() {
+    let file_case = |path: &str| {
+        let (reference, query) = read_pair_fasta(path, b"");
+        Case::new(path, reference, query)
+    };
+
+    let case = file_case("test_files/twin_in_place_inversion.fa");
+    assert_eq!(classic_cost(&case, true), 5);
+    assert_eq!(classic_cost(&case, false), 18);
+    assert_chain_cost(&case, (9, 1), 5);
+    assert_chain_cost(&case, (9, 2), 5);
+    assert_cost(&case, (9, 1), 5);
+    assert_finds_template_switch(&case, (9, 1));
+
+    let case = file_case("test_files/twin_in_place_inversion_1S.fa");
+    assert_chain_cost(&case, (9, 2), 9);
+
+    let case = file_case("test_files/error.pair.fa");
+    assert_chain_cost(&case, (9, 1), 12);
+    assert_chain_cost(&case, (9, 2), 12);
+
+    let case = file_case("test_files/twin_show_ts_small_rr2.fa");
+    assert_chain_cost(&case, (9, 1), 7);
+    assert_chain_cost(&case, (9, 2), 7);
 }

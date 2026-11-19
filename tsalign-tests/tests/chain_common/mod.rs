@@ -15,7 +15,13 @@
 //!   for inexact anchors, an alignment without template switches costs at least the classic optimum without them;
 //! * for exact anchors, the cost does not increase when the anchors become less restrictive in a way that keeps
 //!   every template switch supported (see [`anchors_dominate`]);
-//! * swapping reference and query does not change the chain cost.
+//! * swapping reference and query does not change the chain cost;
+//! * for inexact anchors, the chain cost equals the chain cost of a run with all anchors,
+//!   i.e. without pruning dominated anchors (`--no-anchor-domination-pruning`).
+//!   Pruning must not change the cost of the optimal chain.
+//!   This is the only check that detects too expensive results for inexact anchors:
+//!   when a pruned anchor was required for a template switch, the result is typically the optimal alignment without
+//!   template switches, which passes all other checks that are applied to inexact anchors.
 //!
 //! tschainalign finds alignments that are optimal with regard to the anchors, not globally optimal alignments.
 //! For inexact anchors (`max_anchor_mutations >= 1`), the chain cost is the sum of the costs of the gaps and anchors,
@@ -305,6 +311,23 @@ pub fn check_case(case: &Case) -> Result<(), String> {
             ));
         }
 
+        // Pruning dominated anchors must not change the cost of the optimal chain.
+        // The chaining with all anchors is the oracle for the chain cost of the default (pruned) run.
+        // Exact anchors are never pruned.
+        if !is_exact {
+            violations.extend(
+                check_chain_cost_against_unpruned(
+                    reference,
+                    query,
+                    k,
+                    max_anchor_mutations,
+                    &result,
+                )
+                .into_iter()
+                .map(|violation| format!("{params}: {violation}")),
+            );
+        }
+
         costs.push((
             (k, max_anchor_mutations),
             result.cost,
@@ -382,6 +405,38 @@ pub fn check_case(case: &Case) -> Result<(), String> {
         Ok(())
     } else {
         Err(failure_report(case, &violations))
+    }
+}
+
+/// Check the chain cost of a tschainalign result against the chain cost of the same alignment
+/// without pruning dominated anchors.
+///
+/// Removing anchors can only remove chains, so the chain cost with pruning is never smaller.
+/// Pruning is sound if the chain cost is not larger either.
+/// The reported cost is not compared, since it depends on how ties between chains of equal chain cost are broken
+/// (see [issue #221](https://github.com/algbio/tsalign/issues/221)).
+pub fn check_chain_cost_against_unpruned(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+    result: &ChainResult,
+) -> Option<String> {
+    match run_chain_unpruned(reference, query, k, max_anchor_mutations) {
+        RunOutcome::Success(unpruned) => (result.chain_cost != unpruned.chain_cost).then(|| {
+            format!(
+                "chain cost {} differs from the chain cost {} without pruning dominated anchors \
+                 (costs {} and {}, alignments {} and {})",
+                display_optional(result.chain_cost),
+                display_optional(unpruned.chain_cost),
+                result.cost,
+                unpruned.cost,
+                result.alignment,
+                unpruned.alignment,
+            )
+        }),
+        // Without the oracle, the chain cost is not verified, which must not pass silently.
+        other => Some(format!("without pruning dominated anchors: {other}")),
     }
 }
 
@@ -560,6 +615,28 @@ impl std::fmt::Display for RunOutcome {
 
 /// Align with tschainalign.
 pub fn run_chain(reference: &[u8], query: &[u8], k: u32, max_anchor_mutations: u8) -> RunOutcome {
+    run_chain_with_pruning(reference, query, k, max_anchor_mutations, true)
+}
+
+/// Align with tschainalign without pruning dominated anchors.
+///
+/// This is the oracle for the chain cost of [`run_chain`].
+pub fn run_chain_unpruned(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+) -> RunOutcome {
+    run_chain_with_pruning(reference, query, k, max_anchor_mutations, false)
+}
+
+fn run_chain_with_pruning(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+    prune_dominated_anchors: bool,
+) -> RunOutcome {
     let mut args: Vec<String> = [
         "align",
         "--alignment-method",
@@ -584,9 +661,25 @@ pub fn run_chain(reference: &[u8], query: &[u8], k: u32, max_anchor_mutations: u
         cache.display().to_string(),
         "--force-no-preprocessing".to_string(),
     ]);
+    if !prune_dominated_anchors {
+        args.push("--no-anchor-domination-pruning".to_string());
+    }
 
-    run_align(reference, query, args)
+    // The chaining with all anchors is slower, and its result is only used as an oracle.
+    let timeout = if prune_dominated_anchors {
+        timeout()
+    } else {
+        timeout() * UNPRUNED_TIMEOUT_FACTOR
+    };
+    run_align(reference, query, args, timeout)
 }
+
+/// The factor by which the timeout is increased for runs without pruning dominated anchors.
+///
+/// Pruning dominated anchors makes the chaining faster, so the oracle run without pruning may exceed the normal
+/// timeout although the run with pruning does not.
+/// If the oracle run exceeds the increased timeout as well, the chain cost cannot be verified, which is a violation.
+const UNPRUNED_TIMEOUT_FACTOR: u32 = 3;
 
 /// Align with the classic A* aligner, with or without template switches.
 pub fn run_classic(reference: &[u8], query: &[u8], template_switches: bool) -> RunOutcome {
@@ -611,12 +704,17 @@ pub fn run_classic(reference: &[u8], query: &[u8], template_switches: bool) -> R
     if !template_switches {
         args.push("--no-ts".to_string());
     }
-    let outcome = run_align(reference, query, args);
+    let outcome = run_align(reference, query, args, timeout());
     cache.lock().unwrap().insert(key, outcome.clone());
     outcome
 }
 
-fn run_align(reference: &[u8], query: &[u8], mut args: Vec<String>) -> RunOutcome {
+fn run_align(
+    reference: &[u8],
+    query: &[u8],
+    mut args: Vec<String>,
+    timeout: Duration,
+) -> RunOutcome {
     let input = unique_path("pair.fa");
     let output = input.with_extension("toml");
     fs::write(
@@ -639,7 +737,7 @@ fn run_align(reference: &[u8], query: &[u8], mut args: Vec<String>) -> RunOutcom
         output.display().to_string(),
     ]);
 
-    let outcome = match run_tsalign(&args) {
+    let outcome = match run_tsalign(&args, timeout) {
         Err(outcome) => outcome,
         Ok(()) => match parse_output(&output) {
             Ok(result) => RunOutcome::Success(result),
@@ -699,7 +797,7 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
 }
 
 /// Run tsalign with a timeout. Returns `Err` with the failure outcome if it does not succeed.
-fn run_tsalign(args: &[String]) -> Result<(), RunOutcome> {
+fn run_tsalign(args: &[String], timeout: Duration) -> Result<(), RunOutcome> {
     let _permit = ProcessPermit::acquire();
     let stdout_path = unique_path("stdout.txt");
     let stderr_path = unique_path("stderr.txt");
@@ -713,7 +811,6 @@ fn run_tsalign(args: &[String]) -> Result<(), RunOutcome> {
         .spawn()
         .unwrap();
 
-    let timeout = timeout();
     let start = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait().unwrap() {
@@ -826,7 +923,7 @@ fn preprocessed_cache(k: u32, max_anchor_mutations: u8) -> Result<PathBuf, Strin
             max_anchor_mutations.to_string(),
             "256".into(),
         ];
-        run_tsalign(&args)
+        run_tsalign(&args, timeout())
             .map(|()| directory)
             .map_err(|outcome| format!("preprocessing {outcome}"))
     })

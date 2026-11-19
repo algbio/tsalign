@@ -24,6 +24,7 @@ use crate::{
     costs::AlignmentCosts,
 };
 
+pub mod domination;
 pub mod exact_kmer_matches;
 pub mod index;
 pub mod inexact_kmer_matches;
@@ -269,6 +270,43 @@ impl<Cost> Anchors<Cost> {
             primary,
             secondaries,
         }
+    }
+
+    /// Removes the dominated primary anchors, if that is known to not change the cost of the optimal chain.
+    ///
+    /// See the [`domination`] module for the definition of dominated anchors and the conditions for pruning.
+    /// The proof of soundness holds only for the max-match-run chaining,
+    /// so this must not be called if the anchors are chained with a different method.
+    ///
+    /// * `k` and `max_mutations` are the parameters that the anchors were created with by [`Self::new_inexact`].
+    ///
+    /// Returns the number of removed anchors.
+    pub fn prune_dominated_primary_anchors(
+        &mut self,
+        sequences: &AlignmentSequences,
+        k: u32,
+        max_mutations: u8,
+        costs: &AlignmentCosts<Cost>,
+    ) -> usize
+    where
+        Cost: AStarCost,
+    {
+        if !domination::is_pruning_sound(usize::from(max_mutations), &costs.primary_costs) {
+            return 0;
+        }
+
+        let pruned = domination::prune_dominated_primary_anchors(
+            &mut self.primary,
+            sequences.seq1(),
+            sequences.seq2(),
+            usize::try_from(k).unwrap(),
+            &costs.primary_costs,
+        );
+        info!(
+            "Pruned {pruned} dominated primary anchors, {} remain",
+            self.primary.len()
+        );
+        pruned
     }
 
     pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {
