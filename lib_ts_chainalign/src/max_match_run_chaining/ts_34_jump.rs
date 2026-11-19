@@ -92,6 +92,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             dijkstra.prune_list(),
             self.enforce_non_match_next_to_anchors(),
+            self.enforcement_offset,
             self.sequences.primary_end(),
             cost,
             descendant_start,
@@ -139,6 +140,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             dijkstra.prune_list(),
             self.enforce_non_match_next_to_anchors(),
+            self.enforcement_offset,
             self.sequences.primary_end(),
             cost_limit,
             descendant_start,
@@ -174,32 +176,67 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     /// Returns true if a 34-jump from a secondary anchor ending at `descendant_start` in the descendant to `end`
     /// must contain a non-match.
     ///
-    /// A non-match is enforced if there is a gap between the anchors in the descendant.
-    /// This is to match the lower-bound computation of 34-jumps between anchors.
-    /// It also discourages chains to deviate from the alignment geometry boundaries.
-    ///
-    /// The end of the alignment is no anchor, so a jump to there may consist of matches only,
-    /// and there is no other way to represent such a jump.
-    /// The lower bounds of 34-jumps to the end allow this as well.
-    ///
-    /// This is independent of [`Self::enforce_non_match_next_to_anchors`].
+    /// See [`Self::requires_non_match`].
     fn enforce_non_match(
         &self,
         descendant_start: usize,
         end: PrimaryAlignmentCoordinates,
         descendant_end: usize,
     ) -> bool {
-        descendant_start != descendant_end && end != self.sequences.primary_end()
+        Self::requires_non_match(
+            self.enforcement_offset,
+            end == self.sequences.primary_end(),
+            descendant_start,
+            descendant_end,
+        )
+    }
+
+    /// Returns true if a 34-jump whose descendant gap is `descendant_start..descendant_end` must contain a non-match.
+    ///
+    /// A non-match is enforced if there is a gap between the anchors in the descendant
+    /// and the anchors are exact (`enforcement_offset == 0`).
+    /// For exact anchors, an all-match jump part next to the secondary or primary anchor can be represented by a
+    /// shifted anchor that is chained for free (see `is_direct_free_predecessor_of`).
+    /// This matches the lower-bound computation of 34-jumps between exact anchors,
+    /// and it discourages chains to deviate from the alignment geometry boundaries.
+    ///
+    /// Inexact anchors (`enforcement_offset > 0`) do not have such free shifted twins,
+    /// so the jump may consist of matches only, and there is no other way to represent such a jump.
+    /// The lower bounds of 34-jumps between inexact anchors allow this as well
+    /// (they are built from the inexact gap-affine lower bounds, which allow all matches),
+    /// and the gap-affine aligner does the same for `enforcement_offset > 0`.
+    ///
+    /// The end of the alignment is no anchor, so a jump to there may consist of matches only as well.
+    /// The lower bounds of 34-jumps to the end allow this.
+    ///
+    /// If the descendant gap is empty, no non-match is enforced.
+    /// Then the secondary and primary parts can only contain gaps in the descendant (deletions),
+    /// and every such alignment is dominated by the bare jump directly to the target ancestor position,
+    /// which costs nothing.
+    ///
+    /// This is independent of [`Self::enforce_non_match_next_to_anchors`].
+    /// It is used for both the target in [`Self::align`] and the additional targets
+    /// in [`Self::fill_additional_targets`], so that both agree on the exact costs.
+    fn requires_non_match(
+        enforcement_offset: u8,
+        is_alignment_end: bool,
+        descendant_start: usize,
+        descendant_end: usize,
+    ) -> bool {
+        enforcement_offset == 0 && !is_alignment_end && descendant_start != descendant_end
     }
 
     /// Fills the primary coordinates reached with at most the given cost limit into the output.
     ///
-    /// If the descendant gap is empty, only nodes without non-match are reported.
-    /// If it is non-empty, only nodes with a non-match are reported (see [`Self::enforce_non_match`]),
-    /// except at the end of the alignment, where nodes without non-match are reported as well.
+    /// A node is reported if it would be a target of [`Self::align`] with its coordinates as `end`,
+    /// i.e. if it has a non-match or if no non-match is required (see [`Self::requires_non_match`]).
+    /// In particular, if the descendant gap is empty, all nodes are reported,
+    /// including the ones reached only via deletions (which are dominated by the bare jump to the same coordinates).
+    #[expect(clippy::too_many_arguments)]
     fn fill_additional_targets(
         prune_list: &PruneList<Node<Cost>>,
         enforce_non_match_next_to_anchors: bool,
+        enforcement_offset: u8,
         primary_end: PrimaryAlignmentCoordinates,
         cost_limit: Cost,
         descendant_start: usize,
@@ -222,12 +259,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     None
                 }
             })
+            // The same condition as in `Context::is_target_identifier`.
             .filter(|(coordinates, has_non_match, _)| {
-                if descendant_start == Self::descendant_end(*coordinates, ts_kind) {
-                    !*has_non_match
-                } else {
-                    *has_non_match || *coordinates == primary_end
-                }
+                *has_non_match
+                    || !Self::requires_non_match(
+                        enforcement_offset,
+                        *coordinates == primary_end,
+                        descendant_start,
+                        Self::descendant_end(*coordinates, ts_kind),
+                    )
             })
             .map(|(coordinates, _, cost)| (coordinates, cost)),
         );

@@ -305,12 +305,13 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                 let gap_type = identifier.gap_type();
 
                 // Generate a successor into a possible final unenforced section.
-                if let Identifier::Primary {
-                    coordinates,
-                    gap_type,
-                    has_non_match,
-                    final_unenforced_section: false,
-                } = *identifier
+                // The jump node may enter it directly only if the maximum match run is zero and anchors are inexact,
+                // such that the primary part may consist of matches only (up to the enforcement offset).
+                // Otherwise, this is redundant: with a positive maximum match run, the section can be entered
+                // after one ordinary match with the same limit, and with exact anchors it allows no additional matches.
+                if !identifier.final_unenforced_section()
+                    && (matches!(identifier, Identifier::Primary { .. })
+                        || (self.max_match_run == 0 && self.enforcement_offset > 0))
                 {
                     let identifier = Identifier::Primary {
                         coordinates,
