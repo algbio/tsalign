@@ -785,3 +785,139 @@ fn forward_ts_with_ancestor_shorter_than_min_length_at_ancestor_end() {
         6.0,
     );
 }
+
+/// Align with every min length strategy, including the heuristic [`MinLengthStrategySelector::PreprocessFilter`],
+/// check that each reported cost equals the independently recomputed cost, and return the costs by strategy name.
+fn align_with_all_min_length_strategies(
+    costs: &str,
+    reference: &[u8],
+    query: &[u8],
+) -> Vec<(String, f64)> {
+    exact_min_length_strategies()
+        .into_iter()
+        .chain([MinLengthStrategySelector::PreprocessFilter])
+        .map(|min_length_strategy| {
+            let name = format!("{min_length_strategy:?}");
+            let (cost, _, recomputed_cost) =
+                align_and_recompute_cost(costs, min_length_strategy, reference, query);
+            assert_eq!(
+                cost, recomputed_cost,
+                "{name}: reported cost differs from recomputed cost"
+            );
+            (name, cost)
+        })
+        .collect()
+}
+
+/// Both sequences are shorter than the minimum template switch length (10), so no template switch is possible.
+/// The preprocessed min length strategies used to panic with an integer underflow
+/// (`len - template_switch_min_length`) on such inputs.
+/// The optimal alignment has a single substitution (cost 2).
+#[test]
+fn min_length_strategies_with_both_sequences_shorter_than_min_length() {
+    let results = align_with_all_min_length_strategies(TS_END_TEST_COSTS, b"CCCTAGTT", b"CCCAAGTT");
+    assert!(
+        results.iter().all(|(_, cost)| *cost == 2.0),
+        "expected cost 2 with all min length strategies, but got {results:?}"
+    );
+}
+
+/// `A + rc(A)` for a 10 character `A`, so it is its own reverse complement.
+const PALINDROME_20: &[u8] = b"GATTACAGGC GCCTGTAATC";
+/// A sequence shorter than the minimum template switch length (10).
+const SHORT_5: &[u8] = b"TTGCA";
+
+/// The reference is [`PALINDROME_20`] followed by the 5 characters of the query,
+/// so the query is shorter than the minimum template switch length.
+///
+/// The optimal alignment is a reverse RR template switch at `(0, 0)` with first offset 20, whose inner matches all
+/// 20 characters of the palindrome exactly (base cost 2, all geometry costs 0), followed by 5 primary matches.
+/// Without a template switch, the 20 extra reference characters would cost at least `3 + 19 = 22`.
+///
+/// The preprocessed min length strategies used to panic on such inputs.
+/// Since the long reference contains an exact match of minimum length with itself, the short query must not make them
+/// treat the template switch as a non-match. Otherwise `PreprocessPrice` would use an inadmissible lower bound and
+/// `PreprocessFilter` would drop the optimal template switch, even though its inner is an exact match.
+#[test]
+fn min_length_strategies_with_query_shorter_than_min_length() {
+    let reference = [without_spaces(PALINDROME_20).as_slice(), SHORT_5].concat();
+    let query = SHORT_5;
+    let witness = [
+        (
+            1,
+            AlignmentType::TemplateSwitchEntrance {
+                descendant: TemplateSwitchDescendant::Reference,
+                ancestor: TemplateSwitchAncestor::Reference,
+                direction: TemplateSwitchDirection::Reverse,
+                uncertainty_range: None,
+                first_offset: 20,
+            },
+        ),
+        (20, AlignmentType::SecondaryMatch),
+        (
+            1,
+            AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap: 0,
+            },
+        ),
+        (5, AlignmentType::PrimaryMatch),
+    ];
+    assert_classic_aligner_finds_witness_cost(TS_END_TEST_COSTS, &reference, query, &witness, 2.0);
+
+    let results = align_with_all_min_length_strategies(TS_END_TEST_COSTS, &reference, query);
+    assert!(
+        results.iter().all(|(_, cost)| *cost == 2.0),
+        "expected cost 2 with all min length strategies, but got {results:?}"
+    );
+}
+
+/// Same as [`min_length_strategies_with_query_shorter_than_min_length`], but with reference and query swapped,
+/// such that the optimal alignment uses a reverse QQ template switch.
+#[test]
+fn min_length_strategies_with_reference_shorter_than_min_length() {
+    let reference = SHORT_5;
+    let query = [without_spaces(PALINDROME_20).as_slice(), SHORT_5].concat();
+    let witness = [
+        (
+            1,
+            AlignmentType::TemplateSwitchEntrance {
+                descendant: TemplateSwitchDescendant::Query,
+                ancestor: TemplateSwitchAncestor::Query,
+                direction: TemplateSwitchDirection::Reverse,
+                uncertainty_range: None,
+                first_offset: 20,
+            },
+        ),
+        (20, AlignmentType::SecondaryMatch),
+        (
+            1,
+            AlignmentType::TemplateSwitchExit {
+                anti_descendant_gap: 0,
+            },
+        ),
+        (5, AlignmentType::PrimaryMatch),
+    ];
+    assert_classic_aligner_finds_witness_cost(TS_END_TEST_COSTS, reference, &query, &witness, 2.0);
+
+    let results = align_with_all_min_length_strategies(TS_END_TEST_COSTS, reference, &query);
+    assert!(
+        results.iter().all(|(_, cost)| *cost == 2.0),
+        "expected cost 2 with all min length strategies, but got {results:?}"
+    );
+}
+
+/// If all `Length` costs are infinite, then template switches are disabled and the minimum template switch length
+/// is `usize::MAX`. The preprocessed min length strategies must not underflow on this either.
+/// The optimal alignment is the same as without template switches: 5 deleted characters (`3 + 4 = 7`).
+#[test]
+fn min_length_strategies_with_template_switches_disabled() {
+    let costs = TS_END_TEST_COSTS.replace("Length\n   0 10 200\n inf  0 inf", "Length\n   0\n inf");
+    assert_ne!(costs, TS_END_TEST_COSTS);
+    let reference = [without_spaces(PALINDROME_20).as_slice(), SHORT_5].concat();
+    let query = without_spaces(PALINDROME_20);
+    let results = align_with_all_min_length_strategies(&costs, &reference, &query);
+    assert!(
+        results.iter().all(|(_, cost)| *cost == 7.0),
+        "expected cost 7 with all min length strategies, but got {results:?}"
+    );
+}
