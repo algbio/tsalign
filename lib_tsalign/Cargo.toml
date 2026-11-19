@@ -31,4 +31,4 @@ log.workspace = true
 rustc-hash = "2.1.1"
 seed_chain = { version = "7.0.2", path = "../seed_chain" }
 extend_map.workspace = true
-template-switch-error-free-inners = "0.1.1"
+template-switch-error-free-inners = "0.1.2"
