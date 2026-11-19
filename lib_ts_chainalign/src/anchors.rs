@@ -82,7 +82,7 @@ impl<Cost> Anchors<Cost> {
         );
         let s2_kmers = compute_exact_kmers::<Store>(
             &s2[sequences.primary_start().b()..sequences.primary_end().b()],
-            sequences.primary_start().a(),
+            sequences.primary_start().b(),
             k,
         );
         let s1_rc_kmers = compute_exact_kmers::<Store>(&s1_rc, 0, k);
