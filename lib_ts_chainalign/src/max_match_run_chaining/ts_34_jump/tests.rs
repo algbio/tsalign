@@ -540,8 +540,11 @@ fn chainalign_costs() -> AlignmentCosts<U32Cost> {
 }
 
 /// The `(max_match_run, enforcement_offset)` parameters of the aligners as used by the chaining cost function
-/// for k = 4 with exact anchors and with one anchor mutation.
-const K4_ALIGNER_PARAMETERS: [(u32, u8); 2] = [(3, 0), (2, 4)];
+/// for k = 4 with exact anchors, with one anchor mutation, and with three anchor mutations
+/// (`max_match_run = k - 1 - max_anchor_mutations`, `enforcement_offset = k` for inexact anchors).
+/// With three anchor mutations, `max_match_run` is zero, so all matches next to the anchors
+/// are allowed only via `enforcement_offset`.
+const K4_ALIGNER_PARAMETERS: [(u32, u8); 3] = [(3, 0), (2, 4), (0, 4)];
 
 /// The reference is an inner sequence followed by `CC`, and the query is the reverse complement
 /// of the inner sequence followed by `CC`.
@@ -551,7 +554,7 @@ fn template_switch_then_matches() -> AlignmentSequences {
 }
 
 /// A 34-jump from the last secondary anchor of an optimal template switch to the end of the alignment,
-/// with anchors of length k = 4 (exact, and with one mutation).
+/// with anchors of length k = 4 (exact, with one mutation, and with three mutations).
 ///
 /// The secondary anchor `SA((4, 0], [10, 14))` of kind 21 ends directly at the template switch exit:
 /// the descendant (seq1) is at position 14 and the ancestor (seq2) was read in reverse until position 0.
