@@ -14,7 +14,7 @@ use crate::{
     chain_align::performance_parameters::AlignmentPerformanceParameters,
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
-    config::ChainingLowerBoundConfig,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::AlignmentCosts,
 };
 
@@ -68,6 +68,7 @@ pub fn preprocess(
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
 /// * `max_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `performance_parameters` is a set of parameters for the aligner that only affect performance.
+///   They do not affect the cost of the optimal chain.
 /// * `rc_fn` is a function that maps a character to its reverse complement.
 /// * `reference_name` is the name of the reference string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
@@ -104,13 +105,28 @@ pub fn align<AlphabetType: Alphabet>(
     let anchors = if max_mutations == 0 {
         Anchors::new_exact(&sequences, k, rc_fn)
     } else {
-        Anchors::new_inexact(
+        let mut anchors = Anchors::new_inexact(
             &sequences,
             k,
             max_mutations,
             chaining_lower_bounds.alignment_costs(),
             rc_fn,
-        )
+        );
+        // Pruning dominated anchors is only proven to be sound for the max-match-run chaining.
+        if performance_parameters.prune_dominated_anchors
+            && matches!(
+                chaining_lower_bounds.config().inexact_lower_bound,
+                InexactLowerBoundKind::MaxMatchRun
+            )
+        {
+            anchors.prune_dominated_primary_anchors(
+                &sequences,
+                k,
+                max_mutations,
+                chaining_lower_bounds.alignment_costs(),
+            );
+        }
+        anchors
     };
     trace!("Anchors:\n{anchors}");
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(

@@ -191,6 +191,16 @@ pub struct Cli {
     #[clap(long, default_value = "linear-heap")]
     chaining_open_list: ChainingOpenList,
 
+    /// Do not remove dominated inexact anchors before chaining.
+    ///
+    /// By default, inexact primary anchors that are dominated by a shorter anchor are removed before chaining,
+    /// if this provably does not change the cost of the optimal chain.
+    /// This flag is for comparing against the chaining with all anchors.
+    ///
+    /// This applies only to tschainalign.
+    #[clap(long)]
+    no_anchor_domination_pruning: bool,
+
     /// If set, template switches are not allowed.
     ///
     /// Use this to compare a template switch alignment against an alignment with out template switches.

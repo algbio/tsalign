@@ -92,6 +92,7 @@ pub fn align_a_star_chain_ts<
         max_exact_cost_function_cost: cli.max_exact_cost_function_cost.into(),
         closed_list: cli.chaining_closed_list,
         open_list: cli.chaining_open_list,
+        prune_dominated_anchors: !cli.no_anchor_domination_pruning,
     };
 
     let alignment = lib_ts_chainalign::align::<AlphabetType>(
