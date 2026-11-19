@@ -695,3 +695,261 @@ fn matches_from_alignment_start_then_jump_until_cost_limit() {
         );
     }
 }
+
+fn is_non_match(alignment_type: &AlignmentType) -> bool {
+    matches!(
+        alignment_type,
+        AlignmentType::Substitution | AlignmentType::GapA | AlignmentType::GapB
+    )
+}
+
+/// A 12-jump from an inner primary coordinate (the end of a primary anchor) to the start of a secondary anchor,
+/// with a non-empty descendant gap and an all-match primary and secondary part.
+///
+/// From `(1, 1)`, an optimal 12-jump to `SA((14, ...], [4, ...))` of kind 21 is `1=` (the second `C`),
+/// the jump to the template switch entrance `(16, 2)`, and `2=` in the secondary part, so it costs only
+/// the template switch base cost 2.
+/// (Another optimal one is `2=`, the jump to `(15, 3)` and `1=`.)
+///
+/// With inexact anchors (`enforcement_offset > 0`), there is no shifted anchor that could be chained for free
+/// instead, so this all-match jump must be allowed (bugs (ii) and (iii) of the 203 branch).
+/// With exact anchors (`enforcement_offset == 0`), a non-match is still enforced, also without
+/// enforced non-matches next to anchors.
+#[test]
+fn matches_from_inner_start_then_jump_then_matches() {
+    let sequences = matches_then_template_switch();
+    let costs = chainalign_costs();
+    let start = PrimaryAlignmentCoordinates::new(1, 1);
+    let end = SpecificSecondaryAlignmentCoordinates::new(14, 4, TsKind::TS21);
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        let mut aligners = vec![(
+            "default",
+            Ts12JumpAligner::new(
+                &sequences,
+                &costs,
+                &rc_fn,
+                max_match_run,
+                enforcement_offset,
+            ),
+        )];
+        if enforcement_offset == 0 {
+            aligners.push((
+                "without enforced non-match next to anchors",
+                Ts12JumpAligner::new(
+                    &sequences,
+                    &costs,
+                    &rc_fn,
+                    max_match_run,
+                    enforcement_offset,
+                )
+                .without_enforced_non_match_next_to_anchors(),
+            ));
+        }
+
+        for (name, mut aligner) in aligners {
+            let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
+            let context = format!(
+                "{name}, max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}: {alignment:?}"
+            );
+
+            let has_non_match = alignment
+                .alignment
+                .iter()
+                .any(|(_, alignment_type)| is_non_match(alignment_type));
+            if enforcement_offset > 0 {
+                assert_eq!(cost, U32Cost::from(2u8), "{context}");
+                assert!(!has_non_match, "{context}");
+                assert!(
+                    alignment
+                        .alignment
+                        .iter()
+                        .any(|(_, alignment_type)| matches!(
+                            alignment_type,
+                            AlignmentType::TsStart { .. }
+                        )),
+                    "{context}"
+                );
+            } else {
+                assert!(cost > U32Cost::from(2u8), "{context}");
+                assert!(has_non_match, "{context}");
+            }
+        }
+    }
+}
+
+/// Same as [`matches_from_inner_start_then_jump_then_matches`], but via `align_until_cost_limit`,
+/// which the chaining cost function uses to compute the exact costs of 12-jumps between anchors.
+///
+/// With cost limit 2 (the template switch base cost), the anchor start `(14, 4)` must be reported with cost 2
+/// for inexact anchors, and must not be reported for exact anchors.
+#[test]
+fn matches_from_inner_start_then_jump_then_matches_until_cost_limit() {
+    let sequences = matches_then_template_switch();
+    let costs = chainalign_costs();
+    let start = PrimaryAlignmentCoordinates::new(1, 1);
+    let target = SpecificSecondaryAlignmentCoordinates::new(14, 4, TsKind::TS21).into_any();
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        let mut aligner = Ts12JumpAligner::new(
+            &sequences,
+            &costs,
+            &rc_fn,
+            max_match_run,
+            enforcement_offset,
+        );
+        let mut targets = Vec::new();
+        aligner.align_until_cost_limit(
+            start,
+            sequences.secondary_end(TsKind::TS21),
+            U32Cost::from(2u8),
+            &mut targets,
+        );
+
+        let target_cost = targets
+            .iter()
+            .filter(|(coordinates, _)| *coordinates == target)
+            .map(|(_, cost)| *cost)
+            .min();
+        assert_eq!(
+            target_cost,
+            (enforcement_offset > 0).then(|| U32Cost::from(2u8)),
+            "max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}: {targets:?}"
+        );
+    }
+}
+
+/// A 12-jump with an empty descendant gap, whose target can be reached by the bare jump,
+/// and also by alignments that contain only deletions (gaps in the descendant).
+///
+/// From `(2, 2)`, the target `(14, 2)` of kind 21 is reached by the bare jump with cost 2 (the base cost),
+/// and e.g. by jumping to `(15, 2)` followed by a secondary deletion, or by a primary deletion followed by the jump,
+/// both with cost 5.
+/// `align` accepts any alignment as target if the descendant gap is empty, so `fill_additional_targets`
+/// reports the deletion-only alignments as well (they used to be dropped).
+/// Since the bare jump dominates them, the minimum reported cost is the same as the cost of `align`.
+#[test]
+fn empty_descendant_gap_with_only_deletions() {
+    let sequences = matches_then_template_switch();
+    let costs = chainalign_costs();
+    let start = PrimaryAlignmentCoordinates::new(2, 2);
+    let end = SpecificSecondaryAlignmentCoordinates::new(14, 2, TsKind::TS21);
+    let target = end.into_any();
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        let context =
+            format!("max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}");
+        let mut aligner = Ts12JumpAligner::new(
+            &sequences,
+            &costs,
+            &rc_fn,
+            max_match_run,
+            enforcement_offset,
+        );
+        let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
+        assert_eq!(
+            (cost, alignment.alignment),
+            (
+                U32Cost::from(2u8),
+                vec![(
+                    1,
+                    AlignmentType::TsStart {
+                        jump: 12,
+                        ts_kind: TsKind::TS21
+                    }
+                )]
+            ),
+            "{context}"
+        );
+
+        let mut targets = Vec::new();
+        aligner.align_until_cost_limit(
+            start,
+            sequences.secondary_end(TsKind::TS21),
+            U32Cost::from(5u8),
+            &mut targets,
+        );
+        let target_costs: Vec<_> = targets
+            .iter()
+            .filter(|(coordinates, _)| *coordinates == target)
+            .map(|(_, cost)| *cost)
+            .collect();
+        assert_eq!(
+            target_costs.iter().min(),
+            Some(&cost),
+            "{context}: {targets:?}"
+        );
+        assert!(
+            target_costs.contains(&U32Cost::from(5u8)),
+            "{context}: {target_costs:?}"
+        );
+    }
+}
+
+/// The exact costs reported by `align_until_cost_limit` (via `fill_additional_targets`) must agree with
+/// the costs of `align` to the same coordinates, otherwise the consistency checks of the chaining cost function fail.
+/// This covers empty and non-empty descendant gaps, starts at the start of the alignment and inner starts,
+/// and exact and inexact anchors.
+#[test]
+fn additional_targets_agree_with_align() {
+    let sequences = matches_then_template_switch();
+    let costs = chainalign_costs();
+    let ts_kind = TsKind::TS21;
+    let cost_limit = U32Cost::from(8u8);
+    let (len1, len2) = (16, 16);
+
+    for (max_match_run, enforcement_offset) in K4_ALIGNER_PARAMETERS {
+        for without_enforced_non_match_next_to_anchors in [false, true] {
+            let new_aligner = || {
+                let aligner = Ts12JumpAligner::new(
+                    &sequences,
+                    &costs,
+                    &rc_fn,
+                    max_match_run,
+                    enforcement_offset,
+                );
+                if without_enforced_non_match_next_to_anchors {
+                    aligner.without_enforced_non_match_next_to_anchors()
+                } else {
+                    aligner
+                }
+            };
+
+            for start in [
+                PrimaryAlignmentCoordinates::new(0, 0),
+                PrimaryAlignmentCoordinates::new(1, 1),
+                PrimaryAlignmentCoordinates::new(2, 2),
+                PrimaryAlignmentCoordinates::new(3, 2),
+            ] {
+                let mut targets = Vec::new();
+                new_aligner().align_until_cost_limit(
+                    start,
+                    sequences.secondary_end(ts_kind),
+                    cost_limit,
+                    &mut targets,
+                );
+
+                for ancestor in 0..=len2 {
+                    for descendant in start.a()..=len1 {
+                        let end = SpecificSecondaryAlignmentCoordinates::new(
+                            ancestor, descendant, ts_kind,
+                        );
+                        let reported_cost = targets
+                            .iter()
+                            .filter(|(coordinates, _)| *coordinates == end.into_any())
+                            .map(|(_, cost)| *cost)
+                            .min();
+                        let (cost, alignment) = new_aligner().align(start, end, &mut Vec::new());
+                        let expected_cost = (cost <= cost_limit).then_some(cost);
+                        assert_eq!(
+                            reported_cost, expected_cost,
+                            "max_match_run = {max_match_run}, enforcement_offset = {enforcement_offset}, \
+                             without_enforced_non_match_next_to_anchors = {without_enforced_non_match_next_to_anchors}, \
+                             from {start} to {end}: {alignment:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

@@ -312,7 +312,7 @@ fn inversion_with_one_mismatch() {
     // (no effect of issue #221). For k = 10 with one mutation, it is supported by a single secondary anchor
     // that contains the mismatch, with the remaining matches of the inner alignment in the secondary parts
     // of the 12- and 34-jumps. So tschainalign should find it.
-    // It currently reports cost 8 instead, because the 12- and 34-jump aligners require a non-match in every jump
+    // It used to report cost 8 instead, because the 12- and 34-jump aligners required a non-match in every jump
     // between anchors with a non-empty descendant gap, also for inexact anchors, where the alternative
     // of chaining anchors that are shifted by one (`is_direct_free_predecessor_of`) does not exist.
     assert_cost(&case, (10, 1), classic_cost(&case, true));
@@ -325,8 +325,8 @@ fn inversion_with_one_mismatch() {
 /// and `7=[TS:12=]6=1D6=[TS:12=]14=` with cost 7 is supported for k = 10 with two mutations
 /// (a primary anchor that contains the deletion, with the remaining matches in the primary parts of the 34- and 12-jumps).
 /// The deletion lies inside of the primary anchor, so the chain cost equals the cost (no effect of issue #221).
-/// For k = 10 with two mutations, tschainalign currently reports cost 9 instead, because the 12- and 34-jump aligners
-/// require a non-match in every jump between anchors with a non-empty descendant gap, also for inexact anchors.
+/// For k = 10 with two mutations, tschainalign used to report cost 9 instead, because the 12- and 34-jump aligners
+/// required a non-match in every jump between anchors with a non-empty descendant gap, also for inexact anchors.
 /// This was found by `chain_random` (`uniform with template switches`, seed 6840257638022643715).
 #[test]
 fn template_switches_around_inexact_primary_anchor() {
