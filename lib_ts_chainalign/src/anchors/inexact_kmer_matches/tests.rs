@@ -974,3 +974,35 @@ fn compute_inexact_kmers_2_3_with_offset() {
         result
     });
 }
+
+#[test]
+fn compute_inexact_kmers_sequence_shorter_than_k() {
+    let costs = GapAffineCosts::new(
+        U16Cost::from(2u16),
+        U16Cost::from(3u16),
+        U16Cost::from(1u16),
+    );
+    let k = 4;
+
+    for sequence in [b"".as_slice(), b"A", b"ACG"] {
+        for max_mutations in 0..=2 {
+            let output = compute_inexact_kmers::<u16, _>(sequence, 5, k, max_mutations, &costs);
+            assert_eq!(output, vec![Vec::new(); 2 * max_mutations + 1]);
+        }
+    }
+}
+
+#[test]
+fn compute_inexact_kmers_sequence_length_k() {
+    let costs = GapAffineCosts::new(
+        U16Cost::from(2u16),
+        U16Cost::from(3u16),
+        U16Cost::from(1u16),
+    );
+    let k = 4;
+    let output = compute_inexact_kmers::<u16, _>(b"ACGT", 5, k, 0, &costs);
+    assert_eq!(
+        output,
+        vec![vec![(Kmer8::from(b"ACGT".as_slice()), 5, U16Cost::zero())]]
+    );
+}

@@ -76,7 +76,8 @@ pub fn compute_inexact_kmers<Store: KmerStore, Cost: AStarCost>(
     let mut deleted_buffer = Vec::new();
     let mut del_sub_buffer = Vec::new();
 
-    for offset in 0..sequence.len().saturating_sub(k) + 1 {
+    // If the sequence is shorter than k, there are no k-mers.
+    for offset in 0..(sequence.len() + 1).saturating_sub(k) {
         let kmer = Kmer::<Store>::from(&sequence[offset..offset + k]);
 
         for mutations in 0..=max_mutations {
