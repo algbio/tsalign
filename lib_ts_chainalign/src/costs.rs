@@ -7,6 +7,8 @@ use crate::alignment::ts_kind::TsKind;
 
 mod compat;
 
+pub use compat::CostConversionError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct GapAffineCosts<Cost> {
     pub substitution: Cost,
