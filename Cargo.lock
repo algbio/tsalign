@@ -1553,9 +1553,9 @@ dependencies = [
 
 [[package]]
 name = "template-switch-error-free-inners"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5ea0184be546f49619c458cf158637b263e3f0e3b91fb65afd3be9635f019f6"
+checksum = "e3e447c530942db57e6115d506c71ed6e894038b5d11ff92441c2a78cee87dac"
 dependencies = [
  "bitvec",
  "compact-genome",
