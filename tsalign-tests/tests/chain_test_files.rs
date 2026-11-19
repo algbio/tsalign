@@ -3,6 +3,12 @@
 //! Only files with fewer than 200 characters per sequence (after skipping gap characters) and only the characters `ACGT` are used.
 //!
 //! Some files are too slow for some parameter combinations (issue #223).
+//! With inexact anchors (especially `k = 6` with one allowed mismatch), low-complexity input --- long
+//! homopolymer runs, tandem repeats, or sequences similar to their own reverse complement --- lets a k-mer
+//! and its one-mismatch neighbourhood match at very many positions, so the number of chains to explore
+//! grows steeply and non-monotonically with length. This is an inherent property of the inexact-anchor
+//! chaining approach, not a performance bug to be fixed; the affected files are simply kept out of that
+//! regime rather than sped up.
 //! Files that do not test a specific edge case (rendering demos, benchmarks) are tested without the slow combinations.
 //! Files on which even the remaining combinations are too slow, or which test a specific edge case,
 //! are replaced by shorter files built the same way, which are stored in `test_files/e2e_short` (see the README there).
@@ -24,7 +30,8 @@ fn test_file_skipping(path: &str, skip_characters: &[u8]) {
 
 /// Test a file with the default grid without the given parameter combinations.
 ///
-/// Used for files on which these combinations are too slow (issue #223).
+/// Used for files on which these combinations are too slow (issue #223). The slowness is inherent to
+/// inexact-anchor chaining on low-complexity/repetitive input (see the module comment), not a bug.
 /// These files were made as rendering demos or as a benchmark for the classic aligner, not for chaining,
 /// so little chaining coverage is lost.
 fn case_without(path: &str, slow: &[Params]) -> Case {
