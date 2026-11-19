@@ -114,6 +114,45 @@ fn coordinates_rev() {
     );
 }
 
+/// Exact anchors on a partial alignment range whose start differs between seq1 and seq2.
+///
+/// The k-mer offsets of seq2 must be shifted by the seq2 start coordinate,
+/// not by the seq1 start coordinate.
+#[test]
+fn coordinates_partial_range() {
+    // seq1[2..6] = ACGT, seq2[1..5] = ACGT; ACGT is its own reverse complement.
+    let sequences = AlignmentSequences::new(
+        b"GGACGT".to_vec(),
+        b"CACGTC".to_vec(),
+        PrimaryAlignmentCoordinates::new(2, 1),
+        PrimaryAlignmentCoordinates::new(6, 5),
+    );
+    let k = 4;
+
+    let anchors = Anchors::new_exact(&sequences, k, &rc_fn);
+    assert_eq!(
+        anchors.primary,
+        [(PrimaryAlignmentRange::new_from_ranges(2..6, 1..5), 0)].map(PrimaryAnchor::from)
+    );
+    // Ancestor: rc(seq1) = ACGTCC, rc(seq2) = GACGTG.
+    assert_eq!(
+        anchors.secondary_anchor_vec(TsKind::TS11),
+        &[(AnySecondaryAlignmentRange::new_from_ranges(6, 2, 2..6), 0)].map(SecondaryAnchor::from)
+    );
+    assert_eq!(
+        anchors.secondary_anchor_vec(TsKind::TS12),
+        &[(AnySecondaryAlignmentRange::new_from_ranges(6, 2, 1..5), 0)].map(SecondaryAnchor::from)
+    );
+    assert_eq!(
+        anchors.secondary_anchor_vec(TsKind::TS21),
+        &[(AnySecondaryAlignmentRange::new_from_ranges(5, 1, 2..6), 0)].map(SecondaryAnchor::from)
+    );
+    assert_eq!(
+        anchors.secondary_anchor_vec(TsKind::TS22),
+        &[(AnySecondaryAlignmentRange::new_from_ranges(5, 1, 1..5), 0)].map(SecondaryAnchor::from)
+    );
+}
+
 #[test]
 fn coordinates_inexact_0() {
     let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
