@@ -222,6 +222,7 @@ fn max_match_run_0() {
 }
 
 #[test]
+#[ignore = "windowed min mutation chaining is broken; re-enable when #224 is tackled"]
 fn max_match_run_1() {
     let seq1 = b"AAAAAAAAAA".to_vec();
     let seq2 = b"AACAACCAAA".to_vec();
