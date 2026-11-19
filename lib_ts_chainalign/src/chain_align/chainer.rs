@@ -17,10 +17,9 @@ mod max_successors_iterator;
 const DEBUG_CHAINER: bool = false;
 
 pub struct Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost> {
-    pub anchors: &'anchors Anchors,
+    pub anchors: &'anchors Anchors<Cost>,
     pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
     pub ts_limits: &'ts_limits TsLimits,
-    pub k: usize,
     pub max_successors: usize,
 }
 
@@ -76,17 +75,15 @@ impl<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
     Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
 {
     pub fn new(
-        anchors: &'anchors Anchors,
+        anchors: &'anchors Anchors<Cost>,
         chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
         ts_limits: &'ts_limits TsLimits,
-        k: usize,
         max_successors: usize,
     ) -> Self {
         Self {
             anchors,
             chaining_cost_function,
             ts_limits,
-            k,
             max_successors,
         }
     }
@@ -215,7 +212,14 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 successor_index,
                                 predecessor,
                                 cost,
-                                self.ts_limits.length_23.contains(&self.k),
+                                self.ts_limits.length_23.contains(
+                                    &self
+                                        .anchors
+                                        .secondary(successor_index, ts_kind)
+                                        .ts_length_until(
+                                            self.anchors.secondary(successor_index, ts_kind),
+                                        ),
+                                ),
                             ))
                         })
                         .flatten(),
@@ -256,7 +260,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.primary(index).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
@@ -307,7 +313,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.primary(index).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
@@ -318,7 +326,14 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 successor_index,
                                 predecessor,
                                 cost,
-                                self.ts_limits.length_23.contains(&self.k),
+                                self.ts_limits.length_23.contains(
+                                    &self
+                                        .anchors
+                                        .secondary(successor_index, ts_kind)
+                                        .ts_length_until(
+                                            self.anchors.secondary(successor_index, ts_kind),
+                                        ),
+                                ),
                             ))
                         })
                         .flatten(),
@@ -362,18 +377,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.secondary(index, ts_kind).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             let first_anchor =
                                 &self.anchors.secondary(first_secondary_index, ts_kind);
-                            let ts_length = first_anchor.ts_length_until(
-                                self.anchors.secondary(successor_index, ts_kind),
-                                ts_kind,
-                                self.k,
-                            );
+                            let ts_length = first_anchor
+                                .ts_length_until(self.anchors.secondary(successor_index, ts_kind));
 
                             Some(generate_secondary_successors(
                                 successor_index,
@@ -429,7 +443,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost
+                                .checked_add(&chaining_cost)?
+                                .checked_add(&self.anchors.secondary(index, ts_kind).cost())?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }

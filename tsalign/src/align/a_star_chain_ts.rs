@@ -4,7 +4,9 @@ use compact_genome::interface::{
 };
 use lib_ts_chainalign::{
     chain_align::performance_parameters::AlignmentPerformanceParameters,
-    chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
+    chaining_lower_bounds::ChainingLowerBounds,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::AlignmentCosts,
 };
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::{debug, info, warn};
@@ -12,8 +14,11 @@ use log::{debug, info, warn};
 use std::{fmt::Debug, fs::File, path::PathBuf};
 
 use crate::{
-    align::Cli,
-    util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
+    align::{Cli, InexactLowerBound},
+    util::{
+        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        write_cache_file_atomically,
+    },
 };
 
 pub fn align_a_star_chain_ts<
@@ -38,33 +43,45 @@ pub fn align_a_star_chain_ts<
     let k = if let Some(k) = cli.k {
         k
     } else {
-        infer_tschain_k(reference.len(), query.len()).unwrap()
+        infer_tschain_k(reference.len(), query.len(), cli.max_anchor_mutations).unwrap()
     };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
-    let max_match_run = k - 1;
-    let cache_file =
-        tschain_preprocess_cache_file(&alignment_costs, &cache_directory, k, max_n).unwrap();
+    let cache_file = tschain_preprocess_cache_file(
+        &alignment_costs,
+        &cache_directory,
+        k,
+        cli.max_anchor_mutations,
+        cli.inexact_chaining_lower_bound.into(),
+        max_n,
+    )
+    .unwrap();
 
     let chaining_lower_bounds = if let Ok(mut file) = File::open(&cache_file) {
         info!("Loading preprocessed data from cache at {cache_file:?}");
         let chaining_lower_bounds = ChainingLowerBounds::read(&mut file).unwrap();
         assert_eq!(chaining_lower_bounds.alignment_costs(), &alignment_costs);
-        assert_eq!(chaining_lower_bounds.max_match_run(), max_match_run);
+        assert_eq!(chaining_lower_bounds.anchor_k(), k);
         chaining_lower_bounds
     } else {
         assert!(
             !cli.force_no_preprocessing,
-            "Forcing no preprocessing, but no cache file found."
+            "Forcing no preprocessing, but no cache file found at {cache_file:?}."
         );
 
         info!("Preprocessing...");
-        let chaining_lower_bounds =
-            lib_ts_chainalign::preprocess(max_n, max_match_run, alignment_costs);
+        let chaining_lower_bounds = lib_ts_chainalign::preprocess(
+            max_n,
+            ChainingLowerBoundConfig {
+                anchor_k: k,
+                max_anchor_mutations: cli.max_anchor_mutations,
+                inexact_lower_bound: InexactLowerBoundKind::from(cli.inexact_chaining_lower_bound),
+            },
+            alignment_costs,
+        );
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
-        let mut file = File::create(&cache_file).unwrap();
-        chaining_lower_bounds.write(&mut file).unwrap();
+        write_cache_file_atomically(&cache_file, |file| chaining_lower_bounds.write(file)).unwrap();
         chaining_lower_bounds
     };
 
@@ -75,12 +92,14 @@ pub fn align_a_star_chain_ts<
         max_exact_cost_function_cost: cli.max_exact_cost_function_cost.into(),
         closed_list: cli.chaining_closed_list,
         open_list: cli.chaining_open_list,
+        prune_dominated_anchors: !cli.no_anchor_domination_pruning,
     };
 
     let alignment = lib_ts_chainalign::align::<AlphabetType>(
         reference,
         query,
         range,
+        cli.max_anchor_mutations,
         &performance_parameters,
         &|c| {
             AlphabetType::character_to_ascii(
@@ -101,4 +120,13 @@ pub fn align_a_star_chain_ts<
     }
 
     println!("{alignment}");
+}
+
+impl From<InexactLowerBound> for InexactLowerBoundKind {
+    fn from(value: InexactLowerBound) -> Self {
+        match value {
+            InexactLowerBound::WindowedMinMutations => InexactLowerBoundKind::WindowedMinMutations,
+            InexactLowerBound::MaxMatchRun => InexactLowerBoundKind::MaxMatchRun,
+        }
+    }
 }

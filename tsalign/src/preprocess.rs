@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    fs::{File, create_dir_all},
-    path::PathBuf,
-};
+use std::{collections::BTreeSet, fs::create_dir_all, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
@@ -16,12 +12,20 @@ use compact_genome::{
     interface::alphabet::Alphabet,
 };
 use generic_a_star::cost::U32Cost;
-use lib_ts_chainalign::{costs::AlignmentCosts, preprocess};
+use lib_ts_chainalign::{
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::AlignmentCosts,
+    preprocess,
+};
 use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
-use crate::util::{
-    infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+use crate::{
+    align::InexactLowerBound,
+    util::{
+        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        write_cache_file_atomically,
+    },
 };
 
 #[derive(Parser)]
@@ -50,6 +54,16 @@ pub struct Cli {
     /// If it is not specified, it is inferred from the sequence lengths.
     #[clap(short)]
     k: Option<u32>,
+
+    /// The maximum number of mutations allowed in an anchor.
+    ///
+    /// Higher values produce a more accurate alignment at the cost of increased runtime.
+    #[clap(long, default_value = "0")]
+    max_anchor_mutations: u8,
+
+    /// The lower bound to use for inexact chaining.
+    #[clap(long, default_value = "max-match-run")]
+    inexact_chaining_lower_bound: InexactLowerBound,
 
     /// Maximum sequence length for which to preprocess.
     max_length: usize,
@@ -108,22 +122,31 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         info!("Computing up to max_n = {max_n}");
 
         let mut current_max_n = max_n;
-        while current_max_n >= 1 && current_max_n >= k.try_into()? {
+        // Also preprocess for max_n < k, since the aligner needs lower bounds for sequences shorter than k as well.
+        while current_max_n >= 1 {
             info!("Preprocessing for max_n = {current_max_n}...");
-            let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
-            let cache_file =
-                tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
-            let mut file = File::create(&cache_file)
-                .with_context(|| format!("Creating cache file {cache_file:?}"))?;
-            lower_bounds.write(&mut file)?;
+            let lower_bounds = preprocess(
+                current_max_n,
+                ChainingLowerBoundConfig {
+                    anchor_k: k,
+                    max_anchor_mutations: cli.max_anchor_mutations,
+                    inexact_lower_bound: InexactLowerBoundKind::from(
+                        cli.inexact_chaining_lower_bound,
+                    ),
+                },
+                costs.clone(),
+            );
+            let cache_file = tschain_preprocess_cache_file(
+                &costs,
+                &cache_directory,
+                k,
+                cli.max_anchor_mutations,
+                cli.inexact_chaining_lower_bound.into(),
+                current_max_n,
+            )?;
+            write_cache_file_atomically(&cache_file, |file| lower_bounds.write(file))?;
 
             current_max_n /= 2;
-        }
-
-        if current_max_n >= 1 {
-            info!(
-                "Not preprocessing for max_n = {current_max_n} or below, because it is smaller than k = {k}"
-            );
         }
     } else {
         info!("Using all possible inferred ks for each length");
@@ -136,17 +159,31 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
             let mut ks = BTreeSet::new();
             for max_n in next_max_n + 1..=current_max_n {
                 debug_assert_eq!(infer_tschain_max_n(max_n, max_n), current_max_n);
-                ks.insert(infer_tschain_k(max_n, max_n)?);
+                ks.insert(infer_tschain_k(max_n, max_n, cli.max_anchor_mutations)?);
             }
 
             for k in ks {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
-                let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
-                let cache_file =
-                    tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
-                let mut file = File::create(&cache_file)
-                    .with_context(|| format!("Creating cache file {cache_file:?}"))?;
-                lower_bounds.write(&mut file)?;
+                let lower_bounds = preprocess(
+                    current_max_n,
+                    ChainingLowerBoundConfig {
+                        anchor_k: k,
+                        max_anchor_mutations: cli.max_anchor_mutations,
+                        inexact_lower_bound: InexactLowerBoundKind::from(
+                            cli.inexact_chaining_lower_bound,
+                        ),
+                    },
+                    costs.clone(),
+                );
+                let cache_file = tschain_preprocess_cache_file(
+                    &costs,
+                    &cache_directory,
+                    k,
+                    cli.max_anchor_mutations,
+                    cli.inexact_chaining_lower_bound.into(),
+                    current_max_n,
+                )?;
+                write_cache_file_atomically(&cache_file, |file| lower_bounds.write(file))?;
             }
 
             current_max_n = next_max_n;
