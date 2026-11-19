@@ -24,7 +24,7 @@ fn test_file_skipping(path: &str, skip_characters: &[u8]) {
 
 /// Test a file with the default grid without the given parameter combinations.
 ///
-/// Used for files on which these combinations take minutes (issue #223).
+/// Used for files on which these combinations are too slow (issue #223).
 /// These files were made as rendering demos or as a benchmark for the classic aligner, not for chaining,
 /// so little chaining coverage is lost.
 fn case_without(path: &str, slow: &[Params]) -> Case {
@@ -77,12 +77,13 @@ fn twin_show_ts_small_rr_qq() {
     ));
 }
 
-/// Rendering demo for template switch inners. k = 6 with one anchor mutation takes about 20 seconds (issue #223).
+/// Rendering demo for template switch inners.
+/// k = 6 and k = 9 with one anchor mutation take about 20 seconds each, and are run twice for the symmetry check (issue #223).
 #[test]
 fn twin_show_ts_small3() {
     run_case(&case_without(
         "test_files/twin_show_ts_small3.fa",
-        &[(6, 1)],
+        &[(6, 1), (9, 1)],
     ));
 }
 
@@ -105,10 +106,19 @@ fn twin_variable_length_ts() {
     ));
 }
 
-/// Performance example (named `perf`) for the classic aligner. k = 6 with one anchor mutation takes more than a minute (issue #223).
+/// Performance example (named `perf`) for the classic aligner.
+/// k = 6 with one anchor mutation takes more than a minute,
+/// and the classic aligner with template switches takes more than a minute in CI (issue #223).
 #[test]
 fn twin_perf() {
-    run_case(&case_without("test_files/twin_perf.fa", &[(6, 1)]));
+    run_case(&case_without("test_files/twin_perf.fa", &[(6, 1)]).without_ts_lower_bound());
+}
+
+/// Demo for copying a template switch.
+/// The classic aligner with template switches takes more than a minute in CI (issue #223).
+#[test]
+fn twin_show_ts_copy() {
+    run_case(&case_without("test_files/twin_show_ts_copy.fa", &[]).without_ts_lower_bound());
 }
 
 macro_rules! test_files {
@@ -155,7 +165,6 @@ test_files! {
     twin_repeat_rr => "test_files/twin_repeat_rr.fa",
     twin_repeat_rr2 => "test_files/twin_repeat_rr2.fa",
     twin_show_repeated_chars => "test_files/twin_show_repeated_chars.fa",
-    twin_show_ts_copy => "test_files/twin_show_ts_copy.fa",
     twin_show_ts_indel1 => "test_files/twin_show_ts_indel1.fa",
     twin_show_ts_indel3 => "test_files/twin_show_ts_indel3.fa",
     twin_show_ts_small => "test_files/twin_show_ts_small.fa",
