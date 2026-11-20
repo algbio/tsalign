@@ -158,4 +158,17 @@ mod tests {
         let (cost, cigar) = align_on_range(reference, query, AlignmentRange::new(25, 25, 47, 35));
         assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
     }
+
+    /// The template of the template switch lies outside the range
+    #[test]
+    fn template_beyond_range_end() {
+        let reference =
+            b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+        // `reference` with 25..35 replaced by the reverse complement of 60..70.
+        let query =
+            b"GATTACAGCTTGACCTAGGCATCGTACTGCAACGTGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+
+        let (cost, cigar) = align_on_range(reference, query, AlignmentRange::new(20, 20, 40, 40));
+        assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
+    }
 }

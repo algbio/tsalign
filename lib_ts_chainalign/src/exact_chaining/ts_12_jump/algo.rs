@@ -205,7 +205,14 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             // This generates too many jumps, most of these are gonna be much too far.
             output.extend(
                 coordinates
-                    .generate_12_jumps(self.end, self.sequences.primary_end())
+                    // Point 2 may lie outside the alignment range
+                    .generate_12_jumps(
+                        self.end,
+                        AlignmentCoordinates::new_primary(
+                            self.sequences.seq1().len(),
+                            self.sequences.seq2().len(),
+                        ),
+                    )
                     .map(|(jump, coordinates)| Node {
                         identifier: Identifier::Jump12 {
                             coordinates,
