@@ -1,6 +1,5 @@
 #![allow(rustdoc::redundant_explicit_links)]
 
-use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::U32Cost;
 use lib_tsalign::a_star_aligner::{
     alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
@@ -55,8 +54,6 @@ pub fn preprocess(
 ///
 /// Note that `reference` and `query` are interchangeable, and the order has no meaning.
 ///
-/// * `AlphabetType` must be a DNA alphabet.
-///
 /// * `reference` is the reference string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `query` is the query string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
@@ -66,7 +63,7 @@ pub fn preprocess(
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `chaining_lower_bounds` are the lower bounds computed with the function [`preprocess`].
 #[expect(clippy::too_many_arguments)]
-pub fn align<AlphabetType: Alphabet>(
+pub fn align(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
@@ -103,7 +100,7 @@ pub fn align<AlphabetType: Alphabet>(
         rc_fn,
     );
 
-    chain_align::align::<AlphabetType, _>(
+    chain_align::align(
         &sequences,
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),

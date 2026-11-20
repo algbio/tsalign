@@ -77,7 +77,7 @@ pub fn align_a_star_chain_ts<
         open_list: cli.chaining_open_list,
     };
 
-    let alignment = lib_ts_chainalign::align::<AlphabetType>(
+    let alignment = lib_ts_chainalign::align(
         reference,
         query,
         range,

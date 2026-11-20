@@ -1,10 +1,7 @@
 use binary_heap_plus::BinaryHeap;
 use compact_genome::{
-    implementation::vec_sequence::VectorGenome,
-    interface::{
-        alphabet::Alphabet,
-        sequence::{GenomeSequence, OwnedGenomeSequence},
-    },
+    implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
+    interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 use generic_a_star::{
     AStar, AStarResult,
@@ -45,7 +42,7 @@ mod chainer;
 mod evaluation;
 pub mod performance_parameters;
 
-pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
+pub fn align<Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
@@ -56,7 +53,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.open_list {
         ChainingOpenList::StdHeap => {
-            choose_closed_list::<AlphabetType, _, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
+            choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
                 sequences,
                 performance_parameters,
                 alignment_costs,
@@ -66,7 +63,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                 chaining_cost_function,
             )
         }
-        ChainingOpenList::LinearHeap => choose_closed_list::<AlphabetType, _, LinearHeap<_>>(
+        ChainingOpenList::LinearHeap => choose_closed_list::<_, LinearHeap<_>>(
             sequences,
             performance_parameters,
             alignment_costs,
@@ -78,11 +75,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     }
 }
 
-pub fn choose_closed_list<
-    AlphabetType: Alphabet,
-    Cost: AStarCost,
-    OpenList: AStarOpenList<Node<Cost>>,
->(
+pub fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
@@ -92,33 +85,28 @@ pub fn choose_closed_list<
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.closed_list {
-        ChainingClosedList::FxHashMap => {
-            actually_align::<AlphabetType, _, FxHashMapSeed<_, _>, OpenList>(
-                sequences,
-                performance_parameters,
-                alignment_costs,
-                rc_fn,
-                max_match_run,
-                anchors,
-                chaining_cost_function,
-            )
-        }
-        ChainingClosedList::Special => {
-            actually_align::<AlphabetType, _, ChainerClosedList<_>, OpenList>(
-                sequences,
-                performance_parameters,
-                alignment_costs,
-                rc_fn,
-                max_match_run,
-                anchors,
-                chaining_cost_function,
-            )
-        }
+        ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
+            sequences,
+            performance_parameters,
+            alignment_costs,
+            rc_fn,
+            max_match_run,
+            anchors,
+            chaining_cost_function,
+        ),
+        ChainingClosedList::Special => actually_align::<_, ChainerClosedList<_>, OpenList>(
+            sequences,
+            performance_parameters,
+            alignment_costs,
+            rc_fn,
+            max_match_run,
+            anchors,
+            chaining_cost_function,
+        ),
     }
 }
 
 fn actually_align<
-    AlphabetType: Alphabet,
     Cost: AStarCost,
     ClosedList: AStarClosedList<Node<Cost>>,
     OpenList: AStarOpenList<Node<Cost>>,
@@ -441,7 +429,7 @@ fn actually_align<
         sequences.primary_end().primary_ordinate_b().unwrap(),
     );
 
-    AlignmentResult::new_with_target::<AlphabetType, _>(
+    AlignmentResult::new_with_target::<DnaAlphabet, _>(
         tsalign_alignment.into_inner(),
         VectorGenome::from_slice_u8(sequences.seq1())
             .unwrap()

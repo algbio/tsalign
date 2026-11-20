@@ -1,6 +1,9 @@
 //! Functions for making tschainalign compatible with tsalign types.
 
-use compact_genome::interface::alphabet::Alphabet;
+use compact_genome::{
+    implementation::alphabets::dna_alphabet::DnaAlphabet,
+    interface::alphabet::{Alphabet, AlphabetError},
+};
 use generic_a_star::cost::AStarCost;
 use lib_tsalign::{
     a_star_aligner::template_switch_distance::TemplateSwitchDirection,
@@ -16,6 +19,8 @@ use crate::{
 /// A part of a tsalign cost configuration that cannot be converted without losing information.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CostConversionError {
+    #[error("the alphabet must contain only characters A, C, G and T: {0}")]
+    UnsupportedAlphabet(AlphabetError),
     #[error("flank lengths must be zero")]
     NonZeroFlankLength,
     #[error("all match costs must be zero")]
@@ -48,10 +53,11 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TryFrom<TemplateSwitchConfig<Alpha
         ]);
 
         Ok(Self {
-            primary_costs: (&value.primary_edit_costs).try_into()?,
-            secondary_costs: value
-                .secondary_edit_costs(TemplateSwitchDirection::Reverse)
-                .try_into()?,
+            primary_costs: restrict_to_dna(&value.primary_edit_costs)?.try_into()?,
+            secondary_costs: restrict_to_dna(
+                value.secondary_edit_costs(TemplateSwitchDirection::Reverse),
+            )?
+            .try_into()?,
             ts_base_cost,
             ts_limits: TsLimits {
                 inter_jump_12: value
@@ -77,13 +83,21 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TryFrom<TemplateSwitchConfig<Alpha
     }
 }
 
-impl<AlphabetType: Alphabet, Cost: AStarCost>
-    TryFrom<&'_ GapAffineAlignmentCostTable<AlphabetType, Cost>> for GapAffineCosts<Cost>
+fn restrict_to_dna<AlphabetType: Alphabet, Cost: AStarCost>(
+    table: &GapAffineAlignmentCostTable<AlphabetType, Cost>,
+) -> Result<GapAffineAlignmentCostTable<DnaAlphabet, Cost>, CostConversionError> {
+    table
+        .restrict_alphabet()
+        .map_err(CostConversionError::UnsupportedAlphabet)
+}
+
+impl<Cost: AStarCost> TryFrom<&'_ GapAffineAlignmentCostTable<DnaAlphabet, Cost>>
+    for GapAffineCosts<Cost>
 {
     type Error = CostConversionError;
 
     fn try_from(
-        value: &GapAffineAlignmentCostTable<AlphabetType, Cost>,
+        value: &GapAffineAlignmentCostTable<DnaAlphabet, Cost>,
     ) -> Result<Self, Self::Error> {
         if value.unique_match_cost() != Some(Cost::zero()) {
             return Err(CostConversionError::NonZeroMatchCost);
@@ -103,13 +117,13 @@ impl<AlphabetType: Alphabet, Cost: AStarCost>
     }
 }
 
-impl<AlphabetType: Alphabet, Cost: AStarCost>
-    TryFrom<GapAffineAlignmentCostTable<AlphabetType, Cost>> for GapAffineCosts<Cost>
+impl<Cost: AStarCost> TryFrom<GapAffineAlignmentCostTable<DnaAlphabet, Cost>>
+    for GapAffineCosts<Cost>
 {
     type Error = CostConversionError;
 
     fn try_from(
-        value: GapAffineAlignmentCostTable<AlphabetType, Cost>,
+        value: GapAffineAlignmentCostTable<DnaAlphabet, Cost>,
     ) -> Result<Self, Self::Error> {
         (&value).try_into()
     }
