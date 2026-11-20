@@ -17,12 +17,12 @@ doc = false
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.26"
+pyo3 = "0.30"
 lib_tsalign = { version = "7.0.2", path = "../lib_tsalign", features = [
     "serde",
 ] }
 lib_tsshow = { version = "7.0.2", path = "../lib_tsshow" }
 serde.workspace = true
-pythonize = "0.26"
+pythonize = "0.30"
 pyo3-log = "0.13"
 compact-genome.workspace = true
