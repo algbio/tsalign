@@ -113,3 +113,49 @@ pub fn align<AlphabetType: Alphabet>(
         &mut chaining_cost_function,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+
+    use crate::costs::{GapAffineCosts, TsLimits};
+
+    use super::*;
+
+    fn align_on_range(reference: &[u8], query: &[u8], range: AlignmentRange) -> (U32Cost, String) {
+        let costs = AlignmentCosts {
+            primary_costs: GapAffineCosts::new(2u32.into(), 3u32.into(), 1u32.into()),
+            secondary_costs: GapAffineCosts::new(4u32.into(), 3u32.into(), 2u32.into()),
+            ts_base_cost: U32Cost::from(2u32).into(),
+            ts_limits: TsLimits {
+                length_23: 8..401,
+                ..TsLimits::new_unlimited()
+            },
+        };
+        let k = 5;
+        let max_n = reference.len().max(query.len()).next_power_of_two();
+        let lower_bounds = preprocess(max_n, k - 1, costs);
+
+        let result = align::<DnaAlphabet>(
+            reference.to_vec(),
+            query.to_vec(),
+            range,
+            &AlignmentPerformanceParameters::default(),
+            &dna_rc_fn,
+            "reference",
+            "query",
+            &lower_bounds,
+        );
+        (result.statistics().result.cost(), result.cigar())
+    }
+
+    /// The template switch starts and ends close to the range edges, matches in between.
+    #[test]
+    fn match_run_between_range_edge_and_template_switch() {
+        let reference = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGCATGGCCAG";
+        let query = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGCAAGGCCAG";
+
+        let (cost, cigar) = align_on_range(reference, query, AlignmentRange::new(25, 25, 47, 35));
+        assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
+    }
+}
