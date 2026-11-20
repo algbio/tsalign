@@ -66,7 +66,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         }
         .unwrap();
         let descendant_start = start.secondary_ordinate_descendant().unwrap();
-        let enforce_non_match = descendant_end != start.secondary_ordinate_descendant().unwrap();
+        // Towards the alignment end, a match run after the jump is not covered by any anchor
+        let enforce_non_match = end != self.sequences.primary_end()
+            && descendant_end != start.secondary_ordinate_descendant().unwrap();
 
         let context = Context::new(
             self.alignment_costs,
@@ -97,6 +99,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             &a_star,
             descendant_start,
             start.ts_kind().unwrap(),
+            self.sequences.primary_end(),
             additional_primary_targets_output,
         );
         self.a_star_buffers = Some(a_star.into_buffers());
@@ -136,6 +139,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             &a_star,
             descendant_start,
             ts_kind,
+            end,
             additional_primary_targets_output,
         );
         self.a_star_buffers = Some(a_star.into_buffers());
@@ -145,6 +149,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star: &AStar<Context<Cost>>,
         descendant_start: usize,
         ts_kind: TsKind,
+        primary_end: AlignmentCoordinates,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
     ) {
         additional_primary_targets_output.extend(
@@ -161,7 +166,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                     TsDescendant::Seq2 => {
                                         node.identifier.coordinates().primary_ordinate_b().unwrap()
                                     }
-                                }))
+                                })
+                            || (node.identifier.coordinates() == primary_end
+                                && !node.identifier.has_non_match()))
                 })
                 .map(|node| {
                     (
