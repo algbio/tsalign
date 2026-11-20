@@ -28,7 +28,7 @@ pub fn align_a_star_chain_ts<
     query_name: &str,
 ) {
     let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory).unwrap();
-    let alignment_costs: AlignmentCosts<_> = alignment_costs.into();
+    let alignment_costs: AlignmentCosts<_> = alignment_costs.try_into().unwrap();
 
     let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {
         warn!("No cache directory specified, dropping files into current working directory.");
@@ -77,7 +77,7 @@ pub fn align_a_star_chain_ts<
         open_list: cli.chaining_open_list,
     };
 
-    let alignment = lib_ts_chainalign::align::<AlphabetType>(
+    let alignment = lib_ts_chainalign::align(
         reference,
         query,
         range,

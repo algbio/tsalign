@@ -93,7 +93,7 @@ pub fn cli(cli: Cli) -> Result<()> {
 
 fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
     let costs = load_tsa_config::<AlphabetType, U32Cost>(&cli.configuration_directory)?;
-    let costs = AlignmentCosts::from(costs);
+    let costs = AlignmentCosts::try_from(costs)?;
 
     let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {
         warn!("No cache directory specified, dropping files into current working directory.");
