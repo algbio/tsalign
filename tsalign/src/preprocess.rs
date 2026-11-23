@@ -1,16 +1,8 @@
-use std::{collections::BTreeSet, fs::create_dir_all, path::PathBuf};
+use std::{collections::BTreeSet, fmt::Debug, fs::create_dir_all, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, ValueEnum};
-use compact_genome::{
-    implementation::alphabets::{
-        dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
-        dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet, rna_alphabet::RnaAlphabet,
-        rna_alphabet_or_n::RnaAlphabetOrN,
-        rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
-    },
-    interface::alphabet::Alphabet,
-};
+use clap::Parser;
+use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::U32Cost;
 use lib_ts_chainalign::{
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
@@ -22,6 +14,7 @@ use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 use crate::{
     align::InexactLowerBound,
+    alphabet::{InputAlphabet, WithAlphabet},
     util::{
         infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
         validate_tschain_config, write_cache_file_atomically,
@@ -69,16 +62,6 @@ pub struct Cli {
     max_length: usize,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
-enum InputAlphabet {
-    Dna,
-    DnaN,
-    Rna,
-    RnaN,
-    DnaIupac,
-    RnaIupac,
-}
-
 pub fn cli(cli: Cli) -> Result<()> {
     TermLogger::init(
         cli.log_level,
@@ -88,21 +71,30 @@ pub fn cli(cli: Cli) -> Result<()> {
     )
     .unwrap();
 
-    if cli.alphabet != InputAlphabet::Dna {
-        // Only A*-TS algo supports alphabets other than DNA.
-        bail!("Unsupported alphabet type: {:?}", cli.alphabet);
-    }
-
     match cli.alphabet {
-        InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli)?,
-        InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli)?,
-        InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli)?,
-        InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli)?,
-        InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli)?,
-        InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli)?,
+        #[cfg(feature = "alphabet_dna")]
+        InputAlphabet::Dna => {}
+        #[allow(
+            unreachable_patterns,
+            reason = "all alphabets other than DNA may be disabled"
+        )]
+        alphabet => {
+            // Only A*-TS algo supports alphabets other than DNA.
+            bail!("Unsupported alphabet type: {alphabet:?}");
+        }
     }
 
-    Ok(())
+    cli.alphabet.dispatch(Execute(cli))
+}
+
+struct Execute(Cli);
+
+impl WithAlphabet for Execute {
+    type Output = Result<()>;
+
+    fn run<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(self) -> Result<()> {
+        execute_with_alphabet::<AlphabetType>(self.0)
+    }
 }
 
 fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
