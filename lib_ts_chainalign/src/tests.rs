@@ -724,3 +724,71 @@ fn anchor_mutations_are_taken_from_the_lower_bounds() {
     );
     assert_eq!(result.statistics().cost.raw() as u32, expected);
 }
+
+/// Align with tschainalign on the given range of the sequences and return the cost and the cigar.
+fn chain_align_on_range(
+    reference: &[u8],
+    query: &[u8],
+    range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
+) -> (U32Cost, String) {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+
+    use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
+
+    let costs = AlignmentCosts::new(
+        GapAffineCosts::new(2u32, 3, 1).into_costs::<U32Cost>(),
+        GapAffineCosts::new(4u32, 3, 2).into_costs::<U32Cost>(),
+        TsBaseCost::new([2u32, 2, 2, 2].map(U32Cost::from)),
+        TsLimits {
+            length_23: 8..401,
+            ..TsLimits::new_unlimited()
+        },
+    );
+    let max_n = reference.len().max(query.len()).next_power_of_two();
+    let lower_bounds = ChainingLowerBounds::new(
+        max_n,
+        ChainingLowerBoundConfig {
+            anchor_k: 5,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+        costs,
+    );
+    let result = crate::align::<DnaAlphabet>(
+        reference.to_vec(),
+        query.to_vec(),
+        range,
+        &AlignmentPerformanceParameters::default(),
+        &rc_fn,
+        "reference",
+        "query",
+        &lower_bounds,
+    );
+    (result.statistics().result.cost(), result.cigar())
+}
+
+/// The template switch starts and ends close to the range edges, matches in between.
+#[test]
+fn match_run_between_range_edge_and_template_switch() {
+    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+
+    let reference = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGCATGGCCAG";
+    let query = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGCAAGGCCAG";
+
+    let (cost, cigar) = chain_align_on_range(reference, query, AlignmentRange::new(25, 25, 47, 35));
+    assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
+}
+
+/// The template of the template switch lies outside the range
+#[test]
+fn template_beyond_range_end() {
+    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+
+    let reference =
+        b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+    // `reference` with 25..35 replaced by the reverse complement of 60..70.
+    let query = b"GATTACAGCTTGACCTAGGCATCGTACTGCAACGTGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+
+    let (cost, cigar) = chain_align_on_range(reference, query, AlignmentRange::new(20, 20, 40, 40));
+    assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
+}
