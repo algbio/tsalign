@@ -129,12 +129,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned because pyo3 0.26 rejects Python 3.15, the runners' default.
-      # Can be unpinned (e.g. '3.x') once pyo3 is upgraded (#230 / PR #241).
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.x'
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
