@@ -11,9 +11,9 @@ use crate::aligner::strategies::primary_range::PrimaryRangeStrategy;
 use crate::aligner::ts_14_out_of_range::{
     AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
 };
-use crate::aligner::{AlignmentContext, AlignmentRange};
 use crate::aligner::{Node, TemplateSwitchDirection};
 use crate::alignment_geometry::AlignmentCoordinates;
+use crate::alignment_geometry::AlignmentRange;
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchAncestor, TemplateSwitchDescendant};
@@ -878,31 +878,25 @@ impl Reset for DynamicStrategies {
 impl<
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     Strategies: AlignmentStrategySelector,
-> AlignmentContext for Context<'_, '_, SubsequenceType, Strategies>
+> Context<'_, '_, SubsequenceType, Strategies>
 {
-    type AlphabetType = Strategies::Alphabet;
-
-    type AlignmentType = AlignmentType;
-
-    type SubsequenceType = SubsequenceType;
-
-    fn reference(&self) -> &Self::SubsequenceType {
+    pub fn reference(&self) -> &SubsequenceType {
         self.reference
     }
 
-    fn query(&self) -> &Self::SubsequenceType {
+    pub fn query(&self) -> &SubsequenceType {
         self.query
     }
 
-    fn reference_name(&self) -> &str {
+    pub fn reference_name(&self) -> &str {
         &self.reference_name
     }
 
-    fn query_name(&self) -> &str {
+    pub fn query_name(&self) -> &str {
         &self.query_name
     }
 
-    fn range(&self) -> &AlignmentRange {
+    pub fn range(&self) -> &AlignmentRange {
         &self.range
     }
 }
