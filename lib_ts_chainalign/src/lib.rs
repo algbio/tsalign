@@ -17,16 +17,16 @@ use crate::{
     costs::AlignmentCosts,
 };
 
-pub mod alignment;
-pub mod alignment_history;
-pub mod anchors;
+pub(crate) mod alignment;
+pub(crate) mod alignment_history;
+pub(crate) mod anchors;
 pub mod chain_align;
-pub mod chaining_cost_function;
+pub(crate) mod chaining_cost_function;
 pub mod chaining_lower_bounds;
 pub mod config;
 pub mod costs;
-pub mod gap_fill;
-pub mod panic_on_extend;
+pub(crate) mod gap_fill;
+mod panic_on_extend;
 #[cfg(test)]
 mod tests;
 

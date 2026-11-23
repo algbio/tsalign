@@ -49,14 +49,6 @@ impl TsKind {
     }
 
     /// Index of this [`TsKind`] in the iterator produced by [`Self::iter()`].
-    ///
-    /// ```rust
-    /// # use lib_ts_chainalign::alignment::ts_kind::TsKind;
-    /// assert_eq!(
-    ///     TsKind::iter().enumerate().collect::<Vec<_>>(),
-    ///     TsKind::iter().map(|ts_kind| (ts_kind.index(), ts_kind)).collect::<Vec<_>>()
-    /// );
-    /// ```
     pub fn index(&self) -> usize {
         match (self.ancestor, self.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => 0,
@@ -137,5 +129,20 @@ impl Display for TsKind {
                 TsDescendant::Seq2 => "2",
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TsKind;
+
+    #[test]
+    fn index_matches_iter_order() {
+        assert_eq!(
+            TsKind::iter().enumerate().collect::<Vec<_>>(),
+            TsKind::iter()
+                .map(|ts_kind| (ts_kind.index(), ts_kind))
+                .collect::<Vec<_>>()
+        );
     }
 }
