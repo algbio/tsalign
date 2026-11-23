@@ -12,3 +12,9 @@ publish = false
 tsalign = { path = "../tsalign" }
 clap = { version = "4.5.16", features = ["derive"] }
 anyhow = "1.0.97"
+
+[dev-dependencies]
+lib_tsalign = { path = "../lib_tsalign", features = ["serde"] }
+generic_a_star.workspace = true
+compact-genome.workspace = true
+toml = "1.1.4"

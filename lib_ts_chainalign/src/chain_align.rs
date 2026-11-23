@@ -28,16 +28,21 @@ use std::{
 };
 
 use crate::{
-    alignment::{AlignmentType, sequences::AlignmentSequences},
+    alignment::{
+        Alignment, AlignmentType,
+        sequences::AlignmentSequences,
+        ts_kind::{TsAncestor, TsDescendant},
+    },
     anchors::Anchors,
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
-        evaluation::ChainEvaluator,
+        evaluation::build_chain_evaluator,
         performance_parameters::{
             AlignmentPerformanceParameters, ChainingClosedList, ChainingOpenList,
         },
     },
     chaining_cost_function::ChainingCostFunction,
+    config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
 };
 
@@ -50,8 +55,8 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
-    anchors: &Anchors,
+    config: &ChainingLowerBoundConfig,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.open_list {
@@ -61,7 +66,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                config,
                 anchors,
                 chaining_cost_function,
             )
@@ -71,7 +76,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
             performance_parameters,
             alignment_costs,
             rc_fn,
-            max_match_run,
+            config,
             anchors,
             chaining_cost_function,
         ),
@@ -87,8 +92,8 @@ pub fn choose_closed_list<
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
-    anchors: &Anchors,
+    config: &ChainingLowerBoundConfig,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match performance_parameters.closed_list {
@@ -98,7 +103,7 @@ pub fn choose_closed_list<
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                config,
                 anchors,
                 chaining_cost_function,
             )
@@ -109,7 +114,7 @@ pub fn choose_closed_list<
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
-                max_match_run,
+                config,
                 anchors,
                 chaining_cost_function,
             )
@@ -127,8 +132,8 @@ fn actually_align<
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
-    max_match_run: u32,
-    anchors: &Anchors,
+    config: &ChainingLowerBoundConfig,
+    anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     info!("Aligning...");
@@ -139,17 +144,15 @@ fn actually_align<
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
 
-    let k = usize::try_from(max_match_run + 1).unwrap();
     let context = Context::new(
         anchors,
         chaining_cost_function,
         &alignment_costs.ts_limits,
-        k,
         performance_parameters.max_successors,
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
 
-    let mut chain_evaluator = ChainEvaluator::new(sequences, alignment_costs, rc_fn, max_match_run);
+    let mut chain_evaluator = build_chain_evaluator(sequences, alignment_costs, rc_fn, config);
 
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
@@ -264,7 +267,7 @@ fn actually_align<
         let (evaluated_cost, _) = chain_evaluator.evaluate_chain(
             anchors,
             &chain,
-            max_match_run,
+            config,
             astar.context_mut().chaining_cost_function,
             false,
         );
@@ -347,16 +350,31 @@ fn actually_align<
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
     let mut is_primary = true;
     let mut anti_primary_gap = 0isize;
+    // The current primary coordinates, needed to convert the jumps of intra template switches.
+    let mut primary_a = sequences.primary_start().a();
+    let mut primary_b = sequences.primary_start().b();
+    // The descendant and anti-descendant indices at the entrance of the current template switch,
+    // and the amount of descendant characters consumed by it so far.
+    let mut ts_descendant_is_seq1 = false;
+    let mut entrance_descendant = 0usize;
+    let mut entrance_anti_descendant = 0usize;
+    let mut descendant_consumed = 0usize;
 
     debug!("Evaluating final chain");
-    let (evaluated_cost, alignments) = chain_evaluator.evaluate_chain(
+    let (chain_cost, alignments) = chain_evaluator.evaluate_chain(
         anchors,
         &chain,
-        max_match_run,
+        config,
         astar.context_mut().chaining_cost_function,
         true,
     );
-    assert_eq!(evaluated_cost, result.cost());
+    // Both are chain costs: the sum of the costs of the gaps and anchors of the chain.
+    assert_eq!(chain_cost, result.cost());
+
+    let cost = alignment_costs.alignment_cost(alignments.iter().flat_map(Alignment::iter_unpacked));
+    debug!("Chain cost: {chain_cost}");
+    debug!("Cost of the final alignment: {cost}");
+    check_final_alignment_cost(cost, chain_cost, alignment_costs, config);
 
     for alignment in alignments {
         use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType as TsAlignAlignmentType;
@@ -366,32 +384,41 @@ fn actually_align<
                 AlignmentType::Match => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimaryMatch
                     } else {
                         anti_primary_gap -= multiplicity as isize;
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondaryMatch
                     },
                 ),
                 AlignmentType::Substitution => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimarySubstitution
                     } else {
                         anti_primary_gap -= multiplicity as isize;
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondarySubstitution
                     },
                 ),
                 AlignmentType::GapA => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_b += multiplicity;
                         TsAlignAlignmentType::PrimaryInsertion
                     } else {
+                        descendant_consumed += multiplicity;
                         TsAlignAlignmentType::SecondaryInsertion
                     },
                 ),
                 AlignmentType::GapB => tsalign_alignment.push_n(
                     multiplicity,
                     if is_primary {
+                        primary_a += multiplicity;
                         TsAlignAlignmentType::PrimaryDeletion
                     } else {
                         anti_primary_gap -= multiplicity as isize;
@@ -402,7 +429,30 @@ fn actually_align<
                     assert!(is_primary);
                     assert_eq!(multiplicity, 1);
                     is_primary = false;
-                    anti_primary_gap = jump;
+
+                    ts_descendant_is_seq1 = ts_kind.descendant == TsDescendant::Seq1;
+                    (entrance_descendant, entrance_anti_descendant) = if ts_descendant_is_seq1 {
+                        (primary_a, primary_b)
+                    } else {
+                        (primary_b, primary_a)
+                    };
+                    descendant_consumed = 0;
+
+                    // The jumps are relative to the ancestor, and the 34-jump ends in the anti-descendant.
+                    // For inter template switches, the ancestor is the anti-descendant,
+                    // so the sum of the jumps and the ancestor movement is the anti-descendant gap.
+                    // For intra template switches, the ancestor is the descendant,
+                    // so the 12-jump needs to be shifted from the descendant to the anti-descendant.
+                    let is_intra = matches!(
+                        (ts_kind.ancestor, ts_kind.descendant),
+                        (TsAncestor::Seq1, TsDescendant::Seq1)
+                            | (TsAncestor::Seq2, TsDescendant::Seq2)
+                    );
+                    anti_primary_gap = if is_intra {
+                        jump + entrance_descendant as isize - entrance_anti_descendant as isize
+                    } else {
+                        jump
+                    };
 
                     tsalign_alignment.push_n(
                         multiplicity,
@@ -419,11 +469,23 @@ fn actually_align<
                     assert!(!is_primary);
                     assert_eq!(multiplicity, 1);
                     is_primary = true;
+                    let anti_descendant_gap = anti_primary_gap + jump;
+
+                    // Continue the primary alignment after the template switch.
+                    let descendant = entrance_descendant + descendant_consumed;
+                    let anti_descendant =
+                        usize::try_from(entrance_anti_descendant as isize + anti_descendant_gap)
+                            .unwrap();
+                    (primary_a, primary_b) = if ts_descendant_is_seq1 {
+                        (descendant, anti_descendant)
+                    } else {
+                        (anti_descendant, descendant)
+                    };
 
                     tsalign_alignment.push_n(
                         multiplicity,
                         TsAlignAlignmentType::TemplateSwitchExit {
-                            anti_descendant_gap: anti_primary_gap + jump,
+                            anti_descendant_gap,
                         },
                     )
                 }
@@ -435,13 +497,13 @@ fn actually_align<
     let duration_seconds = (end_time - start_time).as_secs_f64();
 
     let alignment_range = AlignmentRange::new(
-        sequences.primary_start().primary_ordinate_a().unwrap(),
-        sequences.primary_start().primary_ordinate_b().unwrap(),
-        sequences.primary_end().primary_ordinate_a().unwrap(),
-        sequences.primary_end().primary_ordinate_b().unwrap(),
+        sequences.primary_start().a(),
+        sequences.primary_start().b(),
+        sequences.primary_end().a(),
+        sequences.primary_end().b(),
     );
 
-    AlignmentResult::new_with_target::<AlphabetType, _>(
+    let mut alignment_result = AlignmentResult::new_with_target::<AlphabetType, _>(
         tsalign_alignment.into_inner(),
         VectorGenome::from_slice_u8(sequences.seq1())
             .unwrap()
@@ -452,12 +514,56 @@ fn actually_align<
         sequences.seq1_name(),
         sequences.seq2_name(),
         alignment_range,
-        result.without_node_identifier(),
+        AStarResult::FoundTarget {
+            identifier: (),
+            cost,
+        },
         duration_seconds,
         0,
         0,
         0,
         sequences.seq1().len(),
         sequences.seq2().len(),
-    )
+    );
+    alignment_result.statistics_mut().chain_cost = Some(chain_cost.as_f64().try_into().unwrap());
+    alignment_result
+}
+
+/// Checks the cost of the final alignment against the cost of the chain it was built from.
+///
+/// tschainalign finds alignments that are optimal with regard to the anchors, not globally optimal alignments.
+/// The chain cost is the sum of the costs of the gaps and anchors of the chain, which are aligned independently.
+/// For inexact anchors, the cost of the final alignment may be lower than the chain cost
+/// (see [issue #221](https://github.com/algbio/tsalign/issues/221)):
+///
+/// * If a gap (or anchor) alignment ends with a gap and the following anchor (or gap) alignment starts with a gap
+///   of the same kind, then the final alignment contains a single gap, which pays the gap open cost only once.
+///   This can happen between a gap and an anchor, an anchor and a gap, two adjacent anchors (with an empty gap),
+///   and between the primary (secondary) parts of 12- and 34-jumps and the adjacent primary (secondary) anchors.
+///   The gap state is reset at the start and the end of a template switch, so it is not carried over the jumps.
+/// * The final evaluation re-aligns each anchor without the limit on the number of mutations,
+///   which may be cheaper than the anchor cost, which is limited to `max_anchor_mutations` mutations.
+///
+/// Merging gaps never increases the cost if the gap extend cost is at most the gap open cost,
+/// so then the cost of the final alignment is at most the chain cost.
+/// Exact anchors consist of matches only, so they neither merge gaps nor have a cheaper re-alignment,
+/// and the costs are equal.
+fn check_final_alignment_cost<Cost: AStarCost>(
+    cost: Cost,
+    chain_cost: Cost,
+    alignment_costs: &AlignmentCosts<Cost>,
+    config: &ChainingLowerBoundConfig,
+) {
+    if alignment_costs.gap_merging_never_increases_cost() {
+        assert!(
+            cost <= chain_cost,
+            "The cost {cost} of the final alignment is larger than the chain cost {chain_cost}"
+        );
+    }
+    if config.max_anchor_mutations == 0 {
+        assert_eq!(
+            cost, chain_cost,
+            "With exact anchors, the cost of the final alignment must equal the chain cost"
+        );
+    }
 }
