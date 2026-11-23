@@ -18,7 +18,7 @@ jobs:
       - name: Check if workflow should be skipped
         id: check_skip
         run: |
-          git fetch --tags
+          git fetch --tags --force
           TAG=$(git tag -l 'py_lib_tsalign-v*' | sort -V | tail -n 1 || true)
           if [ -z "$TAG" ]; then
             echo "No matching release tag found."
@@ -158,7 +158,7 @@ jobs:
         id: versions
         shell: bash
         run: |
-          git fetch --tags
+          git fetch --tags --force
           TAG=$(git tag -l 'py_lib_tsalign-v*' | sort -V | tail -n 1)
           tag_version="${TAG#*-v}"
           echo "Tag is $TAG with version $tag_version"
