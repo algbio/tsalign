@@ -192,11 +192,12 @@ class Aligner:
             e.g. ``"-"``.
             Default: ``""`` (remove nothing).
         cost_limit : int, optional
-            Abandon the search and return ``None`` if the alignment cost would
-            exceed this value.
+            Return ``None`` if there is no alignment with cost at most this
+            value.  The limit is inclusive: an alignment whose cost equals the
+            limit is returned.
         memory_limit : int, optional
-            Abandon the search and return ``None`` if the number of open A*
-            nodes exceeds this count.
+            Approximate memory limit in bytes.  Abandon the search and return
+            ``None`` if it is exceeded.
 
         Returns
         -------

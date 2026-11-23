@@ -125,8 +125,8 @@ result.viz_template_switches()   # prints ASCII art to stdout
 result = aligner.align(
     reference,
     query,
-    cost_limit=100,       # return None if cost would exceed this
-    memory_limit=500_000, # return None if memory exceeds this number of bytes
+    cost_limit=100,       # return None if every alignment costs more than this (inclusive limit)
+    memory_limit=500_000, # return None if memory exceeds roughly this number of bytes
 )
 if result is None:
     print("No alignment found within limits")
