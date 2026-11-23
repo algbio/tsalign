@@ -63,9 +63,7 @@ use compact_genome::{
 };
 use generic_a_star::cost::U32Cost;
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_result::alignment::Alignment, template_switch_distance::AlignmentType,
-    },
+    alignment_result::{AlignmentType, alignment::Alignment},
     config::TemplateSwitchConfig,
 };
 

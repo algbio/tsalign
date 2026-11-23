@@ -6,8 +6,8 @@ use compact_genome::{
 };
 use generic_a_star::cost::AStarCost;
 use lib_tsalign::{
-    a_star_aligner::template_switch_distance::TemplateSwitchDirection,
-    config::TemplateSwitchConfig, costs::gap_affine::GapAffineAlignmentCostTable,
+    aligner::TemplateSwitchDirection, config::TemplateSwitchConfig,
+    costs::gap_affine::GapAffineAlignmentCostTable,
 };
 use thiserror::Error;
 

@@ -8,66 +8,58 @@ use generic_a_star::cost::U64Cost;
 use traitsequence::interface::Sequence;
 
 use crate::{
-    a_star_aligner::{
-        template_switch_distance::{
-            TSMUncertaintyRangeExtensionMode,
-            context::DynamicStrategies,
-            strategies::{
-                AlignmentStrategySelection,
-                allow_ts_14_out_of_range::{
-                    AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
-                },
-                descendant::{
-                    AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
-                    TemplateSwitchDescendantStrategy,
-                },
-                primary_range::{
-                    NoPrunePrimaryRangeStrategy, PrimaryRangeStrategy,
-                    RangePrunePrimaryRangeStrategy,
-                },
-                secondary_deletion::AllowSecondaryDeletionStrategy,
-                shortcut::NoShortcutStrategy,
-                template_switch_min_length::{
-                    PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
-                    PreprocessedTemplateSwitchMinLengthStrategy,
-                },
+    aligner::{
+        context::DynamicStrategies,
+        strategies::{
+            AlignmentStrategySelection,
+            descendant::{
+                AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
+                TemplateSwitchDescendantStrategy,
+            },
+            primary_range::{
+                NoPrunePrimaryRangeStrategy, PrimaryRangeStrategy, RangePrunePrimaryRangeStrategy,
+            },
+            secondary_deletion::AllowSecondaryDeletionStrategy,
+            shortcut::NoShortcutStrategy,
+            template_switch_min_length::{
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                PreprocessedTemplateSwitchMinLengthStrategy,
             },
         },
         template_switch_distance_a_star_align,
+        ts_14_out_of_range::{AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy},
     },
+    alignment_result::TSMUncertaintyRangeExtensionMode,
     config::TemplateSwitchConfig,
 };
 
-use super::{
-    alignment_geometry::AlignmentRange,
-    alignment_result::AlignmentResult,
-    template_switch_distance::{
-        AlignmentType,
-        strategies::{
-            chaining::{ChainingStrategy, NoChainingStrategy},
-            node_ord::AntiDiagonalNodeOrdStrategy,
-            primary_match::AllowPrimaryMatchStrategy,
-            template_switch_count::{
-                MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
-                TemplateSwitchCountStrategy,
-            },
-            template_switch_min_length::{
-                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                TemplateSwitchMinLengthStrategy,
-            },
-            template_switch_total_length::{
-                MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
-                TemplateSwitchTotalLengthStrategy,
-            },
+use crate::{
+    aligner::strategies::{
+        chaining::{ChainingStrategy, NoChainingStrategy},
+        node_ord::AntiDiagonalNodeOrdStrategy,
+        primary_match::AllowPrimaryMatchStrategy,
+        template_switch_count::{
+            MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
+            TemplateSwitchCountStrategy,
+        },
+        template_switch_min_length::{
+            LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+            TemplateSwitchMinLengthStrategy,
+        },
+        template_switch_total_length::{
+            MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
+            TemplateSwitchTotalLengthStrategy,
         },
     },
+    alignment_geometry::AlignmentRange,
+    alignment_result::{AlignmentResult, AlignmentType},
 };
 
 pub use compact_genome::implementation::alphabets;
 pub use compact_genome::interface::alphabet::Alphabet;
 
 #[cfg(test)]
-use super::template_switch_distance::strategies::chaining::LowerBoundChainingStrategy;
+use crate::aligner::strategies::chaining::LowerBoundChainingStrategy;
 
 #[cfg(test)]
 mod tests;

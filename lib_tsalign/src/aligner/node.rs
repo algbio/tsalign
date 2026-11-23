@@ -1,54 +1,39 @@
 use std::fmt::Display;
 
-use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::{AStarNode, cost::AStarCost};
-use num_traits::{Bounded, CheckedAdd, Zero};
-use strategies::{
+use super::strategies::{
     AlignmentStrategiesNodeMemory, AlignmentStrategySelector, node_ord::NodeOrdStrategy,
     primary_match::PrimaryMatchStrategy,
     template_switch_min_length::TemplateSwitchMinLengthStrategy,
     template_switch_total_length::TemplateSwitchTotalLengthStrategy,
 };
+use compact_genome::interface::sequence::GenomeSequence;
+use generic_a_star::{AStarNode, cost::AStarCost};
+use num_traits::{Bounded, CheckedAdd, Zero};
 
-mod alignment_type;
-pub mod context;
-pub mod display;
-mod identifier;
-pub mod lower_bounds;
-pub mod strategies;
-
-pub use alignment_type::{
-    AlignmentType,
-    tsm_uncertainty_range::{TSMUncertaintyRange, TSMUncertaintyRangeExtensionMode},
-};
-pub use context::Context;
-pub use identifier::{
-    GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
-};
-
+use super::{Context, GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant};
 use crate::{
-    a_star_aligner::template_switch_distance::strategies::descendant::TemplateSwitchDescendantStrategy,
-    config::BaseCost, costs::cost_function::CostFunction,
+    aligner::strategies::descendant::TemplateSwitchDescendantStrategy,
+    alignment_result::AlignmentType, config::BaseCost, costs::cost_function::CostFunction,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
-    node_data: NodeData<
+    pub(super) node_data: NodeData<
         <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
         >>::IdentifierPrimaryExtraData,
         <Strategies as AlignmentStrategySelector>::Cost,
     >,
-    strategies: AlignmentStrategiesNodeMemory<Strategies>,
+    pub(super) strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeData<PrimaryExtraData: Copy, Cost> {
-    identifier: Identifier<PrimaryExtraData>,
-    predecessor: Option<Identifier<PrimaryExtraData>>,
-    predecessor_edge_type: AlignmentType,
-    cost: Cost,
-    a_star_lower_bound: Cost,
+    pub(super) identifier: Identifier<PrimaryExtraData>,
+    pub(super) predecessor: Option<Identifier<PrimaryExtraData>>,
+    pub(super) predecessor_edge_type: AlignmentType,
+    pub(super) cost: Cost,
+    pub(super) a_star_lower_bound: Cost,
 }
 
 impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
@@ -111,7 +96,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         }
     }
 
-    fn generate_primary_diagonal_successor<
+    pub(super) fn generate_primary_diagonal_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -151,7 +136,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_primary_deletion_successor<
+    pub(super) fn generate_primary_deletion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -186,7 +171,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_primary_insertion_successor<
+    pub(super) fn generate_primary_insertion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -221,7 +206,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_initial_template_switch_entrance_successors<
+    pub(super) fn generate_initial_template_switch_entrance_successors<
         'result,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
@@ -306,7 +291,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             })
     }
 
-    fn generate_template_switch_entrance_successor<
+    pub(super) fn generate_template_switch_entrance_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -351,7 +336,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_secondary_root_node<
+    pub(super) fn generate_secondary_root_node<
         'this,
         'reference,
         'query,
@@ -419,7 +404,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             .template_switch_min_length_lookahead(secondary_root_node, context)
     }
 
-    fn generate_secondary_diagonal_successor<
+    pub(super) fn generate_secondary_diagonal_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -449,7 +434,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     }
 
     /// The ancestor contains a base missing in the descendant.
-    fn generate_secondary_deletion_successor<
+    pub(super) fn generate_secondary_deletion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -474,7 +459,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     }
 
     /// The descendant contains a base missing in the ancestor.
-    fn generate_secondary_insertion_successor<
+    pub(super) fn generate_secondary_insertion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -498,7 +483,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_initial_template_switch_exit_successor<
+    pub(super) fn generate_initial_template_switch_exit_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -541,7 +526,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_template_switch_exit_successor<
+    pub(super) fn generate_template_switch_exit_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -651,7 +636,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_template_switch_shortcut_successor<
+    pub(super) fn generate_template_switch_shortcut_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -710,7 +695,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_successor<
+    pub(super) fn generate_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -737,7 +722,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 }
 
 impl<PrimaryExtraData: Copy, Cost: AStarCost> NodeData<PrimaryExtraData, Cost> {
-    fn create_root(identifier: Identifier<PrimaryExtraData>) -> Self {
+    pub(super) fn create_root(identifier: Identifier<PrimaryExtraData>) -> Self {
         Self {
             identifier,
             predecessor: None,
@@ -747,7 +732,7 @@ impl<PrimaryExtraData: Copy, Cost: AStarCost> NodeData<PrimaryExtraData, Cost> {
         }
     }
 
-    fn generate_successor(
+    pub(super) fn generate_successor(
         &self,
         identifier: Identifier<PrimaryExtraData>,
         cost_increment: Cost,
@@ -764,7 +749,7 @@ impl<PrimaryExtraData: Copy, Cost: AStarCost> NodeData<PrimaryExtraData, Cost> {
         }
     }
 
-    fn lower_bound_cost(&self) -> Cost {
+    pub(super) fn lower_bound_cost(&self) -> Cost {
         self.cost + self.a_star_lower_bound
     }
 }

@@ -9,19 +9,18 @@ use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
 use crate::{
-    a_star_aligner::{
-        alignment_geometry::AlignmentCoordinates,
-        template_switch_distance::{
-            AlignmentType, TSMUncertaintyRange, TSMUncertaintyRangeExtensionMode,
-        },
-    },
+    alignment_geometry::{AlignmentCoordinates, AlignmentRange},
     config::TemplateSwitchConfig,
 };
 
-use super::alignment_geometry::AlignmentRange;
-
 pub mod a_star_sequences;
 pub mod alignment;
+pub mod alignment_type;
+
+pub use alignment_type::{
+    AlignmentType,
+    tsm_uncertainty_range::{TSMUncertaintyRange, TSMUncertaintyRangeExtensionMode},
+};
 
 pub trait IAlignmentType: Clone {
     fn is_repeatable(&self) -> bool;
@@ -275,9 +274,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
     }
 }
 
-impl<Cost: AStarCost + From<u64>>
-    AlignmentResult<super::template_switch_distance::AlignmentType, Cost>
-{
+impl<Cost: AStarCost + From<u64>> AlignmentResult<AlignmentType, Cost> {
     /// Heuristically extend the alignment beyond the alignment range as long as this does not increase the alignment cost.
     ///
     /// Returns the amount of steps the alignment was extended.
@@ -474,7 +471,7 @@ impl<Cost: AStarCost + From<u64>>
         for i in 0..alignment.inner_mut().len() {
             let alignment_type = alignment.inner_mut()[i].1;
 
-            if let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+            if let AlignmentType::TemplateSwitchEntrance {
                 uncertainty_range: None,
                 ..
             } = alignment_type
@@ -646,7 +643,7 @@ impl<Cost: AStarCost + From<u64>>
                     }
                 }
 
-                let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                let AlignmentType::TemplateSwitchEntrance {
                     uncertainty_range: alignment_uncertainty_range,
                     ..
                 } = &mut alignment.inner_mut()[i].1

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::a_star_aligner::alignment_geometry::{AlignmentCoordinates, AlignmentRange};
+use crate::alignment_geometry::{AlignmentCoordinates, AlignmentRange};
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -230,9 +230,9 @@ impl AdditionalExplicitTSMStartsAndEnds {
 
 #[cfg(test)]
 mod tests {
-    use crate::a_star_aligner::{
+    use crate::{
+        aligner::ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        template_switch_distance::strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
     };
 
     #[test]

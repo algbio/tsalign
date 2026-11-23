@@ -7,7 +7,10 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
 use num_traits::Bounded;
 
-use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
+use crate::{
+    aligner::{Context, Identifier},
+    alignment_result::AlignmentType,
+};
 
 use super::AlignmentStrategySelector;
 

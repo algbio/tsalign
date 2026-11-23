@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::a_star_aligner::alignment_result::IAlignmentType;
+use crate::alignment_result::IAlignmentType;
 
 pub struct CompactAlignmentIter<'alignment, AlignmentType> {
     alignment: &'alignment [(usize, AlignmentType)],

@@ -10,13 +10,8 @@ use compact_genome::{
 use generic_a_star::cost::U64Cost;
 
 use crate::{
-    a_star_aligner::{
-        alignment_result::alignment::Alignment,
-        template_switch_distance::{
-            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
-            TemplateSwitchDirection,
-        },
-    },
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
+    alignment_result::{AlignmentType, alignment::Alignment},
     config::{BaseCost, TemplateSwitchConfig},
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
 };

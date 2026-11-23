@@ -123,11 +123,11 @@ fn chain_align_full(
     k: u32,
     max_anchor_mutations: u8,
     costs: &AlignmentCosts<U32Cost>,
-) -> lib_tsalign::a_star_aligner::alignment_result::AlignmentResult<
-    lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
+) -> lib_tsalign::alignment_result::AlignmentResult<
+    lib_tsalign::alignment_result::AlignmentType,
     U32Cost,
 > {
-    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+    use lib_tsalign::alignment_geometry::AlignmentRange;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
 
@@ -350,12 +350,9 @@ fn chain_align_result(
     query: &[u8],
     k: u32,
     costs: &AlignmentCosts<U32Cost>,
-) -> lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment<
-    lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
-> {
-    use lib_tsalign::a_star_aligner::{
-        alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
-    };
+) -> lib_tsalign::alignment_result::alignment::Alignment<lib_tsalign::alignment_result::AlignmentType>
+{
+    use lib_tsalign::{alignment_geometry::AlignmentRange, alignment_result::AlignmentResult};
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
 
@@ -392,13 +389,11 @@ fn chain_align_result(
 /// following the semantics of lib_tsalign: after a template switch, the descendant continues after the characters
 /// consumed by the template switch, and the anti-descendant continues at its entrance index plus the anti-descendant gap.
 fn consumed_lengths(
-    alignment: &lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment<
-        lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
+    alignment: &lib_tsalign::alignment_result::alignment::Alignment<
+        lib_tsalign::alignment_result::AlignmentType,
     >,
 ) -> (usize, usize) {
-    use lib_tsalign::a_star_aligner::template_switch_distance::{
-        AlignmentType as T, TemplateSwitchDescendant,
-    };
+    use lib_tsalign::{aligner::TemplateSwitchDescendant, alignment_result::AlignmentType as T};
 
     let (mut reference, mut query) = (0isize, 0isize);
     let mut descendant_is_reference = false;
@@ -686,7 +681,7 @@ fn double_gap_open_between_gap_and_inexact_anchor() {
 /// than the optimum (cost 8 instead of 4 for this input).
 #[test]
 fn anchor_mutations_are_taken_from_the_lower_bounds() {
-    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+    use lib_tsalign::alignment_geometry::AlignmentRange;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
 
@@ -726,7 +721,7 @@ fn anchor_mutations_are_taken_from_the_lower_bounds() {
 fn chain_align_on_range(
     reference: &[u8],
     query: &[u8],
-    range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
+    range: lib_tsalign::alignment_geometry::AlignmentRange,
 ) -> (U32Cost, String) {
     chain_align_on_range_with_config(
         reference,
@@ -744,7 +739,7 @@ fn chain_align_on_range(
 fn chain_align_on_range_with_config(
     reference: &[u8],
     query: &[u8],
-    range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
+    range: lib_tsalign::alignment_geometry::AlignmentRange,
     config: ChainingLowerBoundConfig,
 ) -> (U32Cost, String) {
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -776,7 +771,7 @@ fn chain_align_on_range_with_config(
 /// The template switch starts and ends close to the range edges, matches in between.
 #[test]
 fn match_run_between_range_edge_and_template_switch() {
-    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+    use lib_tsalign::alignment_geometry::AlignmentRange;
 
     let reference = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGCATGGCCAG";
     let query = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGCAAGGCCAG";
@@ -788,7 +783,7 @@ fn match_run_between_range_edge_and_template_switch() {
 /// The template of the template switch lies outside the range
 #[test]
 fn template_beyond_range_end() {
-    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+    use lib_tsalign::alignment_geometry::AlignmentRange;
 
     let reference =
         b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
@@ -802,7 +797,7 @@ fn template_beyond_range_end() {
 /// Like [`template_beyond_range_end`], but with inexact anchors and both inexact lower bound kinds.
 #[test]
 fn template_beyond_range_end_inexact() {
-    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+    use lib_tsalign::alignment_geometry::AlignmentRange;
 
     let reference =
         b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";

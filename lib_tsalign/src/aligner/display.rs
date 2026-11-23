@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter, Result};
 
 use super::{
-    AlignmentType, GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant,
-    alignment_type::tsm_uncertainty_range::TSMUncertaintyRange,
+    GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant,
     identifier::TemplateSwitchDirection,
 };
+use crate::alignment_result::{AlignmentType, TSMUncertaintyRange};
 
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

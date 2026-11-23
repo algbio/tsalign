@@ -13,25 +13,23 @@ use log::{debug, info, trace};
 use traitsequence::interface::Sequence;
 
 use crate::{
-    a_star_aligner::{
-        alignment_geometry::AlignmentRange,
-        alignment_result::IAlignmentType,
-        template_switch_distance::{
-            Context, Identifier, Node,
-            context::{DynamicStrategies, Memory},
-            identifier::GapType,
-            strategies::{
-                AlignmentStrategySelection, allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
-                chaining::NoChainingStrategy, descendant::AnyTemplateSwitchDescendantStrategy,
-                node_ord::CostOnlyNodeOrdStrategy, primary_match::AllowPrimaryMatchStrategy,
-                primary_range::NoPrunePrimaryRangeStrategy,
-                secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
-                template_switch_count::MaxTemplateSwitchCountStrategy,
-                template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
-                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
-            },
+    aligner::{
+        Context, Identifier, Node,
+        context::{DynamicStrategies, Memory},
+        identifier::GapType,
+        strategies::{
+            AlignmentStrategySelection, chaining::NoChainingStrategy,
+            descendant::AnyTemplateSwitchDescendantStrategy, node_ord::CostOnlyNodeOrdStrategy,
+            primary_match::AllowPrimaryMatchStrategy, primary_range::NoPrunePrimaryRangeStrategy,
+            secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
+            template_switch_count::MaxTemplateSwitchCountStrategy,
+            template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
+            template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
         },
+        ts_14_out_of_range::Ts14OutOfRangeStrategy,
     },
+    alignment_geometry::AlignmentRange,
+    alignment_result::IAlignmentType,
     config::TemplateSwitchConfig,
     costs::gap_affine::GapAffineAlignmentCostTable,
 };

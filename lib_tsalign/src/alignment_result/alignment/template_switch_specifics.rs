@@ -6,13 +6,8 @@ use generic_a_star::cost::AStarCost;
 use log::{error, trace};
 
 use crate::{
-    a_star_aligner::{
-        alignment_result::{IAlignmentType, alignment::stream::AlignmentStream},
-        template_switch_distance::{
-            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
-            TemplateSwitchDirection,
-        },
-    },
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
+    alignment_result::{AlignmentType, IAlignmentType, alignment::stream::AlignmentStream},
     config::TemplateSwitchConfig,
 };
 

@@ -7,13 +7,13 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
-use crate::a_star_aligner::template_switch_distance::strategies::allow_ts_14_out_of_range::{
+use crate::aligner::strategies::primary_range::PrimaryRangeStrategy;
+use crate::aligner::ts_14_out_of_range::{
     AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
 };
-use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
-use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirection};
-use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
+use crate::aligner::{AlignmentContext, AlignmentRange};
+use crate::aligner::{Node, TemplateSwitchDirection};
+use crate::alignment_geometry::AlignmentCoordinates;
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchAncestor, TemplateSwitchDescendant};
@@ -25,7 +25,8 @@ use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use super::strategies::template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 use super::strategies::{AlignmentStrategiesNodeMemory, AlignmentStrategySelector};
-use super::{AlignmentType, Identifier, NodeData};
+use super::{Identifier, NodeData};
+use crate::alignment_result::AlignmentType;
 
 pub struct Context<
     'reference,

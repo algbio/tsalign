@@ -1,5 +1,5 @@
 use generic_a_star::cost::U32Cost;
-use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+use lib_tsalign::alignment_geometry::AlignmentRange;
 
 use crate::{
     alignment::sequences::AlignmentSequences,

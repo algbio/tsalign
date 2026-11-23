@@ -1,7 +1,10 @@
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
 
-use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier, Node};
+use crate::{
+    aligner::{Context, Identifier, Node},
+    alignment_result::AlignmentType,
+};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 

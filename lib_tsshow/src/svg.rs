@@ -11,12 +11,8 @@ use font::{
 };
 use indexed_str::IndexedStr;
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_result::AlignmentResult,
-        template_switch_distance::{
-            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
-        },
-    },
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
+    alignment_result::{AlignmentResult, AlignmentType},
     costs::U64Cost,
 };
 use log::{debug, info};

@@ -3,9 +3,7 @@ use generic_a_star::cost::AStarCost;
 use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
-    a_star_aligner::template_switch_distance::{
-        TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
-    },
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     error::{Error, Result},
 };

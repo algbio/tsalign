@@ -1,11 +1,12 @@
-use lib_tsalign::a_star_aligner::{
-    alignment_result::alignment::{
-        Alignment,
-        iter::CompactAlignmentIterCloned,
-        stream::{AlignmentStream, AlignmentStreamCoordinates},
-    },
-    template_switch_distance::{
-        AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
+use lib_tsalign::{
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
+    alignment_result::{
+        AlignmentType,
+        alignment::{
+            Alignment,
+            iter::CompactAlignmentIterCloned,
+            stream::{AlignmentStream, AlignmentStreamCoordinates},
+        },
     },
 };
 use log::{debug, trace};

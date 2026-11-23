@@ -14,30 +14,26 @@ use ndarray::Array2;
 use traitsequence::interface::Sequence;
 
 use crate::{
-    a_star_aligner::{
-        alignment_geometry::AlignmentRange,
-        alignment_result::IAlignmentType,
-        template_switch_distance::{
-            Context, Identifier,
-            context::{DynamicStrategies, Memory},
-            strategies::{
-                AlignmentStrategySelection,
-                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
-                chaining::NoChainingStrategy,
-                descendant::AnyTemplateSwitchDescendantStrategy,
-                node_ord::CostOnlyNodeOrdStrategy,
-                primary_match::{
-                    MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
-                },
-                primary_range::NoPrunePrimaryRangeStrategy,
-                secondary_deletion::AllowSecondaryDeletionStrategy,
-                shortcut::TemplateSwitchLowerBoundShortcutStrategy,
-                template_switch_count::NoTemplateSwitchCountStrategy,
-                template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
-                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
-            },
+    aligner::{
+        Context, Identifier,
+        context::{DynamicStrategies, Memory},
+        strategies::{
+            AlignmentStrategySelection,
+            chaining::NoChainingStrategy,
+            descendant::AnyTemplateSwitchDescendantStrategy,
+            node_ord::CostOnlyNodeOrdStrategy,
+            primary_match::{MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy},
+            primary_range::NoPrunePrimaryRangeStrategy,
+            secondary_deletion::AllowSecondaryDeletionStrategy,
+            shortcut::TemplateSwitchLowerBoundShortcutStrategy,
+            template_switch_count::NoTemplateSwitchCountStrategy,
+            template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
+            template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
         },
+        ts_14_out_of_range::Ts14OutOfRangeStrategy,
     },
+    alignment_geometry::AlignmentRange,
+    alignment_result::IAlignmentType,
     config::{BaseCost, TemplateSwitchConfig},
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
 };

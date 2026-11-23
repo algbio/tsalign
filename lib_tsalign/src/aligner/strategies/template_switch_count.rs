@@ -1,6 +1,9 @@
 use compact_genome::interface::sequence::GenomeSequence;
 
-use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
+use crate::{
+    aligner::{Context, Identifier},
+    alignment_result::AlignmentType,
+};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 

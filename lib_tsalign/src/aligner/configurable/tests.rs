@@ -3,11 +3,9 @@ use num_traits::real::Real;
 
 use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 
-use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
-use crate::a_star_aligner::alignment_result::alignment::Alignment;
-use crate::a_star_aligner::template_switch_distance::{
-    TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
-};
+use crate::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection};
+use crate::alignment_geometry::AlignmentCoordinates;
+use crate::alignment_result::alignment::Alignment;
 
 use super::*;
 
@@ -412,14 +410,14 @@ const INFINITE_OFFSET_COSTS: &str = " -inf\n  inf";
 
 /// Align with the given costs and return the cost, the number of template switches,
 /// and the cost of the computed alignment recomputed independently of the A* search with
-/// [`Alignment::compute_cost`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost).
+/// [`Alignment::compute_cost`](crate::alignment_result::alignment::Alignment::compute_cost).
 fn align_forward_ts_offset_test(costs: &str, reference: &[u8], query: &[u8]) -> (f64, f64, f64) {
     align_and_recompute_cost(costs, Default::default(), reference, query)
 }
 
 /// Align with the given costs and min length strategy and return the cost, the number of template switches,
 /// and the cost of the computed alignment recomputed independently of the A* search with
-/// [`Alignment::compute_cost`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost).
+/// [`Alignment::compute_cost`](crate::alignment_result::alignment::Alignment::compute_cost).
 fn align_and_recompute_cost(
     costs: &str,
     min_length_strategy: MinLengthStrategySelector,
@@ -582,7 +580,7 @@ fn exact_min_length_strategies() -> [MinLengthStrategySelector; 4] {
 }
 
 /// Compute the cost of the given alignment independently of the A* search with
-/// [`Alignment::compute_cost_and_lengths`](crate::a_star_aligner::alignment_result::alignment::Alignment::compute_cost_and_lengths),
+/// [`Alignment::compute_cost_and_lengths`](crate::alignment_result::alignment::Alignment::compute_cost_and_lengths),
 /// including the geometry costs, and return it together with the number of consumed reference and query characters.
 fn recompute_cost_and_lengths(
     costs: &str,

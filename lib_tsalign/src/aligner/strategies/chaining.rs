@@ -9,14 +9,15 @@ use seed_chain::{
 };
 
 use crate::{
-    a_star_aligner::template_switch_distance::{
-        AlignmentType, Context, Identifier, Node,
+    aligner::{
+        Context, Identifier, Node,
         identifier::GapType,
         lower_bounds::{
             template_switch::TemplateSwitchLowerBoundMatrix,
             template_switch_alignment::TemplateSwitchAlignmentLowerBoundMatrix,
         },
     },
+    alignment_result::AlignmentType,
     config::TemplateSwitchConfig,
 };
 
@@ -69,7 +70,7 @@ pub struct NoChainingStrategy<Cost> {
 /// Computes the chain like [`LowerBoundChainingStrategy`], but does not use it.
 ///
 /// **Disabled:** like [`LowerBoundChainingStrategy`], this cannot be selected in the CLI, the Python bindings
-/// or [`Aligner`](crate::a_star_aligner::configurable_a_star_align::Aligner) (issue #248).
+/// or [`Aligner`](crate::Aligner) (issue #248).
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PrecomputeOnlyChainingStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
@@ -78,7 +79,7 @@ pub struct PrecomputeOnlyChainingStrategy<Cost> {
 /// Chains exact reference blocks and uses the chain cost as an additional A* lower bound.
 ///
 /// **Disabled:** this strategy cannot be selected in the CLI, the Python bindings
-/// or [`Aligner`](crate::a_star_aligner::configurable_a_star_align::Aligner),
+/// or [`Aligner`](crate::Aligner),
 /// because it is not worth its cost (issue #248, <https://github.com/algbio/tsalign/issues/248>):
 /// precomputing the lower bound matrices takes time and memory that grow with about n^4.8,
 /// and the resulting chain lower bound was 0 in practice.

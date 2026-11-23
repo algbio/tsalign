@@ -1,12 +1,8 @@
 use tsm_uncertainty_range::TSMUncertaintyRange;
 
-use crate::a_star_aligner::{
-    alignment_geometry::AlignmentCoordinates, alignment_result::IAlignmentType,
-};
+use crate::{alignment_geometry::AlignmentCoordinates, alignment_result::IAlignmentType};
 
-use super::identifier::{
-    TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
-};
+use crate::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection};
 
 pub mod tsm_uncertainty_range;
 

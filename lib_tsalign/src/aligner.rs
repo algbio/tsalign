@@ -3,12 +3,7 @@ use std::{
     time::Instant,
 };
 
-use alignment_geometry::AlignmentRange;
-use alignment_result::{AlignmentResult, IAlignmentType};
-use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, reset::Reset};
-use log::{debug, info};
-use template_switch_distance::{
+use self::{
     context::Memory,
     strategies::{
         AlignmentStrategySelector, chaining::ChainingStrategy,
@@ -17,23 +12,35 @@ use template_switch_distance::{
         template_switch_min_length::TemplateSwitchMinLengthStrategy,
     },
 };
+use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, reset::Reset};
+use log::{debug, info};
 use traitsequence::interface::Sequence;
 
 use crate::{
-    a_star_aligner::{
-        alignment_result::alignment::Alignment,
-        template_switch_distance::{
-            TSMUncertaintyRangeExtensionMode, context::DynamicStrategies,
-            strategies::allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
-        },
+    aligner::{context::DynamicStrategies, ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds},
+    alignment_geometry::AlignmentRange,
+    alignment_result::{
+        AlignmentResult, AlignmentType, IAlignmentType, TSMUncertaintyRangeExtensionMode,
+        alignment::Alignment,
     },
     config,
 };
 
-pub mod alignment_geometry;
-pub mod alignment_result;
-pub mod configurable_a_star_align;
-pub mod template_switch_distance;
+pub mod configurable;
+pub mod context;
+pub mod display;
+mod identifier;
+pub mod lower_bounds;
+mod node;
+pub mod strategies;
+pub mod ts_14_out_of_range;
+
+pub use context::Context;
+pub use identifier::{
+    GapType, Identifier, TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection,
+};
+pub use node::{Node, NodeData};
 
 pub trait AlignmentContext: AStarContext {
     type AlphabetType: Alphabet;
@@ -206,7 +213,7 @@ pub fn template_switch_distance_a_star_align<
     extend_beyond_range: bool,
     tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost>
+) -> AlignmentResult<AlignmentType, Strategies::Cost>
 where
     Strategies::Cost: From<u64>,
 {
@@ -228,7 +235,7 @@ where
 
     info!("Calling aligner...");
     let mut result = a_star_align(
-        template_switch_distance::Context::<SubsequenceType, Strategies>::new(
+        Context::<SubsequenceType, Strategies>::new(
             reference,
             query,
             reference_name,

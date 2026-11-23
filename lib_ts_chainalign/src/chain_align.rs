@@ -12,9 +12,9 @@ use generic_a_star::{
 };
 use indicatif::ProgressBar;
 use itertools::Itertools;
-use lib_tsalign::a_star_aligner::{
-    alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
-    template_switch_distance::TemplateSwitchDirection,
+use lib_tsalign::{
+    aligner::TemplateSwitchDirection, alignment_geometry::AlignmentRange,
+    alignment_result::AlignmentResult,
 };
 use log::{debug, info, trace};
 use rustc_hash::FxHashMapSeed;
@@ -55,7 +55,7 @@ pub(crate) fn align<Cost: AStarCost>(
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
     match performance_parameters.open_list {
         ChainingOpenList::StdHeap => {
             choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
@@ -88,7 +88,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
     match performance_parameters.closed_list {
         ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
             sequences,
@@ -123,7 +123,7 @@ fn actually_align<
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
     info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));
@@ -334,8 +334,7 @@ fn actually_align<
             * 1e2,
     );
 
-    let mut tsalign_alignment =
-        lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
+    let mut tsalign_alignment = lib_tsalign::alignment_result::alignment::Alignment::new();
     let mut is_primary = true;
     let mut anti_primary_gap = 0isize;
     // The current primary coordinates, needed to convert the jumps of intra template switches.
@@ -365,7 +364,7 @@ fn actually_align<
     check_final_alignment_cost(cost, chain_cost, alignment_costs, config);
 
     for alignment in alignments {
-        use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType as TsAlignAlignmentType;
+        use lib_tsalign::alignment_result::AlignmentType as TsAlignAlignmentType;
 
         for (multiplicity, alignment_type) in alignment.alignment {
             match alignment_type {

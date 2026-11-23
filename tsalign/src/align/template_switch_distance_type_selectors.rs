@@ -3,46 +3,44 @@ use std::fmt::Debug;
 use clap::ValueEnum;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_geometry::AlignmentRange,
-        template_switch_distance::{
-            TSMUncertaintyRangeExtensionMode,
-            context::DynamicStrategies,
-            strategies::{
-                AlignmentStrategySelection,
-                allow_ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
-                chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
-                descendant::{
-                    AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
-                    TemplateSwitchDescendantStrategy,
-                },
-                node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
-                primary_match::AllowPrimaryMatchStrategy,
-                primary_range::RangePrunePrimaryRangeStrategy,
-                secondary_deletion::AllowSecondaryDeletionStrategy,
-                shortcut::NoShortcutStrategy,
-                template_switch_count::{
-                    MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
-                    TemplateSwitchCountStrategy,
-                },
-                template_switch_min_length::{
-                    LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                    PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
-                    PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
-                },
-                template_switch_total_length::TemplateSwitchTotalLengthStrategy,
+    aligner::{
+        context::DynamicStrategies,
+        strategies::{
+            AlignmentStrategySelection,
+            chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
+            descendant::{
+                AnyTemplateSwitchDescendantStrategy, OnlyEqualTemplateSwitchDescendantStrategy,
+                TemplateSwitchDescendantStrategy,
             },
+            node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
+            primary_match::AllowPrimaryMatchStrategy,
+            primary_range::RangePrunePrimaryRangeStrategy,
+            secondary_deletion::AllowSecondaryDeletionStrategy,
+            shortcut::NoShortcutStrategy,
+            template_switch_count::{
+                MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
+                TemplateSwitchCountStrategy,
+            },
+            template_switch_min_length::{
+                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
+            },
+            template_switch_total_length::TemplateSwitchTotalLengthStrategy,
         },
         template_switch_distance_a_star_align,
+        ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
     },
+    alignment_geometry::AlignmentRange,
+    alignment_result::TSMUncertaintyRangeExtensionMode,
     costs::U64Cost,
 };
 use log::info;
 
-#[cfg(feature = "strategy_total_length_none")]
-use lib_tsalign::a_star_aligner::template_switch_distance::strategies::template_switch_total_length::NoTemplateSwitchTotalLengthStrategy;
 #[cfg(feature = "strategy_total_length_maximise")]
-use lib_tsalign::a_star_aligner::template_switch_distance::strategies::template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy;
+use lib_tsalign::aligner::strategies::template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy;
+#[cfg(feature = "strategy_total_length_none")]
+use lib_tsalign::aligner::strategies::template_switch_total_length::NoTemplateSwitchTotalLengthStrategy;
 
 use super::Cli;
 use crate::util::load_tsa_config;

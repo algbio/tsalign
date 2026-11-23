@@ -10,12 +10,12 @@ use log::{info, warn};
 use rustc_hash::{FxHashMapSeed, FxSeededState};
 use template_switch_error_free_inners::MatchTable;
 
-use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
-use crate::a_star_aligner::template_switch_distance::{
+use crate::aligner::{
     Context, Identifier, Node,
     identifier::{GapType, TemplateSwitchAncestor, TemplateSwitchDescendant},
 };
 use crate::config::TemplateSwitchConfig;
+use crate::{aligner::TemplateSwitchDirection, alignment_result::AlignmentType};
 
 use super::primary_match::PrimaryMatchStrategy;
 use super::{AlignmentStrategy, AlignmentStrategySelector};

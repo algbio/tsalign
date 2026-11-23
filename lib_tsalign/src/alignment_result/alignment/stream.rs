@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, iter};
 
-use crate::a_star_aligner::{
-    alignment_result::alignment::Alignment,
-    template_switch_distance::{AlignmentType, TemplateSwitchDescendant},
+use crate::{
+    aligner::TemplateSwitchDescendant,
+    alignment_result::{AlignmentType, alignment::Alignment},
 };
 
 #[derive(Debug, Clone)]

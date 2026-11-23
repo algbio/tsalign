@@ -12,11 +12,11 @@ use template_switch_count::TemplateSwitchCountStrategy;
 use template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 
-use crate::a_star_aligner::template_switch_distance::strategies::descendant::TemplateSwitchDescendantStrategy;
+use crate::aligner::strategies::descendant::TemplateSwitchDescendantStrategy;
 
-use super::{AlignmentType, Context, Identifier};
+use super::{Context, Identifier};
+use crate::alignment_result::AlignmentType;
 
-pub mod allow_ts_14_out_of_range;
 pub mod chaining;
 pub mod descendant;
 pub mod node_ord;

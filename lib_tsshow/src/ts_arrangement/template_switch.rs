@@ -2,11 +2,9 @@ use super::{
     index_types::{ArrangementCharColumn, SourceColumn},
     source::{RemovedHiddenChars, SourceChar},
 };
-use lib_tsalign::a_star_aligner::{
-    alignment_result::alignment::Alignment,
-    template_switch_distance::{
-        AlignmentType, TSMUncertaintyRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
-    },
+use lib_tsalign::{
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
+    alignment_result::{AlignmentType, TSMUncertaintyRange, alignment::Alignment},
 };
 
 #[derive(Debug, Clone)]

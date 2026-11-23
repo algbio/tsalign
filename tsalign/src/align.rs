@@ -13,12 +13,8 @@ use lib_ts_chainalign::chain_align::performance_parameters::{
     ChainingClosedList, ChainingOpenList,
 };
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        template_switch_distance::strategies::allow_ts_14_out_of_range::{
-            AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
-        },
-    },
+    aligner::ts_14_out_of_range::{AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy},
+    alignment_geometry::{AlignmentCoordinates, AlignmentRange},
     costs::U64Cost,
 };
 use log::{LevelFilter, debug, info};

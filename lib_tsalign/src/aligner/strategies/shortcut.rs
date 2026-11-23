@@ -4,10 +4,8 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost};
 
 use crate::{
-    a_star_aligner::template_switch_distance::{
-        AlignmentType, Context, Identifier,
-        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix,
-    },
+    aligner::{Context, Identifier, lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix},
+    alignment_result::AlignmentType,
     config::TemplateSwitchConfig,
 };
 

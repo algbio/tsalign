@@ -3,10 +3,10 @@ use std::{fmt::Debug, hash::Hash};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::AStarIdentifier;
 
-use crate::a_star_aligner::alignment_geometry::AlignmentCoordinates;
+use crate::{alignment_geometry::AlignmentCoordinates, alignment_result::AlignmentType};
 
 use super::{
-    AlignmentType, Context,
+    Context,
     strategies::{AlignmentStrategySelector, primary_match::PrimaryMatchStrategy},
 };
 

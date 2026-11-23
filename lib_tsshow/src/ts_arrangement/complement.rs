@@ -1,4 +1,4 @@
-use lib_tsalign::a_star_aligner::template_switch_distance::TemplateSwitchAncestor;
+use lib_tsalign::aligner::TemplateSwitchAncestor;
 use tagged_vec::TaggedVec;
 
 use super::{
