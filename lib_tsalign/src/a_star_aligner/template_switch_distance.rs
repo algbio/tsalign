@@ -612,7 +612,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 let query_index = entrance_query_index as isize + anti_descendant_gap;
 
                 // TODO the latter condition should never be true if we generate TS exit nodes correctly.
-                if query_index < 0 || query_index as usize >= context.query.len() {
+                if query_index < 0 || query_index as usize > context.query.len() {
                     return None;
                 }
 
@@ -622,7 +622,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 let reference_index = entrance_reference_index as isize + anti_descendant_gap;
 
                 // TODO the latter condition should never be true if we generate TS exit nodes correctly.
-                if reference_index < 0 || reference_index as usize >= context.reference.len() {
+                if reference_index < 0 || reference_index as usize > context.reference.len() {
                     return None;
                 }
 
@@ -686,7 +686,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let query_index =
             usize::try_from(isize::try_from(query_index).unwrap() + delta_query).ok()?;
 
-        if reference_index >= context.reference.len() || query_index >= context.query.len() {
+        // Index == length is valid, it is the end of the sequence.
+        if reference_index > context.reference.len() || query_index > context.query.len() {
             return None;
         }
 

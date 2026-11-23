@@ -1,22 +1,33 @@
 use std::{fmt::Display, time::Instant};
 
+use generic_a_star::cost::AStarCost;
+use inexact_alignment_anchors::generate_inexact_alignment_anchors_of_subsequences;
 use log::{info, trace};
+use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::AlignmentCoordinates, sequences::AlignmentSequences, ts_kind::TsKind,
+        coordinates::{
+            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
+            range::{PrimaryAlignmentRange, SpecificSecondaryAlignmentRange},
+        },
+        sequences::AlignmentSequences,
+        ts_kind::TsKind,
     },
     anchors::{
+        exact_kmer_matches::{compute_exact_kmers, find_exact_kmer_matches},
         index::AnchorIndex,
-        kmer_matches::find_kmer_matches,
-        kmers::{Kmer, KmerStore},
+        kmers::KmerStore,
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
     },
+    costs::AlignmentCosts,
 };
 
+pub mod domination;
+pub mod exact_kmer_matches;
 pub mod index;
-pub mod kmer_matches;
+pub mod inexact_kmer_matches;
 pub mod kmers;
 pub mod primary;
 pub mod reverse_lookup;
@@ -25,31 +36,37 @@ pub mod secondary;
 mod tests;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Anchors {
-    primary: Vec<PrimaryAnchor>,
-    secondaries: [Vec<SecondaryAnchor>; 4],
+pub struct Anchors<Cost> {
+    primary: Vec<PrimaryAnchor<Cost>>,
+    secondaries: [Vec<SecondaryAnchor<Cost>>; 4],
 }
 
-impl Anchors {
-    pub fn new(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self {
+impl<Cost> Anchors<Cost> {
+    pub fn new_exact(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self
+    where
+        Cost: Zero + Ord,
+    {
         if k <= 8 {
-            Self::new_with_kmer_store::<u16>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u16>(sequences, k, rc_fn)
         } else if k <= 16 {
-            Self::new_with_kmer_store::<u32>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u32>(sequences, k, rc_fn)
         } else if k <= 32 {
-            Self::new_with_kmer_store::<u64>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u64>(sequences, k, rc_fn)
         } else if k <= 64 {
-            Self::new_with_kmer_store::<u128>(sequences, k, rc_fn)
+            Self::new_exact_with_kmer_store::<u128>(sequences, k, rc_fn)
         } else {
             panic!("Only k-mer sizes up to 64 are supported, but got {k}");
         }
     }
 
-    fn new_with_kmer_store<Store: KmerStore>(
+    fn new_exact_with_kmer_store<Store: KmerStore>(
         sequences: &AlignmentSequences,
         k: u32,
         rc_fn: &dyn Fn(u8) -> u8,
-    ) -> Self {
+    ) -> Self
+    where
+        Cost: Zero + Ord,
+    {
         let start_time = Instant::now();
 
         let k = usize::try_from(k).unwrap();
@@ -58,73 +75,64 @@ impl Anchors {
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
 
-        let s1_kmer_count = (sequences.primary_end().primary_ordinate_a().unwrap()
-            - sequences.primary_start().primary_ordinate_a().unwrap()
-            + 1)
-        .saturating_sub(k);
-        let s2_kmer_count = (sequences.primary_end().primary_ordinate_b().unwrap()
-            - sequences.primary_start().primary_ordinate_b().unwrap()
-            + 1)
-        .saturating_sub(k);
-
         // Compute k-mers.
-        let mut s1_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_a().unwrap()
-            ..sequences.primary_start().primary_ordinate_a().unwrap() + s1_kmer_count)
-            .map(|offset| (Kmer::<Store>::from(&s1[offset..offset + k]), offset))
-            .collect();
-        s1_kmers.sort();
-        let s1_kmers = s1_kmers;
-        let mut s2_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_b().unwrap()
-            ..sequences.primary_start().primary_ordinate_b().unwrap() + s2_kmer_count)
-            .map(|offset| (Kmer::<Store>::from(&s2[offset..offset + k]), offset))
-            .collect();
-        s2_kmers.sort();
-        let s2_kmers = s2_kmers;
-        let mut s1_rc_kmers: Vec<_> = (0..s1_rc.len() + 1 - k)
-            .map(|offset| (Kmer::<Store>::from(&s1_rc[offset..offset + k]), offset))
-            .collect();
-        s1_rc_kmers.sort();
-        let s1_rc_kmers = s1_rc_kmers;
-        let mut s2_rc_kmers: Vec<_> = (0..s2_rc.len() + 1 - k)
-            .map(|offset| (Kmer::<Store>::from(&s2_rc[offset..offset + k]), offset))
-            .collect();
-        s2_rc_kmers.sort();
-        let s2_rc_kmers = s2_rc_kmers;
+        let s1_kmers = compute_exact_kmers::<Store>(
+            &s1[sequences.primary_start().a()..sequences.primary_end().a()],
+            sequences.primary_start().a(),
+            k,
+        );
+        let s2_kmers = compute_exact_kmers::<Store>(
+            &s2[sequences.primary_start().b()..sequences.primary_end().b()],
+            sequences.primary_start().b(),
+            k,
+        );
+        let s1_rc_kmers = compute_exact_kmers::<Store>(&s1_rc, 0, k);
+        let s2_rc_kmers = compute_exact_kmers::<Store>(&s2_rc, 0, k);
 
         trace!("s1_kmers: {s1_kmers:?}");
         trace!("s2_kmers: {s2_kmers:?}");
 
         // Compute anchors.
-        let mut primary: Vec<_> = find_kmer_matches(&s1_kmers, &s2_kmers)
+        let mut primary: Vec<_> = find_exact_kmer_matches(&s1_kmers, &s2_kmers)
             .into_iter()
-            .map(|(seq1, seq2)| PrimaryAnchor { seq1, seq2 })
-            .collect();
-        let secondary_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
-            .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s1.len() - ancestor,
-                descendant,
+            .map(|(seq1, seq2)| {
+                PrimaryAnchor::new_exact(PrimaryAlignmentCoordinates::new(seq1, seq2), k)
             })
             .collect();
-        let secondary_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
+        let secondary_11: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s1.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s1.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
-        let secondary_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
+        let secondary_12: Vec<_> = find_exact_kmer_matches(&s1_rc_kmers, &s2_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s2.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s1.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
-        let secondary_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
+        let secondary_21: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s1_kmers)
             .into_iter()
-            .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor: s2.len() - ancestor,
-                descendant,
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s2.len() - ancestor, descendant),
+                    k,
+                )
+            })
+            .collect();
+        let secondary_22: Vec<_> = find_exact_kmer_matches(&s2_rc_kmers, &s2_kmers)
+            .into_iter()
+            .map(|(ancestor, descendant)| {
+                SecondaryAnchor::new_exact(
+                    AnySecondaryAlignmentCoordinates::new(s2.len() - ancestor, descendant),
+                    k,
+                )
             })
             .collect();
         let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
@@ -135,8 +143,7 @@ impl Anchors {
             secondary.sort_unstable();
         }
 
-        let end_time = Instant::now();
-        let duration = end_time - start_time;
+        let duration = start_time.elapsed();
 
         info!(
             "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
@@ -155,7 +162,154 @@ impl Anchors {
         }
     }
 
-    pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor {
+    pub fn new_inexact(
+        sequences: &AlignmentSequences,
+        k: u32,
+        max_mutations: u8,
+        costs: &AlignmentCosts<Cost>,
+        rc_fn: &dyn Fn(u8) -> u8,
+    ) -> Self
+    where
+        Cost: AStarCost,
+    {
+        let start_time = Instant::now();
+
+        let k = usize::try_from(k).unwrap();
+        let max_mutations = usize::from(max_mutations);
+        let s1 = sequences.seq1();
+        let s2 = sequences.seq2();
+        let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
+        let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
+        let s1_rc = s1_rc.as_slice();
+        let s2_rc = s2_rc.as_slice();
+
+        // Compute anchors.
+        let mut primary: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            s1,
+            s2,
+            sequences.range1(),
+            sequences.range2(),
+            &costs.primary_costs,
+            k,
+            max_mutations,
+        )
+        .unwrap()
+        .map(PrimaryAnchor::from)
+        .collect();
+        let secondary_11: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            s1_rc,
+            s1,
+            0..s1_rc.len(),
+            sequences.range1(),
+            &costs.secondary_costs,
+            k,
+            max_mutations,
+        )
+        .unwrap()
+        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
+        .collect();
+        let secondary_12: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            s1_rc,
+            s2,
+            0..s1_rc.len(),
+            sequences.range2(),
+            &costs.secondary_costs,
+            k,
+            max_mutations,
+        )
+        .unwrap()
+        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s1.len()))
+        .collect();
+        let secondary_21: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            s2_rc,
+            s1,
+            0..s2_rc.len(),
+            sequences.range1(),
+            &costs.secondary_costs,
+            k,
+            max_mutations,
+        )
+        .unwrap()
+        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
+        .collect();
+        let secondary_22: Vec<_> = generate_inexact_alignment_anchors_of_subsequences(
+            s2_rc,
+            s2,
+            0..s2_rc.len(),
+            sequences.range2(),
+            &costs.secondary_costs,
+            k,
+            max_mutations,
+        )
+        .unwrap()
+        .map(|anchor| SecondaryAnchor::new_from_inexact_alignment_anchor(anchor, s2.len()))
+        .collect();
+
+        let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
+
+        // Sort anchors.
+        primary.sort_unstable();
+        for secondary in &mut secondaries {
+            secondary.sort_unstable();
+        }
+
+        let duration = start_time.elapsed();
+
+        info!(
+            "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
+            primary.len() + secondaries.iter().map(Vec::len).sum::<usize>(),
+            primary.len(),
+            secondaries[0].len(),
+            secondaries[1].len(),
+            secondaries[2].len(),
+            secondaries[3].len(),
+            duration.as_secs_f64() * 1e3,
+        );
+
+        Self {
+            primary,
+            secondaries,
+        }
+    }
+
+    /// Removes the dominated primary anchors, if that is known to not change the cost of the optimal chain.
+    ///
+    /// See the [`domination`] module for the definition of dominated anchors and the conditions for pruning.
+    /// The proof of soundness holds only for the max-match-run chaining,
+    /// so this must not be called if the anchors are chained with a different method.
+    ///
+    /// * `k` and `max_mutations` are the parameters that the anchors were created with by [`Self::new_inexact`].
+    ///
+    /// Returns the number of removed anchors.
+    pub fn prune_dominated_primary_anchors(
+        &mut self,
+        sequences: &AlignmentSequences,
+        k: u32,
+        max_mutations: u8,
+        costs: &AlignmentCosts<Cost>,
+    ) -> usize
+    where
+        Cost: AStarCost,
+    {
+        if !domination::is_pruning_sound(usize::from(max_mutations), &costs.primary_costs) {
+            return 0;
+        }
+
+        let pruned = domination::prune_dominated_primary_anchors(
+            &mut self.primary,
+            sequences.seq1(),
+            sequences.seq2(),
+            usize::try_from(k).unwrap(),
+            &costs.primary_costs,
+        );
+        info!(
+            "Pruned {pruned} dominated primary anchors, {} remain",
+            self.primary.len()
+        );
+        pruned
+    }
+
+    pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {
         &self.primary[index.as_usize()]
     }
 
@@ -163,7 +317,10 @@ impl Anchors {
         self.primary.len().into()
     }
 
-    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor)> {
+    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
         self.primary
             .iter()
             .copied()
@@ -171,21 +328,20 @@ impl Anchors {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
-    pub fn primary_index_from_start_coordinates(
-        &self,
-        start: AlignmentCoordinates,
-    ) -> Option<AnchorIndex> {
-        let target_anchor = PrimaryAnchor::new_from_start(&start);
+    pub fn primary_index_from_range(&self, range: PrimaryAlignmentRange) -> Option<AnchorIndex>
+    where
+        Cost: Copy,
+    {
         self.enumerate_primaries()
-            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+            .filter_map(|(index, anchor)| (anchor.is_at(range)).then_some(index))
             .next()
     }
 
-    fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor> {
+    fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor<Cost>> {
         &self.secondaries[ts_kind.index()]
     }
 
-    pub fn secondary(&self, index: AnchorIndex, ts_kind: TsKind) -> &SecondaryAnchor {
+    pub fn secondary(&self, index: AnchorIndex, ts_kind: TsKind) -> &SecondaryAnchor<Cost> {
         &self.secondary_anchor_vec(ts_kind)[index.as_usize()]
     }
 
@@ -196,7 +352,10 @@ impl Anchors {
     pub fn enumerate_secondaries(
         &self,
         ts_kind: TsKind,
-    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor)> {
+    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
         self.secondary_anchor_vec(ts_kind)
             .iter()
             .copied()
@@ -204,18 +363,20 @@ impl Anchors {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
-    pub fn secondary_index_from_start_coordinates(
+    pub fn secondary_index_from_range(
         &self,
-        start: AlignmentCoordinates,
-    ) -> Option<AnchorIndex> {
-        let target_anchor = SecondaryAnchor::new_from_start(&start);
-        self.enumerate_secondaries(start.ts_kind().unwrap())
-            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+        start: SpecificSecondaryAlignmentRange,
+    ) -> Option<AnchorIndex>
+    where
+        Cost: Copy,
+    {
+        self.enumerate_secondaries(start.ts_kind())
+            .filter_map(|(index, anchor)| (anchor.is_at(start.into())).then_some(index))
             .next()
     }
 }
 
-impl Display for Anchors {
+impl<Cost: Display> Display for Anchors<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "P: [")?;
         let mut once = true;

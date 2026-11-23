@@ -109,6 +109,24 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     }
 }
 
+/// Returns `true` if a reverse template switch inner starting at `descendant_index` and `ancestor_index`
+/// cannot start with an exact match of minimum length, because the descendant or the ancestor sequence
+/// does not have enough characters left.
+///
+/// The descendant sequence may be shorter than the minimum length (which is `usize::MAX` if template switches are disabled),
+/// so the last possible start of a match in the descendant is computed with checked arithmetic.
+fn too_few_characters_for_min_length_match(
+    descendant_len: usize,
+    descendant_index: usize,
+    ancestor_index: usize,
+    template_switch_min_length: usize,
+) -> bool {
+    ancestor_index < template_switch_min_length
+        || descendant_len
+            .checked_sub(template_switch_min_length)
+            .is_none_or(|last_start| descendant_index > last_start)
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct LookaheadMemoryKey {
     template_switch_descendant: TemplateSwitchDescendant,
@@ -287,17 +305,15 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
                 );
             }
             return Some(secondary_root_node);
-        } else if ancestor_index < context.config.template_switch_min_length
-            || descendant_index
-                > match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => {
-                        context.reference.len() - context.config.template_switch_min_length
-                    }
-                    TemplateSwitchDescendant::Query => {
-                        context.query.len() - context.config.template_switch_min_length
-                    }
-                }
-        {
+        } else if too_few_characters_for_min_length_match(
+            match template_switch_descendant {
+                TemplateSwitchDescendant::Reference => context.reference.len(),
+                TemplateSwitchDescendant::Query => context.query.len(),
+            },
+            descendant_index,
+            ancestor_index,
+            context.config.template_switch_min_length,
+        ) {
             // There are not enough characters in the descendant or ancestor sequence for a match of minimum length.
             false
         } else {
@@ -400,17 +416,15 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
                 );
             }
             return Some(secondary_root_node);
-        } else if ancestor_index < context.config.template_switch_min_length
-            || descendant_index
-                > match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => {
-                        context.reference.len() - context.config.template_switch_min_length
-                    }
-                    TemplateSwitchDescendant::Query => {
-                        context.query.len() - context.config.template_switch_min_length
-                    }
-                }
-        {
+        } else if too_few_characters_for_min_length_match(
+            match template_switch_descendant {
+                TemplateSwitchDescendant::Reference => context.reference.len(),
+                TemplateSwitchDescendant::Query => context.query.len(),
+            },
+            descendant_index,
+            ancestor_index,
+            context.config.template_switch_min_length,
+        ) {
             // There are not enough characters in the descendant or ancestor sequence for a match of minimum length.
             false
         } else {
