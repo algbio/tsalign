@@ -747,8 +747,6 @@ fn chain_align_on_range_with_config(
     range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
     config: ChainingLowerBoundConfig,
 ) -> (U32Cost, String) {
-    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
-
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
 
     let costs = AlignmentCosts::new(
@@ -762,7 +760,7 @@ fn chain_align_on_range_with_config(
     );
     let max_n = reference.len().max(query.len()).next_power_of_two();
     let lower_bounds = ChainingLowerBounds::new(max_n, config, costs);
-    let result = crate::align::<DnaAlphabet>(
+    let result = crate::align(
         reference.to_vec(),
         query.to_vec(),
         range,
