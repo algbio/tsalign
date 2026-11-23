@@ -682,3 +682,48 @@ fn double_gap_open_between_gap_and_inexact_anchor() {
         );
     }
 }
+
+/// `align` must take the maximum number of anchor mutations from the lower bounds,
+/// so that the anchors, the gap alignments and the lower bounds agree on it.
+/// Exact anchors evaluated with the gap rules of inexact anchors (at most `k - 1 - max_anchor_mutations`
+/// consecutive matches in a gap) used to produce a chain that is more expensive than the optimum.
+#[test]
+fn anchor_mutations_are_taken_from_the_lower_bounds() {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+
+    use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
+
+    let costs = no_ts_costs();
+    let reference = b"CAAACAC";
+    let query = b"CCAACCC";
+    let expected = gap_affine_cost(reference, query);
+    assert_eq!(expected, 4);
+
+    let lower_bounds = ChainingLowerBounds::new(
+        8,
+        ChainingLowerBoundConfig {
+            anchor_k: 4,
+            max_anchor_mutations: 1,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+        costs,
+    );
+    let performance_parameters = AlignmentPerformanceParameters {
+        max_exact_cost_function_cost: U32Cost::from(0u32),
+        ..Default::default()
+    };
+    let result = crate::align::<DnaAlphabet>(
+        reference.to_vec(),
+        query.to_vec(),
+        AlignmentRange::new_complete(reference.len(), query.len()),
+        // Disagrees with the lower bounds.
+        0,
+        &performance_parameters,
+        &rc_fn,
+        "reference",
+        "query",
+        &lower_bounds,
+    );
+    assert_eq!(result.statistics().cost.raw() as u32, expected);
+}
