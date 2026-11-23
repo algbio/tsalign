@@ -731,6 +731,25 @@ fn chain_align_on_range(
     query: &[u8],
     range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
 ) -> (U32Cost, String) {
+    chain_align_on_range_with_config(
+        reference,
+        query,
+        range,
+        ChainingLowerBoundConfig {
+            anchor_k: 5,
+            max_anchor_mutations: 0,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+    )
+}
+
+/// Like [`chain_align_on_range`], but with the given chaining config.
+fn chain_align_on_range_with_config(
+    reference: &[u8],
+    query: &[u8],
+    range: lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange,
+    config: ChainingLowerBoundConfig,
+) -> (U32Cost, String) {
     use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -745,15 +764,7 @@ fn chain_align_on_range(
         },
     );
     let max_n = reference.len().max(query.len()).next_power_of_two();
-    let lower_bounds = ChainingLowerBounds::new(
-        max_n,
-        ChainingLowerBoundConfig {
-            anchor_k: 5,
-            max_anchor_mutations: 0,
-            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
-        },
-        costs,
-    );
+    let lower_bounds = ChainingLowerBounds::new(max_n, config, costs);
     let result = crate::align::<DnaAlphabet>(
         reference.to_vec(),
         query.to_vec(),
@@ -791,4 +802,35 @@ fn template_beyond_range_end() {
 
     let (cost, cigar) = chain_align_on_range(reference, query, AlignmentRange::new(20, 20, 40, 40));
     assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
+}
+
+/// Like [`template_beyond_range_end`], but with inexact anchors and both inexact lower bound kinds.
+#[test]
+fn template_beyond_range_end_inexact() {
+    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+
+    let reference =
+        b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+    // `reference` with 25..35 replaced by the reverse complement of 60..70.
+    let query = b"GATTACAGCTTGACCTAGGCATCGTACTGCAACGTGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
+
+    for (name, inexact_lower_bound) in [
+        ("max match run", InexactLowerBoundKind::MaxMatchRun),
+        (
+            "windowed min mutations",
+            InexactLowerBoundKind::WindowedMinMutations,
+        ),
+    ] {
+        let (cost, cigar) = chain_align_on_range_with_config(
+            reference,
+            query,
+            AlignmentRange::new(20, 20, 40, 40),
+            ChainingLowerBoundConfig {
+                anchor_k: 6,
+                max_anchor_mutations: 1,
+                inexact_lower_bound,
+            },
+        );
+        assert_eq!(cost, U32Cost::from(2u32), "{name}: {cigar}");
+    }
 }
