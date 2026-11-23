@@ -1,6 +1,6 @@
 use std::{iter, marker::PhantomData};
 
-use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
+use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter, AlphabetError};
 use generic_a_star::cost::AStarCost;
 
 pub mod io;
@@ -243,6 +243,35 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
         )
     }
 
+    /// Convert this table into a table over `TargetAlphabet`
+    pub fn restrict_alphabet<TargetAlphabet: Alphabet>(
+        &self,
+    ) -> Result<GapAffineAlignmentCostTable<TargetAlphabet, Cost>, AlphabetError> {
+        let characters = TargetAlphabet::iter()
+            .map(|c| AlphabetType::ascii_to_character(TargetAlphabet::character_to_ascii(c)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(GapAffineAlignmentCostTable::new(
+            self.name.clone(),
+            characters
+                .iter()
+                .flat_map(|c1| {
+                    characters
+                        .iter()
+                        .map(|c2| self.match_or_substitution_cost(c1.clone(), c2.clone()))
+                })
+                .collect::<Vec<_>>(),
+            characters
+                .iter()
+                .map(|c| self.gap_open_cost(c.clone()))
+                .collect::<Vec<_>>(),
+            characters
+                .iter()
+                .map(|c| self.gap_extend_cost(c.clone()))
+                .collect::<Vec<_>>(),
+        ))
+    }
+
     /// Return the unique match cost, if it is unique.
     pub fn unique_match_cost(&self) -> Option<Cost> {
         let mut match_costs =
@@ -323,5 +352,59 @@ impl<AlphabetType, Cost: Clone> Clone for GapAffineAlignmentCostTable<AlphabetTy
             min_substitution_cost: self.min_substitution_cost.clone(),
             min_gap_open_cost: self.min_gap_open_cost.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_genome::implementation::alphabets::{
+        dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN, rna_alphabet::RnaAlphabet,
+    };
+    use generic_a_star::cost::U64Cost;
+
+    use super::*;
+
+    fn dummy_costs<AlphabetType: Alphabet>() -> GapAffineAlignmentCostTable<AlphabetType, U64Cost> {
+        let size = u64::from(AlphabetType::SIZE);
+        GapAffineAlignmentCostTable::new(
+            "distinct",
+            (0..size * size).map(U64Cost::from).collect::<Vec<_>>(),
+            (100..100 + size).map(U64Cost::from).collect::<Vec<_>>(),
+            (200..200 + size).map(U64Cost::from).collect::<Vec<_>>(),
+        )
+    }
+
+    #[test]
+    fn restrict_alphabet_keeps_costs() {
+        let table = dummy_costs::<DnaAlphabetOrN>();
+        let restricted = table.restrict_alphabet::<DnaAlphabet>().unwrap();
+        let dna = |c| DnaAlphabet::ascii_to_character(c).unwrap();
+        let dna_or_n = |c| DnaAlphabetOrN::ascii_to_character(c).unwrap();
+
+        for c1 in *b"ACGT" {
+            assert_eq!(
+                restricted.gap_open_cost(dna(c1)),
+                table.gap_open_cost(dna_or_n(c1))
+            );
+            assert_eq!(
+                restricted.gap_extend_cost(dna(c1)),
+                table.gap_extend_cost(dna_or_n(c1))
+            );
+            for c2 in *b"ACGT" {
+                assert_eq!(
+                    restricted.match_or_substitution_cost(dna(c1), dna(c2)),
+                    table.match_or_substitution_cost(dna_or_n(c1), dna_or_n(c2))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn restrict_alphabet_rejects_missing() {
+        assert!(
+            dummy_costs::<RnaAlphabet>()
+                .restrict_alphabet::<DnaAlphabet>()
+                .is_err()
+        );
     }
 }

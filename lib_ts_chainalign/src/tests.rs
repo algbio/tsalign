@@ -127,7 +127,6 @@ fn chain_align_full(
     lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
     U32Cost,
 > {
-    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
     use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -146,7 +145,7 @@ fn chain_align_full(
         max_exact_cost_function_cost: U32Cost::from(0u32),
         ..Default::default()
     };
-    crate::align::<DnaAlphabet>(
+    crate::align(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
@@ -354,7 +353,6 @@ fn chain_align_result(
 ) -> lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment<
     lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType,
 > {
-    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
     use lib_tsalign::a_star_aligner::{
         alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
     };
@@ -375,7 +373,7 @@ fn chain_align_result(
         max_exact_cost_function_cost: U32Cost::from(0u32),
         ..Default::default()
     };
-    match crate::align::<DnaAlphabet>(
+    match crate::align(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
@@ -688,7 +686,6 @@ fn double_gap_open_between_gap_and_inexact_anchor() {
 /// than the optimum (cost 8 instead of 4 for this input).
 #[test]
 fn anchor_mutations_are_taken_from_the_lower_bounds() {
-    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
     use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -712,7 +709,7 @@ fn anchor_mutations_are_taken_from_the_lower_bounds() {
         max_exact_cost_function_cost: U32Cost::from(0u32),
         ..Default::default()
     };
-    let result = crate::align::<DnaAlphabet>(
+    let result = crate::align(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),

@@ -209,6 +209,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
+        let ts_base_cost = &chaining_lower_bounds.alignment_costs().ts_base_cost;
 
         // Initialise primary with infinity.
         trace!("Initialise primary with infinity");
@@ -345,7 +346,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .collect_array()
             .unwrap();
         trace!("Fill secondaries");
-        for (ts_kind, secondary) in TsKind::iter().zip(&mut secondaries) {
+        for (ts_kind, secondary) in TsKind::iter()
+            .zip(&mut secondaries)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Fill secondaries S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill secondary from from_index with exact values.
@@ -412,7 +416,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut total_12_jump_exact_evaluation_time = Duration::default();
         let mut total_12_jump_exact_evaluations = 0;
         let mut total_12_jump_exact_evaluation_opened_nodes = 0usize;
-        for (ts_kind, jump_12) in TsKind::iter().zip(&mut jump_12s) {
+        for (ts_kind, jump_12) in TsKind::iter()
+            .zip(&mut jump_12s)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Filling 12-jumps to S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
                 let from_index = from_index + 1;
@@ -526,7 +533,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             })
             .collect_array()
             .unwrap();
-        for (ts_kind, jump_34) in TsKind::iter().zip(&mut jump_34s) {
+        for (ts_kind, jump_34) in TsKind::iter()
+            .zip(&mut jump_34s)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Filling 34-jumps from S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill 34-jumps from from_index with exact values.
@@ -576,8 +586,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
 
         trace!("Fill jumps from start and to end");
-        for (ts_kind, (jump_12, jump_34)) in
-            TsKind::iter().zip(jump_12s.iter_mut().zip(&mut jump_34s))
+        for (ts_kind, (jump_12, jump_34)) in TsKind::iter()
+            .zip(jump_12s.iter_mut().zip(&mut jump_34s))
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
         {
             // Fill 12-jumps from start with exact values.
             additional_secondary_targets_output.clear();
@@ -707,6 +718,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
+        let ts_base_cost = &chaining_lower_bounds.alignment_costs().ts_base_cost;
 
         // Initialise primary with infinity.
         trace!("Initialise primary with infinity");
@@ -836,7 +848,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .collect_array()
             .unwrap();
         trace!("Fill secondaries");
-        for (ts_kind, secondary) in TsKind::iter().zip(&mut secondaries) {
+        for (ts_kind, secondary) in TsKind::iter()
+            .zip(&mut secondaries)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Fill secondaries S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill secondary from from_index with exact values.
@@ -903,7 +918,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut total_12_jump_exact_evaluation_time = Duration::default();
         let mut total_12_jump_exact_evaluations = 0;
         let mut total_12_jump_exact_evaluation_opened_nodes = 0usize;
-        for (ts_kind, jump_12) in TsKind::iter().zip(&mut jump_12s) {
+        for (ts_kind, jump_12) in TsKind::iter()
+            .zip(&mut jump_12s)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Filling 12-jumps to S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
                 let from_index = from_index + 1;
@@ -1017,7 +1035,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             })
             .collect_array()
             .unwrap();
-        for (ts_kind, jump_34) in TsKind::iter().zip(&mut jump_34s) {
+        for (ts_kind, jump_34) in TsKind::iter()
+            .zip(&mut jump_34s)
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
+        {
             trace!("Filling 34-jumps from S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill 34-jumps from from_index with exact values.
@@ -1067,8 +1088,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
 
         trace!("Fill jumps from start and to end");
-        for (ts_kind, (jump_12, jump_34)) in
-            TsKind::iter().zip(jump_12s.iter_mut().zip(&mut jump_34s))
+        for (ts_kind, (jump_12, jump_34)) in TsKind::iter()
+            .zip(jump_12s.iter_mut().zip(&mut jump_34s))
+            .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
         {
             // Fill 12-jumps from start with exact values.
             additional_secondary_targets_output.clear();

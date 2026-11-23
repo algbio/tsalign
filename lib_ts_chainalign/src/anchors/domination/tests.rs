@@ -1,4 +1,3 @@
-use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 use generic_a_star::cost::U32Cost;
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 
@@ -285,7 +284,7 @@ fn chain_costs(
             prune_dominated_anchors,
             ..Default::default()
         };
-        crate::align::<DnaAlphabet>(
+        crate::align(
             reference.to_vec(),
             query.to_vec(),
             AlignmentRange::new_complete(reference.len(), query.len()),

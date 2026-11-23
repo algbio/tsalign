@@ -4,6 +4,7 @@ use generic_a_star::cost::AStarCost;
 use log::debug;
 
 use crate::{
+    alignment::ts_kind::TsKind,
     chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::GapAffineLowerBounds},
     costs::AlignmentCosts,
 };
@@ -33,15 +34,18 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
         // However, most of the time these limits are gonna be big, so they should not have a big impact on the lower bound.
         let mut lower_bounds_12 =
             LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
-        for primary_descendant_gap in 0..=max_n {
-            for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
-                let lower_bound = primary_lower_bounds_12
-                    .variable_gap2_lower_bound(primary_descendant_gap)
-                    + cost_table.ts_base_cost.min()
-                    + secondary_lower_bounds_12.variable_gap2_lower_bound(secondary_descendant_gap);
-                lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
-                    lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
-                        .min(lower_bound);
+        if TsKind::iter().any(|ts_kind| cost_table.ts_base_cost.get(ts_kind) != Cost::max_value()) {
+            for primary_descendant_gap in 0..=max_n {
+                for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
+                    let lower_bound = primary_lower_bounds_12
+                        .variable_gap2_lower_bound(primary_descendant_gap)
+                        + cost_table.ts_base_cost.min()
+                        + secondary_lower_bounds_12
+                            .variable_gap2_lower_bound(secondary_descendant_gap);
+                    lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
+                        lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
+                            .min(lower_bound);
+                }
             }
         }
 
@@ -90,15 +94,18 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
         // However, most of the time these limits are gonna be big, so they should not have a big impact on the lower bound.
         let mut lower_bounds_12 =
             LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
-        for primary_descendant_gap in 0..=max_n {
-            for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
-                let lower_bound = primary_lower_bounds
-                    .variable_gap2_lower_bound(primary_descendant_gap)
-                    + cost_table.ts_base_cost.min()
-                    + secondary_lower_bounds.variable_gap2_lower_bound(secondary_descendant_gap);
-                lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
-                    lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
-                        .min(lower_bound);
+        if TsKind::iter().any(|ts_kind| cost_table.ts_base_cost.get(ts_kind) != Cost::max_value()) {
+            for primary_descendant_gap in 0..=max_n {
+                for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
+                    let lower_bound = primary_lower_bounds
+                        .variable_gap2_lower_bound(primary_descendant_gap)
+                        + cost_table.ts_base_cost.min()
+                        + secondary_lower_bounds
+                            .variable_gap2_lower_bound(secondary_descendant_gap);
+                    lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]] =
+                        lower_bounds_12[[primary_descendant_gap + secondary_descendant_gap]]
+                            .min(lower_bound);
+                }
             }
         }
 

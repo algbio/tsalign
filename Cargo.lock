@@ -780,6 +780,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "tagged-vec",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
