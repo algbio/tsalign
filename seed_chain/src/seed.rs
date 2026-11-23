@@ -20,6 +20,10 @@ impl ChainingAnchors {
     /// The anchors are computed by subdividing the reference sequence into non-overlapping blocks of size `block_size`,
     /// and collecting all their matches in the query sequence.
     /// The last block is merged with the second-to-last block if it is smaller than `block_size`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the reference is shorter than `block_size`, or if `block_size` is zero.
     pub fn seed_nonoverlapping<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -188,7 +192,7 @@ mod tests {
     };
 
     #[test]
-    fn test_nonoverlapping_block_ranges() {
+    fn fn_nonoverlapping_block_ranges() {
         assert_eq!(
             nonoverlapping_block_ranges(11, 3).collect::<Vec<_>>(),
             vec![0..3, 3..6, 6..11]
@@ -204,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_all_substrings() {
+    fn fn_find_all_substrings() {
         let haystack = "AAAACATAAA";
         let needles = ["AAA", "ATA", "CAT", "ACA"];
         let mut expected = [(0, 0), (1, 0), (7, 0), (5, 1), (4, 2), (3, 3)].map(
@@ -221,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seed_nonoverlapping() {
+    fn seed_nonoverlapping() {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(b"ACTTGGAAAA").unwrap();
         let query = VectorGenome::<DnaAlphabet>::from_slice_u8(b"TACTGGAAAAACT").unwrap();
         let mut expected = [

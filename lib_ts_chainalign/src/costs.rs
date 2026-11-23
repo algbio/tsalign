@@ -1,9 +1,10 @@
-use std::ops::Range;
+use std::{fmt::Debug, ops::Range};
 
+use generic_a_star::cost::AStarCost;
 use num_traits::{Zero, bounds::UpperBounded};
 use serde::{Deserialize, Serialize};
 
-use crate::alignment::ts_kind::TsKind;
+use crate::alignment::{AlignmentType, ts_kind::TsKind};
 
 mod compat;
 
@@ -66,11 +67,30 @@ impl<Cost> GapAffineCosts<Cost> {
             gap_extend,
         }
     }
-}
 
-impl<Cost: Zero> GapAffineCosts<Cost> {
-    pub fn has_zero_cost(&self) -> bool {
+    pub fn has_zero_cost(&self) -> bool
+    where
+        Cost: Zero,
+    {
         self.substitution.is_zero() || self.gap_open.is_zero() || self.gap_extend.is_zero()
+    }
+
+    pub fn gap_cost(&self, gap_length: usize) -> Cost
+    where
+        Cost: AStarCost,
+    {
+        if gap_length == 0 {
+            return Cost::zero();
+        }
+        self.gap_open + self.gap_extend * Cost::from_usize(gap_length - 1)
+    }
+
+    pub fn into_costs<ToCost: From<Cost>>(self) -> GapAffineCosts<ToCost> {
+        GapAffineCosts::new(
+            ToCost::from(self.substitution),
+            ToCost::from(self.gap_open),
+            ToCost::from(self.gap_extend),
+        )
     }
 }
 
@@ -156,5 +176,98 @@ impl<Cost: Zero> AlignmentCosts<Cost> {
         self.primary_costs.has_zero_cost()
             || self.secondary_costs.has_zero_cost()
             || self.ts_base_cost.has_zero_cost()
+    }
+}
+
+impl<Cost: AStarCost> AlignmentCosts<Cost> {
+    /// Returns true if merging two adjacent gaps into one never increases the cost,
+    /// i.e. if the gap extend cost is at most the gap open cost, both for primary and secondary alignments.
+    pub fn gap_merging_never_increases_cost(&self) -> bool {
+        self.primary_costs.gap_extend <= self.primary_costs.gap_open
+            && self.secondary_costs.gap_extend <= self.secondary_costs.gap_open
+    }
+
+    /// Computes the cost of a complete alignment, given as a sequence of single alignment operations.
+    ///
+    /// This is the cost of the alignment as a whole, as it is defined by the classic template switch aligner:
+    /// consecutive gap characters of the same kind form a single gap,
+    /// which pays the gap open cost for its first character and the gap extend cost for every further character.
+    /// The gap state is reset at the start and at the end of a template switch.
+    /// A template switch costs the base cost of its kind.
+    ///
+    /// The geometry of template switches is not charged: tschainalign uses only cost functions for the geometry
+    /// that are zero inside of [`TsLimits`] and infinite outside, and checks the limits only based on the anchors.
+    /// The jump aligners may make a template switch longer or shorter than these limits allow
+    /// (see [issue #207](https://github.com/algbio/tsalign/issues/207)).
+    ///
+    /// Note that this may be lower than the cost of the chain that the alignment was built from,
+    /// since the chain cost is the sum of the costs of its gaps and anchors, each of which is aligned separately.
+    /// See [issue #221](https://github.com/algbio/tsalign/issues/221).
+    pub fn alignment_cost(&self, alignment: impl IntoIterator<Item = AlignmentType>) -> Cost {
+        let mut cost = Cost::zero();
+        let mut is_primary = true;
+        let mut previous = None;
+
+        for alignment_type in alignment {
+            let gap_affine_costs = if is_primary {
+                &self.primary_costs
+            } else {
+                &self.secondary_costs
+            };
+
+            cost += match alignment_type {
+                AlignmentType::Match => Cost::zero(),
+                AlignmentType::Substitution => gap_affine_costs.substitution,
+                AlignmentType::GapA | AlignmentType::GapB => {
+                    if previous == Some(alignment_type) {
+                        gap_affine_costs.gap_extend
+                    } else {
+                        gap_affine_costs.gap_open
+                    }
+                }
+                AlignmentType::TsStart { ts_kind, .. } => {
+                    assert!(
+                        is_primary,
+                        "Template switch started within a template switch"
+                    );
+                    is_primary = false;
+                    self.ts_base_cost.get(ts_kind)
+                }
+                AlignmentType::TsEnd { .. } => {
+                    assert!(
+                        !is_primary,
+                        "Template switch ended outside of a template switch"
+                    );
+                    is_primary = true;
+                    Cost::zero()
+                }
+            };
+            previous = Some(alignment_type);
+        }
+
+        assert!(is_primary, "Alignment ends within a template switch");
+        cost
+    }
+}
+
+impl<Character: Eq, Cost> inexact_alignment_anchors::costs::AlignmentCost<Character, Cost>
+    for GapAffineCosts<Cost>
+where
+    Cost: AStarCost + Copy,
+{
+    fn cost(&self, a: &Character, b: &Character) -> Cost {
+        if a == b {
+            Cost::zero()
+        } else {
+            self.substitution
+        }
+    }
+
+    fn gap_open_cost(&self) -> Cost {
+        self.gap_open
+    }
+
+    fn gap_extend_cost(&self) -> Cost {
+        self.gap_extend
     }
 }

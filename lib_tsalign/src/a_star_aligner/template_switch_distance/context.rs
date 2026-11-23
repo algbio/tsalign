@@ -461,7 +461,6 @@ impl<
                 entrance_query_index,
                 template_switch_descendant,
                 template_switch_ancestor,
-                template_switch_direction,
                 template_switch_first_offset,
                 ..
             } => {
@@ -480,17 +479,16 @@ impl<
                 let ancestor_index =
                     ancestor_entrance_index as isize + template_switch_first_offset;
 
-                if template_switch_first_offset >= 0
-                    && match template_switch_direction {
-                        TemplateSwitchDirection::Forward => {
-                            (ancestor_index + self.config.template_switch_min_length as isize)
-                                < ancestor_length as isize
-                        }
-                        TemplateSwitchDirection::Reverse => {
-                            ancestor_index < ancestor_length as isize
-                        }
-                    }
-                {
+                // The ancestor index only needs to stay within `0..=ancestor_length`,
+                // independently of the template switch direction.
+                // It is not bounded further by the minimum template switch length,
+                // because that length is measured in the descendant:
+                // with secondary insertions, a template switch may consume fewer than
+                // `template_switch_min_length` ancestor characters.
+                // Template switches that are too short in the descendant are pruned by the length costs
+                // and the min length strategies instead.
+
+                if template_switch_first_offset >= 0 && ancestor_index < ancestor_length as isize {
                     let new_cost = config
                         .offset_costs(template_switch_descendant, template_switch_ancestor)
                         .evaluate(&(&template_switch_first_offset + 1));
@@ -513,14 +511,7 @@ impl<
                     }
                 }
 
-                if template_switch_first_offset <= 0
-                    && match template_switch_direction {
-                        TemplateSwitchDirection::Forward => ancestor_index > 0,
-                        TemplateSwitchDirection::Reverse => {
-                            ancestor_index > self.config.template_switch_min_length as isize
-                        }
-                    }
-                {
+                if template_switch_first_offset <= 0 && ancestor_index > 0 {
                     let new_cost = config
                         .offset_costs(template_switch_descendant, template_switch_ancestor)
                         .evaluate(&(&template_switch_first_offset - 1));
@@ -543,17 +534,7 @@ impl<
                     }
                 }
 
-                if match template_switch_direction {
-                    TemplateSwitchDirection::Forward => {
-                        ancestor_index >= 0
-                            && (ancestor_index + self.config.template_switch_min_length as isize)
-                                <= ancestor_length as isize
-                    }
-                    TemplateSwitchDirection::Reverse => {
-                        ancestor_index >= self.config.template_switch_min_length as isize
-                            && ancestor_index <= ancestor_length as isize
-                    }
-                } {
+                if (0..=ancestor_length as isize).contains(&ancestor_index) {
                     // Temporarily unpack opened_nodes_output because it borrows self,
                     // but generating the secondary root node wants to borrow self as mutable.
                     let opened_nodes_direct_output = opened_nodes_output.into_inner();
@@ -730,18 +711,25 @@ impl<
                     TemplateSwitchDescendant::Reference => 0..self.query.len(),
                     TemplateSwitchDescendant::Query => 0..self.reference.len(),
                 };
-                let entrance_descendant_index = match template_switch_descendant {
-                    TemplateSwitchDescendant::Reference => entrance_reference_index,
-                    TemplateSwitchDescendant::Query => entrance_query_index,
-                };
+                let (entrance_descendant_index, entrance_anti_descendant_index) =
+                    match template_switch_descendant {
+                        TemplateSwitchDescendant::Reference => {
+                            (entrance_reference_index, entrance_query_index)
+                        }
+                        TemplateSwitchDescendant::Query => {
+                            (entrance_query_index, entrance_reference_index)
+                        }
+                    };
 
                 let descendant_inner_length = descendant_index - entrance_descendant_index;
                 let length_difference =
                     anti_descendant_gap - isize::try_from(descendant_inner_length).unwrap();
+                // The index in the anti-descendant at which the primary alignment continues after the template switch.
+                let anti_descendant_index =
+                    isize::try_from(entrance_anti_descendant_index).unwrap() + anti_descendant_gap;
 
                 if length_difference >= 0
-                    && descendant_index as isize + length_difference
-                        < anti_descendant_range.end as isize
+                    && anti_descendant_index < anti_descendant_range.end as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -764,8 +752,7 @@ impl<
                 }
 
                 if length_difference <= 0
-                    && descendant_index as isize + length_difference
-                        > anti_descendant_range.start as isize
+                    && anti_descendant_index > anti_descendant_range.start as isize
                 {
                     let new_cost = config
                         .length_difference_costs

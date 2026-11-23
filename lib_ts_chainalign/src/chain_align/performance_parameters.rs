@@ -19,6 +19,13 @@ pub struct AlignmentPerformanceParameters<Cost> {
 
     /// The open list type to use for chaining.
     pub open_list: ChainingOpenList,
+
+    /// Remove dominated inexact primary anchors before chaining.
+    ///
+    /// This does not change the cost of the optimal chain, see [`crate::anchors::domination`].
+    /// It is only applied in the cases in which this is proven.
+    /// Disabling it is useful to compare against the chaining with all anchors.
+    pub prune_dominated_anchors: bool,
 }
 
 /// The closed list type to use for chaining.
@@ -46,6 +53,7 @@ impl<Cost: From<u8>> Default for AlignmentPerformanceParameters<Cost> {
             max_exact_cost_function_cost: 1u8.into(),
             closed_list: ChainingClosedList::Special,
             open_list: ChainingOpenList::LinearHeap,
+            prune_dominated_anchors: true,
         }
     }
 }

@@ -113,14 +113,6 @@ impl TSAligner {
         let reference = py_to_str(reference)?;
         let query = py_to_str(query)?;
 
-        let reference_start = reference_start.unwrap_or(0);
-        let reference_limit = reference_limit.unwrap_or(reference.len());
-        let query_start = query_start.unwrap_or(0);
-        let query_limit = query_limit.unwrap_or(query.len());
-        let ranges = AlignmentRange::new_offset_limit(
-            AlignmentCoordinates::new(reference_start, query_start),
-            AlignmentCoordinates::new(reference_limit, query_limit),
-        );
         let gap_characters: Vec<_> = gap_characters
             .chars()
             .map(|c| {
@@ -129,6 +121,23 @@ impl TSAligner {
                 })
             })
             .collect::<PyResult<_>>()?;
+
+        // The aligner removes the gap characters before applying the ranges,
+        // so the default limits are the lengths without gap characters.
+        let length_without_gaps = |sequence: &[u8]| {
+            sequence
+                .iter()
+                .filter(|c| !gap_characters.contains(c))
+                .count()
+        };
+        let reference_start = reference_start.unwrap_or(0);
+        let reference_limit = reference_limit.unwrap_or_else(|| length_without_gaps(&reference));
+        let query_start = query_start.unwrap_or(0);
+        let query_limit = query_limit.unwrap_or_else(|| length_without_gaps(&query));
+        let ranges = AlignmentRange::new_offset_limit(
+            AlignmentCoordinates::new(reference_start, query_start),
+            AlignmentCoordinates::new(reference_limit, query_limit),
+        );
 
         let result = self.aligner.align(
             reference_name,

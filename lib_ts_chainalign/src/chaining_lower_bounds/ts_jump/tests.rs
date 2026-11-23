@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[test]
-fn test_max_match_run_0() {
+fn exact_max_match_run_0() {
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts {
             substitution: U32Cost::from(2u8),
@@ -29,7 +29,7 @@ fn test_max_match_run_0() {
     };
 
     let max_n = 2;
-    let lower_bounds = TsJumpLowerBounds::new(max_n, 0, &cost_table);
+    let lower_bounds = TsJumpLowerBounds::new_exact(max_n, 0, &cost_table);
 
     let expected_lower_bounds_12 = [2, 4, 6];
     let expected_lower_bounds_34 =
@@ -52,7 +52,7 @@ fn test_max_match_run_0() {
 }
 
 #[test]
-fn test_max_match_run_1() {
+fn exact_max_match_run_1() {
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts {
             substitution: U32Cost::from(2u8),
@@ -75,9 +75,9 @@ fn test_max_match_run_1() {
     };
 
     let max_n = 8;
-    let lower_bounds = TsJumpLowerBounds::new(max_n, 1, &cost_table);
+    let lower_bounds = TsJumpLowerBounds::new_exact(max_n, 1, &cost_table);
 
-    let expected_lower_bounds_12 = [2, 2, 2, 4, 4, 6, 6, 8, 8];
+    let expected_lower_bounds_12 = [2, 4, 4, 6, 6, 8, 8, 10, 10];
     let expected_lower_bounds_34 =
         expected_lower_bounds_12.map(|cost| cost - cost_table.ts_base_cost.min().as_primitive());
 
@@ -98,7 +98,7 @@ fn test_max_match_run_1() {
 }
 
 #[test]
-fn test_max_match_run_2() {
+fn exact_max_match_run_2() {
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts {
             substitution: U32Cost::from(2u8),
@@ -121,9 +121,9 @@ fn test_max_match_run_2() {
     };
 
     let max_n = 9;
-    let lower_bounds = TsJumpLowerBounds::new(max_n, 2, &cost_table);
+    let lower_bounds = TsJumpLowerBounds::new_exact(max_n, 2, &cost_table);
 
-    let expected_lower_bounds_12 = [2, 2, 2, 2, 2, 4, 4, 4, 6, 6];
+    let expected_lower_bounds_12 = [2, 4, 4, 4, 6, 6, 6, 8, 8, 8];
     let expected_lower_bounds_34 =
         expected_lower_bounds_12.map(|cost| cost - cost_table.ts_base_cost.min().as_primitive());
 
