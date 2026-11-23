@@ -796,6 +796,29 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
     })
 }
 
+/// Run tsalign from the repository root and return its exit status and stderr, without interpreting them.
+///
+/// This is meant for checking how tsalign rejects invalid inputs.
+pub fn run_tsalign_raw(args: &[String]) -> (std::process::ExitStatus, String) {
+    let _permit = ProcessPermit::acquire();
+    let output = Command::new(tsalign_binary())
+        .args(args)
+        .current_dir(repo_root())
+        .env("RUST_BACKTRACE", "0")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    (
+        output.status,
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// A fresh path in the work directory of this test process, ending with `suffix`.
+pub fn scratch_path(suffix: &str) -> PathBuf {
+    unique_path(suffix)
+}
+
 /// Run tsalign with a timeout. Returns `Err` with the failure outcome if it does not succeed.
 fn run_tsalign(args: &[String], timeout: Duration) -> Result<(), RunOutcome> {
     let _permit = ProcessPermit::acquire();

@@ -272,3 +272,25 @@ fn start_and_end_lower_bounds_enforce_non_match_at_anchor() {
         U32Cost::from(0u32)
     );
 }
+
+/// Unsupported parameters are rejected with a message that explains the problem,
+/// instead of an arithmetic overflow, or, without overflow checks, lower bounds computed from wrapped-around values.
+#[test]
+#[should_panic(expected = "max_anchor_mutations = 6 must be less than k = 6")]
+fn new_rejects_max_anchor_mutations_not_below_k() {
+    ChainingLowerBounds::new(
+        MAX_N,
+        ChainingLowerBoundConfig {
+            anchor_k: 6,
+            max_anchor_mutations: 6,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+        costs(),
+    );
+}
+
+#[test]
+#[should_panic(expected = "max_anchor_mutations = 0 must be less than k = 0")]
+fn new_rejects_k_zero() {
+    exact_lower_bounds(0);
+}

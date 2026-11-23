@@ -1,9 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::{AStarCost, U32Cost};
-use lib_ts_chainalign::{config::InexactLowerBoundKind, costs::AlignmentCosts};
+use lib_ts_chainalign::{
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    costs::AlignmentCosts,
+};
 use lib_tsalign::config::TemplateSwitchConfig;
 use log::{debug, info};
 use sha::{
@@ -49,6 +52,21 @@ pub fn infer_tschain_k(
     // Increase k by the maximum number of mutations in the anchors.
     let k = k.saturating_add(2 * u32::from(max_anchor_mutations));
     Ok(k)
+}
+
+/// Check that tschainalign supports the given `k` and `--max-anchor-mutations`,
+/// before looking up cached lower bounds or computing them.
+///
+/// `k_given` tells if `k` was given with `-k`, or inferred from the sequence lengths.
+pub fn validate_tschain_config(config: &ChainingLowerBoundConfig, k_given: bool) -> Result<()> {
+    config.validate().map_err(|error| {
+        let k_source = if k_given {
+            "given with -k"
+        } else {
+            "inferred from the sequence lengths and --max-anchor-mutations; pass -k to choose it explicitly"
+        };
+        anyhow!("Unsupported tschainalign parameters: {error} (k was {k_source})")
+    })
 }
 
 /// Write a cache file such that concurrent readers never observe a partially written file.

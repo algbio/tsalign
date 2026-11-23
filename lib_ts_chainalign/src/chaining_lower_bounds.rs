@@ -32,11 +32,19 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     /// * `anchor_k` is the size of the anchors.
     /// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
     /// * `alignment_costs` is the cost function for the alignment.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
     pub fn new(
         max_n: usize,
         config: ChainingLowerBoundConfig,
         alignment_costs: AlignmentCosts<Cost>,
     ) -> Self {
+        if let Err(error) = config.validate() {
+            panic!("Unsupported chaining lower bound config: {error}");
+        }
+
         if config.max_anchor_mutations == 0 {
             Self {
                 primary: GapAffineLowerBounds::new_exact_anchors(

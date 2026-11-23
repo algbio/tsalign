@@ -521,7 +521,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             range,
             &format!("{} {}", reference_record.id, reference_record.comment),
             &format!("{} {}", query_record.id, query_record.comment),
-        ),
+        )?,
     }
 
     Ok(())

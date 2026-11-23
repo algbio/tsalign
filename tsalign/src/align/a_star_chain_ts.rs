@@ -1,3 +1,4 @@
+use anyhow::Result;
 use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
@@ -17,7 +18,7 @@ use crate::{
     align::{Cli, InexactLowerBound},
     util::{
         infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
-        write_cache_file_atomically,
+        validate_tschain_config, write_cache_file_atomically,
     },
 };
 
@@ -31,7 +32,7 @@ pub fn align_a_star_chain_ts<
     range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
-) {
+) -> Result<()> {
     let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory).unwrap();
     let alignment_costs: AlignmentCosts<_> = alignment_costs.into();
 
@@ -47,6 +48,13 @@ pub fn align_a_star_chain_ts<
     };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
+    let config = ChainingLowerBoundConfig {
+        anchor_k: k,
+        max_anchor_mutations: cli.max_anchor_mutations,
+        inexact_lower_bound: InexactLowerBoundKind::from(cli.inexact_chaining_lower_bound),
+    };
+    validate_tschain_config(&config, cli.k.is_some())?;
+
     let cache_file = tschain_preprocess_cache_file(
         &alignment_costs,
         &cache_directory,
@@ -74,15 +82,7 @@ pub fn align_a_star_chain_ts<
         );
 
         info!("Preprocessing...");
-        let chaining_lower_bounds = lib_ts_chainalign::preprocess(
-            max_n,
-            ChainingLowerBoundConfig {
-                anchor_k: k,
-                max_anchor_mutations: cli.max_anchor_mutations,
-                inexact_lower_bound: InexactLowerBoundKind::from(cli.inexact_chaining_lower_bound),
-            },
-            alignment_costs,
-        );
+        let chaining_lower_bounds = lib_ts_chainalign::preprocess(max_n, config, alignment_costs);
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
         write_cache_file_atomically(&cache_file, |file| chaining_lower_bounds.write(file)).unwrap();
@@ -123,6 +123,7 @@ pub fn align_a_star_chain_ts<
     }
 
     println!("{alignment}");
+    Ok(())
 }
 
 impl From<InexactLowerBound> for InexactLowerBoundKind {

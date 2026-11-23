@@ -49,6 +49,9 @@ pub fn dna_rc_fn(c: u8) -> u8 {
 /// * `anchor_k` is the size of the anchors.
 /// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `alignment_costs` is the cost function for the alignment.
+///
+/// Panics if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
+/// Validate it beforehand to report unsupported parameters as an error.
 pub fn preprocess(
     max_n: usize,
     config: ChainingLowerBoundConfig,
