@@ -59,6 +59,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// By default, non-matches are enforced next to anchors for exact anchors (`enforcement_offset == 0`),
     /// where the lower bounds assume it.
     /// This allows to use the aligner for alignments between arbitrary coordinates.
+    #[cfg(test)]
     pub fn without_enforced_non_match_next_to_anchors(mut self) -> Self {
         self.enforce_non_match_next_to_anchors = false;
         self

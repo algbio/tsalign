@@ -17,6 +17,7 @@ pub struct AlignmentSequences {
 }
 
 impl AlignmentSequences {
+    #[cfg(test)]
     pub fn new(
         seq1: Vec<u8>,
         seq2: Vec<u8>,
@@ -33,6 +34,7 @@ impl AlignmentSequences {
         )
     }
 
+    #[cfg(test)]
     pub fn new_complete(seq1: Vec<u8>, seq2: Vec<u8>) -> Self {
         let end = PrimaryAlignmentCoordinates::new(seq1.len(), seq2.len());
         Self::new(seq1, seq2, PrimaryAlignmentCoordinates::new(0, 0), end)

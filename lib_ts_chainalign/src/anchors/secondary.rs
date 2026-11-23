@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Range};
+use std::fmt::Display;
 
 use num_traits::Zero;
 
@@ -31,10 +31,11 @@ impl<Cost> SecondaryAnchor<Cost> {
         Self { range, cost }
     }
 
+    #[cfg(test)]
     pub fn new_from_ranges(
         ancestor_offset: usize,
         ancestor_limit: usize,
-        descendant: Range<usize>,
+        descendant: std::ops::Range<usize>,
         cost: Cost,
     ) -> Self {
         Self::new(
@@ -77,6 +78,7 @@ impl<Cost> SecondaryAnchor<Cost> {
         )
     }
 
+    #[cfg(test)]
     pub fn range(&self) -> AnySecondaryAlignmentRange {
         self.range
     }
@@ -96,6 +98,7 @@ impl<Cost> SecondaryAnchor<Cost> {
         self.cost
     }
 
+    #[cfg(test)]
     /// Returns true if the anchor is at the given range.
     ///
     /// Does not check the `ts_kind`, and will produce false positives if the range given has the wrong `ts_kind`.
