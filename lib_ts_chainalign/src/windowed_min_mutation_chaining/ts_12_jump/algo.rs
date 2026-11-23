@@ -230,7 +230,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 // This generates too many jumps, most of these are gonna be much too far.
                 output.extend(
                     coordinates
-                        .generate_12_jumps(self.end, self.sequences.primary_end())
+                        .generate_12_jumps(self.end, self.sequences.full_sequence_end())
                         .map(|(jump, coordinates)| Node {
                             identifier: Identifier::Jump12 { coordinates },
                             predecessor,
