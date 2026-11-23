@@ -93,7 +93,10 @@ pub enum ChainingStrategySelector {
     /// **Disabled** (issue #248): this variant exists only in tests of this crate,
     /// so it cannot be selected through the public API or deserialised (e.g. from Python).
     /// The memory and time of the precomputation grow with about n^4.8, and the chain lower bound was 0 in practice.
-    /// To re-enable it, remove the `#[cfg(test)]` attributes here and in `align_select_chaining_strategy`.
+    /// To re-enable it, remove the `#[cfg(test)]` attributes here, on its match arm in `align_select_chaining_strategy`
+    /// and on the import of `LowerBoundChainingStrategy`, and drop the `ValueError` check in the Python wrapper
+    /// (`python_bindings/python/tsalign/__init__.py`).
+    /// The CLI (`--ts-chaining-strategy lower-bound`) and serde then pick up the variant automatically.
     #[cfg(test)]
     LowerBound,
 }
