@@ -1,5 +1,5 @@
 use anyhow::Result;
-use util::run_in_repo_root;
+use util::{run_in_repo_root, run_in_repo_root_output};
 
 mod util;
 
@@ -28,8 +28,23 @@ fn align_with_embedded_rq_ranges() -> Result<()> {
     run_in_repo_root("align -p test_files/twin_embedded.fa --use-embedded-rq-ranges")
 }
 
-/// Issue #245: the reference is shorter than the block size of the lower bound chaining strategy.
+/// Issue #248: the lower bound chaining strategy is disabled, so the CLI rejects it with a usage error.
 #[test]
-fn test_align_lower_bound_chaining_short_reference() -> Result<()> {
-    run_in_repo_root("align -p test_files/twin_10_eq.fa --ts-chaining-strategy lower-bound")
+fn test_align_lower_bound_chaining_is_rejected() -> Result<()> {
+    let output = run_in_repo_root_output(
+        "align -p test_files/twin_10_eq.fa --ts-chaining-strategy lower-bound",
+    )?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !stderr.contains("panicked"),
+        "tsalign panicked instead of rejecting the chaining strategy"
+    );
+    // Clap exits with code 2 on invalid arguments.
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr.contains("invalid value 'lower-bound'"),
+        "the error does not name the rejected value"
+    );
+    Ok(())
 }

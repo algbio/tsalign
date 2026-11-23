@@ -125,3 +125,17 @@ def test_gap_characters_combined_with_limits():
     assert result.cigar() == EXPECTED_CIGAR
     assert run(cost_limit=EXPECTED_COST - 1, memory_limit=1_000_000_000) is None
     assert run(cost_limit=1_000, memory_limit=1) is None
+
+
+def test_lower_bound_chaining_strategy_is_rejected():
+    # Issue #248: the lower bound chaining strategy is disabled.
+    with pytest.raises(ValueError, match="lower_bound"):
+        Aligner(chaining_strategy="lower_bound")
+    with pytest.raises(ValueError, match="lower_bound"):
+        tsalign.align(REFERENCE, QUERY, chaining_strategy="lower_bound")
+
+
+def test_none_chaining_strategy_is_accepted():
+    result = Aligner(chaining_strategy="none").align(REFERENCE, QUERY)
+    assert result is not None
+    assert result.cigar() == EXPECTED_CIGAR

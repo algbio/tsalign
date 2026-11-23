@@ -1,12 +1,19 @@
 use std::{
     env,
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     sync::Mutex,
 };
 
 use anyhow::{Result, anyhow};
 
 pub fn run_in_repo_root(args: &str) -> Result<()> {
+    let output = run_in_repo_root_output(args)?;
+    assert!(output.status.success());
+    Ok(())
+}
+
+/// Run `cargo run -- <args>` in the repository root and return its output without checking the exit status.
+pub fn run_in_repo_root_output(args: &str) -> Result<Output> {
     static DIR_LOCK: Mutex<()> = Mutex::new(());
 
     {
@@ -36,7 +43,5 @@ pub fn run_in_repo_root(args: &str) -> Result<()> {
     println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
     println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
 
-    assert!(output.status.success());
-
-    Ok(())
+    Ok(output)
 }
