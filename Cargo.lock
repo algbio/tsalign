@@ -564,9 +564,9 @@ dependencies = [
 
 [[package]]
 name = "generic_a_star"
-version = "8.0.0"
+version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c779de34f715762ad6d79295757bcf50ca59eb6feb85ec5b84c97497f4f2f00f"
+checksum = "374fab9ebab73af6b1f7eaacb5eeafa8c0c8114a9303450385c67bdc7e059f77"
 dependencies = [
  "binary-heap-plus",
  "compare",
