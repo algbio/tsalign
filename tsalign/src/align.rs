@@ -1,9 +1,4 @@
-use std::{
-    fmt::Debug,
-    fs::File,
-    io::{BufReader, Read},
-    path::PathBuf,
-};
+use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::{Result, anyhow, ensure};
 use clap::{
@@ -12,11 +7,7 @@ use clap::{
 };
 use compact_genome::{
     implementation::{vec_sequence::VectorGenome, vec_sequence_store::VectorSequenceStore},
-    interface::{
-        alphabet::Alphabet,
-        sequence::{GenomeSequence, OwnedGenomeSequence},
-        sequence_store::SequenceStore,
-    },
+    interface::{alphabet::Alphabet, sequence::OwnedGenomeSequence, sequence_store::SequenceStore},
 };
 use lib_ts_chainalign::chain_align::performance_parameters::{
     ChainingClosedList, ChainingOpenList,
@@ -24,13 +15,10 @@ use lib_ts_chainalign::chain_align::performance_parameters::{
 use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        gap_affine_edit_distance, gap_affine_edit_distance_a_star_align,
         template_switch_distance::strategies::allow_ts_14_out_of_range::{
             AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy,
         },
     },
-    alignment_configuration::AlignmentConfiguration,
-    alignment_matrix::AlignmentMatrix,
     costs::U64Cost,
 };
 use log::{LevelFilter, debug, info};
@@ -305,8 +293,6 @@ struct CliPairInput {
 
 #[derive(Clone, PartialEq, Eq, ValueEnum)]
 enum AlignmentMethod {
-    Matrix,
-    AStarGapAffine,
     AStarTemplateSwitch,
     AStarChainTS,
 }
@@ -347,14 +333,6 @@ pub fn cli(cli: Cli) -> Result<()> {
         ColorChoice::Auto,
     )
     .unwrap();
-
-    if cli.alignment_method != AlignmentMethod::AStarTemplateSwitch
-        && cli.alignment_method != AlignmentMethod::AStarChainTS
-        && cli.alphabet != InputAlphabet::Dna
-    {
-        // Only A*-TS algo supports alphabets other than DNA.
-        panic!("Unsupported alphabet type: {:?}", cli.alphabet);
-    }
 
     match cli.alphabet {
         #[cfg(feature = "alphabet_dna")]
@@ -501,10 +479,6 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
 
     debug!("Choosing alignment method...");
     match cli.alignment_method {
-        AlignmentMethod::Matrix => align_matrix(cli, reference_sequence, query_sequence),
-        AlignmentMethod::AStarGapAffine => {
-            align_a_star_gap_affine_edit_distance(cli, reference_sequence, query_sequence)
-        }
         AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
             cli,
             reference_sequence,
@@ -525,88 +499,6 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     }
 
     Ok(())
-}
-
-fn align_matrix<
-    AlphabetType: Alphabet,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
->(
-    cli: Cli,
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-) {
-    if cli.output.is_some() {
-        panic!("Outputting statistics not supported by matrix alignment");
-    }
-
-    #[derive(serde::Deserialize)]
-    struct MatrixConfig {
-        match_cost: u64,
-        substitution_cost: u64,
-        indel_cost: u64,
-    }
-
-    let mut config_path = cli.configuration_directory.clone();
-    config_path.push("matrix.toml");
-    let mut config_file = BufReader::new(File::open(config_path).unwrap());
-    let mut config = String::new();
-    config_file.read_to_string(&mut config).unwrap();
-    let matrix_config: MatrixConfig = toml::from_str(&config).unwrap();
-
-    let configuration = AlignmentConfiguration {
-        match_cost: matrix_config.match_cost.into(),
-        substitution_cost: matrix_config.substitution_cost.into(),
-        insertion_cost: matrix_config.indel_cost.into(),
-        deletion_cost: matrix_config.indel_cost.into(),
-    };
-
-    let mut alignment_matrix =
-        AlignmentMatrix::<U64Cost>::new(configuration, reference.len(), query.len());
-    let cost = alignment_matrix.align(reference, query);
-    println!("Cost: {cost}");
-}
-
-fn align_a_star_gap_affine_edit_distance<
-    AlphabetType: Alphabet,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
->(
-    cli: Cli,
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-) {
-    #[derive(serde::Deserialize)]
-    struct GapAffineConfig {
-        match_cost: u64,
-        substitution_cost: u64,
-        gap_open_cost: u64,
-        gap_extend_cost: u64,
-    }
-
-    let mut config_path = cli.configuration_directory.clone();
-    config_path.push("a_star_gap_affine.toml");
-    let mut config_file = BufReader::new(File::open(config_path).unwrap());
-    let mut config = String::new();
-    config_file.read_to_string(&mut config).unwrap();
-    let gap_affine_config: GapAffineConfig = toml::from_str(&config).unwrap();
-
-    let alignment = gap_affine_edit_distance_a_star_align(
-        reference,
-        query,
-        gap_affine_edit_distance::ScoringTable::<U64Cost> {
-            match_cost: gap_affine_config.match_cost.into(),
-            substitution_cost: gap_affine_config.substitution_cost.into(),
-            gap_open_cost: gap_affine_config.gap_open_cost.into(),
-            gap_extend_cost: gap_affine_config.gap_extend_cost.into(),
-        },
-    );
-
-    if let Some(output) = cli.output {
-        use std::io::Write;
-        let mut output = std::io::BufWriter::new(std::fs::File::create(output).unwrap());
-        write!(output, "{}", toml::to_string(&alignment).unwrap()).unwrap();
-    }
-
-    println!("{alignment}");
 }
 
 fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> AlignmentRange {
