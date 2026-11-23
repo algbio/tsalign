@@ -189,7 +189,7 @@ class Aligner:
             End position in the query (exclusive).  Default: full length.
         gap_characters : str
             ASCII characters to remove from both sequences before aligning,
-            e.g. ``"-"`` for gaps from a multiple sequence alignment.
+            e.g. ``"-"``.
             Default: ``""`` (remove nothing).
         cost_limit : int, optional
             Abandon the search and return ``None`` if the alignment cost would
