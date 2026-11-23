@@ -20,6 +20,10 @@ impl ChainingAnchors {
     /// The anchors are computed by subdividing the reference sequence into non-overlapping blocks of size `block_size`,
     /// and collecting all their matches in the query sequence.
     /// The last block is merged with the second-to-last block if it is smaller than `block_size`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the reference is shorter than `block_size`, or if `block_size` is zero.
     pub fn seed_nonoverlapping<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,

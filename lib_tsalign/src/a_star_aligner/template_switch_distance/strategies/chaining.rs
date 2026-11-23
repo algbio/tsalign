@@ -25,6 +25,9 @@ use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::Primary
 pub trait ChainingStrategy<Cost>: AlignmentStrategy {
     type Memory;
 
+    /// Initialise the memory of the chaining strategy.
+    ///
+    /// The `block_size` is the length of the reference blocks used as chaining anchors.
     fn initialise_memory<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -43,6 +46,12 @@ pub trait ChainingStrategy<Cost>: AlignmentStrategy {
         context: &Context<SubsequenceType, Strategies>,
     ) -> Node<Strategies>;
 }
+
+/// The memory of the chaining strategies that compute a chain.
+///
+/// This is `None` if the reference is shorter than one block.
+/// Then there are no anchors, and the chaining lower bound is skipped.
+pub type OptionalChainingMemory<Cost> = Option<ChainingMemory<Cost>>;
 
 #[expect(dead_code)]
 pub struct ChainingMemory<Cost> {
@@ -101,7 +110,7 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for NoChainingStrategy<Cost> {
 }
 
 impl<Cost: AStarCost> ChainingStrategy<Cost> for PrecomputeOnlyChainingStrategy<Cost> {
-    type Memory = ChainingMemory<Cost>;
+    type Memory = OptionalChainingMemory<Cost>;
 
     fn initialise_memory<
         AlphabetType: Alphabet,
@@ -112,6 +121,16 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for PrecomputeOnlyChainingStrategy<
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
         block_size: usize,
     ) -> Self::Memory {
+        if reference.len() < block_size {
+            // The anchors are the reference blocks, so a reference shorter than one block has no anchors.
+            // Skip the chaining entirely, including the expensive precomputation of the lower bound matrices.
+            debug!(
+                "Reference (length: {}) is shorter than the chaining block size {block_size}, skipping chaining",
+                reference.len()
+            );
+            return None;
+        }
+
         let ts_lower_bounds = TemplateSwitchLowerBoundMatrix::new(config);
         debug!("{ts_lower_bounds}");
         let tsa_lower_bounds = TemplateSwitchAlignmentLowerBoundMatrix::new(
@@ -135,12 +154,12 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for PrecomputeOnlyChainingStrategy<
         );
         debug!("{chain}");
 
-        ChainingMemory {
+        Some(ChainingMemory {
             ts_lower_bounds,
             tsa_lower_bounds,
             chain,
             max_gap_open_cost: config.primary_edit_costs.max_gap_open_cost(),
-        }
+        })
     }
 
     fn apply_lower_bound<
@@ -155,7 +174,7 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for PrecomputeOnlyChainingStrategy<
 }
 
 impl<Cost: AStarCost> ChainingStrategy<Cost> for LowerBoundChainingStrategy<Cost> {
-    type Memory = ChainingMemory<Cost>;
+    type Memory = OptionalChainingMemory<Cost>;
 
     fn initialise_memory<
         AlphabetType: Alphabet,
@@ -176,6 +195,11 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for LowerBoundChainingStrategy<Cost
         mut node: Node<Strategies>,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Node<Strategies> {
+        let Some(chaining_memory) = &context.memory.chaining else {
+            // No chain was computed, so there is no chaining lower bound.
+            return node;
+        };
+
         if let Identifier::Primary {
             reference_index,
             query_index,
@@ -192,14 +216,12 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for LowerBoundChainingStrategy<Cost
         } = node.node_data.identifier
         {
             if flank_index <= 0 {
-                let mut chain_lower_bound = context
-                    .memory
-                    .chaining
+                let mut chain_lower_bound = chaining_memory
                     .chain
                     .chain_lower_bound(reference_index, query_index);
                 if gap_type != GapType::None {
-                    chain_lower_bound = chain_lower_bound
-                        .saturating_sub(&context.memory.chaining.max_gap_open_cost);
+                    chain_lower_bound =
+                        chain_lower_bound.saturating_sub(&chaining_memory.max_gap_open_cost);
                 }
 
                 node.node_data.a_star_lower_bound =
