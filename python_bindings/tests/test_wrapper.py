@@ -49,6 +49,15 @@ def test_cost_limit(align):
 
 
 @pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
+def test_cost_limit_is_inclusive(align):
+    # Issue #250: an alignment whose cost equals the cost limit is returned.
+    result = align(REFERENCE, QUERY, cost_limit=EXPECTED_COST)
+    assert result is not None
+    assert result.cigar() == EXPECTED_CIGAR
+    assert result.stats()["cost"] == EXPECTED_COST
+
+
+@pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
 def test_memory_limit(align):
     # A generous memory limit does not change the result.
     result = align(REFERENCE, QUERY, memory_limit=1_000_000_000)

@@ -1003,3 +1003,58 @@ fn min_length_strategies_with_template_switches_disabled() {
         "expected cost 7 with all min length strategies, but got {results:?}"
     );
 }
+
+/// Issue #250: the cost limit is inclusive, so an alignment whose cost equals the limit is found.
+///
+/// The default aligner searches label-correcting (it maximises the total template switch length
+/// as a secondary criterion), which used to report the cost limit as exceeded when the limit
+/// pruned a node after the target had already been found.
+#[test]
+fn cost_limit_is_inclusive() {
+    let aligner = Aligner::<DnaAlphabetOrN>::new();
+    let align = |reference: &[u8], query: &[u8], cost_limit| {
+        aligner.align(
+            "reference",
+            reference,
+            "query",
+            query,
+            None,
+            &[],
+            cost_limit,
+            None,
+            true,
+            TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
+        )
+    };
+
+    for (reference, query) in [
+        (&b"ACGTACGT"[..], &b"ACGACGT"[..]),
+        (b"ACGTACGTAC", b"ACGTTCGTAC"),
+        (b"AAAAAAAAAACCCCCCCCCCCC", b"AAAAAAAAAATTTTTTTTTTTC"),
+    ] {
+        let unlimited = align(reference, query, None);
+        let AlignmentResult::WithTarget { .. } = &unlimited else {
+            panic!("no alignment without cost limit: {unlimited:#?}");
+        };
+        let cost = unlimited.statistics().cost.raw();
+        assert!(cost > 0.0 && cost.fract() == 0.0, "unexpected cost {cost}");
+        let cost = cost as u64;
+
+        for cost_limit in [cost, cost + 1] {
+            let limited = align(reference, query, Some(cost_limit));
+            let AlignmentResult::WithTarget { .. } = &limited else {
+                panic!(
+                    "cost limit {cost_limit} rejected an alignment of cost {cost}: {limited:#?}"
+                );
+            };
+            assert_eq!(limited.statistics().cost.raw(), cost as f64);
+        }
+
+        let limited = align(reference, query, Some(cost - 1));
+        assert!(
+            matches!(limited, AlignmentResult::WithoutTarget { .. }),
+            "cost limit {} accepted an alignment of cost {cost}: {limited:#?}",
+            cost - 1,
+        );
+    }
+}

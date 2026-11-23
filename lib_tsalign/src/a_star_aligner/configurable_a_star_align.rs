@@ -254,6 +254,9 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     /// Special gap characters can be specified in order to interpret the given sequences as an alignment with gaps instead of raw sequences.
     /// In this case, the range coordinates must refer to the ungapped sequences.
     ///
+    /// The `cost_limit` is inclusive: if there is no alignment with cost at most `cost_limit`, then no alignment is returned.
+    /// The `memory_limit` is an approximate memory limit in bytes; if it is exceeded, then no alignment is returned.
+    ///
     /// Depending on the inputs, this takes quite long.
     /// Consider spawning tasks to not block the user application.
     #[allow(
