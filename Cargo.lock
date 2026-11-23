@@ -788,6 +788,7 @@ name = "lib_tsalign"
 version = "8.0.0"
 dependencies = [
  "binary-heap-plus",
+ "clap",
  "compact-genome",
  "extend_map",
  "generic_a_star",
