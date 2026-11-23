@@ -12,6 +12,7 @@ pub struct ChainingCostArray<Cost> {
     maps_between_same_anchors: bool,
     /// For each ordinate 0, store the indices of the corresponding ordinates 1, ordered by their cost.
     cost_order_permutation: Vec<Vec<AnchorIndex>>,
+    /// Used to mark chaining costs as exact, i.e. once the cost between two anchors is exactly computed via alignment, it is marked as exact and will not be recomputed.
     is_exact: BitVec<usize, LocalBits>,
 }
 

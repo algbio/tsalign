@@ -79,6 +79,17 @@ pub struct AlignmentStatistics<Cost> {
     pub suboptimal_opened_nodes_ratio: R64,
     pub template_switch_amount: R64,
 
+    /// The cost of the chain that the alignment was built from, if it was computed by tschainalign.
+    ///
+    /// The chain cost is the sum of the costs of the gaps and anchors of the chain, which are aligned separately.
+    /// It may be larger than the cost of the alignment, see [issue #221](https://github.com/algbio/tsalign/issues/221).
+    /// This is for debugging only, and is ignored by the piecewise operations on statistics.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub chain_cost: Option<R64>,
+
     /// Runtime in seconds.
     ///
     /// To be filled by some other tool, not collected by tsalign.
@@ -236,6 +247,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
                         .count() as f64
                 })
                 .unwrap_or(0.0)),
+            chain_cost: None,
             runtime: r64(0.0),
             memory: r64(0.0),
         };
@@ -829,6 +841,9 @@ impl<AlignmentType: Display + IAlignmentType, Cost: Display> Display
 impl<Cost: Display> Display for AlignmentStatistics<Cost> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "{}", self.result)?;
+        if let Some(chain_cost) = self.chain_cost {
+            writeln!(f, "Chain cost: {chain_cost}")?;
+        }
         writeln!(f, "Reference offset: {}", self.reference_offset)?;
         writeln!(f, "Query offset: {}", self.query_offset)?;
         writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
@@ -867,6 +882,7 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
             suboptimal_opened_nodes: Default::default(),
             suboptimal_opened_nodes_ratio: Default::default(),
             template_switch_amount: Default::default(),
+            chain_cost: None,
             runtime: Default::default(),
             memory: Default::default(),
         }

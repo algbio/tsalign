@@ -114,6 +114,16 @@ pub struct Cli {
     #[clap(short)]
     k: Option<u32>,
 
+    /// The maximum number of mutations allowed in an anchor.
+    ///
+    /// Higher values produce a more accurate alignment at the cost of increased runtime.
+    #[clap(long, default_value = "0")]
+    max_anchor_mutations: u8,
+
+    /// The lower bound to use for inexact chaining.
+    #[clap(long, default_value = "max-match-run")]
+    inexact_chaining_lower_bound: InexactLowerBound,
+
     #[clap(long, default_value = "anti-diagonal")]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
 
@@ -158,7 +168,7 @@ pub struct Cli {
     /// Can be tuned to optimise performance.
     ///
     /// This applies only to tschainalign.
-    #[clap(long, default_value = "1")]
+    #[clap(long, default_value = "10")]
     max_chaining_successors: usize,
 
     /// The maximum cost until which the cost function is initialised exactly.
@@ -166,7 +176,7 @@ pub struct Cli {
     /// Setting this to a higher value will increase the time required to initialise the cost function, but decrease the amount of chains computed.
     ///
     /// This applies only to tschainalign.
-    #[clap(long, default_value = "1")]
+    #[clap(long, default_value = "0")]
     max_exact_cost_function_cost: u32,
 
     /// The closed list type to use for chaining.
@@ -180,6 +190,16 @@ pub struct Cli {
     /// This applies only to tschainalign.
     #[clap(long, default_value = "linear-heap")]
     chaining_open_list: ChainingOpenList,
+
+    /// Do not remove dominated inexact anchors before chaining.
+    ///
+    /// By default, inexact primary anchors that are dominated by a shorter anchor are removed before chaining,
+    /// if this provably does not change the cost of the optimal chain.
+    /// This flag is for comparing against the chaining with all anchors.
+    ///
+    /// This applies only to tschainalign.
+    #[clap(long)]
+    no_anchor_domination_pruning: bool,
 
     /// If set, template switches are not allowed.
     ///
@@ -305,6 +325,18 @@ enum InputAlphabet {
     DnaIupac,
     #[cfg(feature = "alphabet_rna_iupac")]
     RnaIupac,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, ValueEnum)]
+pub enum InexactLowerBound {
+    /// Compute a lower bound assuming that in every window of size `anchor_k` there have to be at least `max_anchor_mutations + 1` mutations.
+    ///
+    /// Currently disabled in the CLI because it is broken.
+    #[value(skip)]
+    WindowedMinMutations,
+    /// Compute a lower bound assuming that there is no match run longer than `anchor_k - 1 - max_anchor_mutations`,
+    /// except for alignments that are shorter than `anchor_k` on both sequences.
+    MaxMatchRun,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -489,7 +521,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             range,
             &format!("{} {}", reference_record.id, reference_record.comment),
             &format!("{} {}", query_record.id, query_record.comment),
-        ),
+        )?,
     }
 
     Ok(())
