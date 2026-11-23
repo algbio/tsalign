@@ -1,44 +1,34 @@
+use crate::alignment_result::AlignmentType;
 use std::ops::{Deref, DerefMut};
 
-use crate::alignment_result::IAlignmentType;
-
-pub struct CompactAlignmentIter<'alignment, AlignmentType> {
+pub struct CompactAlignmentIter<'alignment> {
     alignment: &'alignment [(usize, AlignmentType)],
     front_multiplicity: usize,
     back_multiplicity: usize,
 }
 
-pub struct CompactAlignmentIterCloned<'alignment, AlignmentType: IAlignmentType + Clone> {
-    iter: CompactAlignmentIter<'alignment, AlignmentType>,
+pub struct CompactAlignmentIterCloned<'alignment> {
+    iter: CompactAlignmentIter<'alignment>,
 }
 
-pub struct FlatAlignmentIter<'alignment, AlignmentType> {
-    iter: CompactAlignmentIter<'alignment, AlignmentType>,
+pub struct FlatAlignmentIter<'alignment> {
+    iter: CompactAlignmentIter<'alignment>,
     length: usize,
 }
 
-pub struct FlatAlignmentIterCloned<'alignment, AlignmentType: IAlignmentType + Clone> {
-    iter: FlatAlignmentIter<'alignment, AlignmentType>,
+pub struct FlatAlignmentIterCloned<'alignment> {
+    iter: FlatAlignmentIter<'alignment>,
 }
 
-pub struct PeekFrontMultiplicityMut<
-    'iter,
-    'alignment: 'iter,
-    AlignmentType: IAlignmentType,
-    LengthDecreaser: PeekLengthDecreaser,
-> {
-    iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
+pub struct PeekFrontMultiplicityMut<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser>
+{
+    iter: &'iter mut CompactAlignmentIter<'alignment>,
     initial_multiplicity: usize,
     length_decreaser: LengthDecreaser,
 }
 
-pub struct PeekBackMultiplicityMut<
-    'iter,
-    'alignment: 'iter,
-    AlignmentType: IAlignmentType,
-    LengthDecreaser: PeekLengthDecreaser,
-> {
-    iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
+pub struct PeekBackMultiplicityMut<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> {
+    iter: &'iter mut CompactAlignmentIter<'alignment>,
     initial_multiplicity: usize,
     length_decreaser: LengthDecreaser,
 }
@@ -57,7 +47,7 @@ pub struct RefMutLengthDecreaser<'length> {
 // CompactAlignmentIter //////////////////////
 //////////////////////////////////////////////
 
-impl<'alignment, AlignmentType: IAlignmentType> CompactAlignmentIter<'alignment, AlignmentType> {
+impl<'alignment> CompactAlignmentIter<'alignment> {
     /// Create a new iterator over the given alignment.
     pub(crate) fn new(alignment: &'alignment [(usize, AlignmentType)]) -> Self {
         let mut result = Self {
@@ -119,24 +109,18 @@ impl<'alignment, AlignmentType: IAlignmentType> CompactAlignmentIter<'alignment,
     ///
     /// Returns the remaining multiplicity along with the alignment type.
     /// If the iterator is empty, `None` is returned.
-    pub fn peek_front_cloned(&self) -> Option<(usize, AlignmentType)>
-    where
-        AlignmentType: IAlignmentType + Clone,
-    {
+    pub fn peek_front_cloned(&self) -> Option<(usize, AlignmentType)> {
         self.peek_front()
-            .map(|(multiplicity, alignment_type)| (multiplicity, alignment_type.clone()))
+            .map(|(multiplicity, alignment_type)| (multiplicity, *alignment_type))
     }
 
     /// Peek at the last alignment in the iterator and clone it.
     ///
     /// Returns the remaining multiplicity along with the alignment type.
     /// If the iterator is empty, `None` is returned.
-    pub fn peek_back_cloned(&self) -> Option<(usize, AlignmentType)>
-    where
-        AlignmentType: IAlignmentType + Clone,
-    {
+    pub fn peek_back_cloned(&self) -> Option<(usize, AlignmentType)> {
         self.peek_back()
-            .map(|(multiplicity, alignment_type)| (multiplicity, alignment_type.clone()))
+            .map(|(multiplicity, alignment_type)| (multiplicity, *alignment_type))
     }
 
     /// Mutably peek at the multiplicity of the first alignment in the iterator.
@@ -145,7 +129,7 @@ impl<'alignment, AlignmentType: IAlignmentType> CompactAlignmentIter<'alignment,
     /// If the iterator is empty, `None` is returned.
     pub fn peek_front_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, NoLengthDecreaser>> {
+    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, NoLengthDecreaser>> {
         (self.front_multiplicity > 0)
             .then(|| PeekFrontMultiplicityMut::new(self, NoLengthDecreaser))
     }
@@ -156,7 +140,7 @@ impl<'alignment, AlignmentType: IAlignmentType> CompactAlignmentIter<'alignment,
     /// If the iterator is empty, `None` is returned.
     pub fn peek_back_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, NoLengthDecreaser>> {
+    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, NoLengthDecreaser>> {
         (self.back_multiplicity > 0).then(|| PeekBackMultiplicityMut::new(self, NoLengthDecreaser))
     }
 
@@ -216,9 +200,7 @@ impl<'alignment, AlignmentType: IAlignmentType> CompactAlignmentIter<'alignment,
     }
 }
 
-impl<'alignment, AlignmentType: IAlignmentType> Iterator
-    for CompactAlignmentIter<'alignment, AlignmentType>
-{
+impl<'alignment> Iterator for CompactAlignmentIter<'alignment> {
     type Item = (usize, &'alignment AlignmentType);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -233,9 +215,7 @@ impl<'alignment, AlignmentType: IAlignmentType> Iterator
     }
 }
 
-impl<AlignmentType: IAlignmentType> DoubleEndedIterator
-    for CompactAlignmentIter<'_, AlignmentType>
-{
+impl DoubleEndedIterator for CompactAlignmentIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let result = self.peek_back();
         self.back_multiplicity = 0;
@@ -244,15 +224,13 @@ impl<AlignmentType: IAlignmentType> DoubleEndedIterator
     }
 }
 
-impl<AlignmentType: IAlignmentType> ExactSizeIterator for CompactAlignmentIter<'_, AlignmentType> {}
+impl ExactSizeIterator for CompactAlignmentIter<'_> {}
 
 //////////////////////////////////////////////
 // CompactAlignmentIterCloned ////////////////
 //////////////////////////////////////////////
 
-impl<'alignment, AlignmentType: IAlignmentType + Clone>
-    CompactAlignmentIterCloned<'alignment, AlignmentType>
-{
+impl<'alignment> CompactAlignmentIterCloned<'alignment> {
     pub fn new(alignment: &'alignment [(usize, AlignmentType)]) -> Self {
         Self {
             iter: CompactAlignmentIter::new(alignment),
@@ -297,7 +275,7 @@ impl<'alignment, AlignmentType: IAlignmentType + Clone>
     /// If the iterator is empty, `None` is returned.
     pub fn peek_front_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, NoLengthDecreaser>> {
+    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, NoLengthDecreaser>> {
         self.iter.peek_front_multiplicity_mut()
     }
 
@@ -307,20 +285,18 @@ impl<'alignment, AlignmentType: IAlignmentType + Clone>
     /// If the iterator is empty, `None` is returned.
     pub fn peek_back_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, NoLengthDecreaser>> {
+    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, NoLengthDecreaser>> {
         self.iter.peek_back_multiplicity_mut()
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> Iterator
-    for CompactAlignmentIterCloned<'_, AlignmentType>
-{
+impl Iterator for CompactAlignmentIterCloned<'_> {
     type Item = (usize, AlignmentType);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|(multiplicity, alignment_type)| (multiplicity, alignment_type.clone()))
+            .map(|(multiplicity, alignment_type)| (multiplicity, *alignment_type))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -328,26 +304,21 @@ impl<AlignmentType: IAlignmentType + Clone> Iterator
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> DoubleEndedIterator
-    for CompactAlignmentIterCloned<'_, AlignmentType>
-{
+impl DoubleEndedIterator for CompactAlignmentIterCloned<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter
             .next_back()
-            .map(|(multiplicity, alignment_type)| (multiplicity, alignment_type.clone()))
+            .map(|(multiplicity, alignment_type)| (multiplicity, *alignment_type))
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> ExactSizeIterator
-    for CompactAlignmentIterCloned<'_, AlignmentType>
-{
-}
+impl ExactSizeIterator for CompactAlignmentIterCloned<'_> {}
 
 //////////////////////////////////////////////
 // FlatAlignmentIter /////////////////////////
 //////////////////////////////////////////////
 
-impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, AlignmentType> {
+impl<'alignment> FlatAlignmentIter<'alignment> {
     pub fn new(alignment: &'alignment [(usize, AlignmentType)]) -> Self {
         Self {
             length: alignment
@@ -385,10 +356,7 @@ impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, Al
     /// Peek at the first alignment in the iterator and clone it.
     ///
     /// If the iterator is empty, `None` is returned.
-    pub fn peek_front_cloned(&self) -> Option<AlignmentType>
-    where
-        AlignmentType: IAlignmentType + Clone,
-    {
+    pub fn peek_front_cloned(&self) -> Option<AlignmentType> {
         self.iter
             .peek_front_cloned()
             .map(|(_, alignment_type)| alignment_type)
@@ -397,10 +365,7 @@ impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, Al
     /// Peek at the last alignment in the iterator and clone it.
     ///
     /// If the iterator is empty, `None` is returned.
-    pub fn peek_back_cloned(&self) -> Option<AlignmentType>
-    where
-        AlignmentType: IAlignmentType + Clone,
-    {
+    pub fn peek_back_cloned(&self) -> Option<AlignmentType> {
         self.iter
             .peek_back_cloned()
             .map(|(_, alignment_type)| alignment_type)
@@ -412,9 +377,7 @@ impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, Al
     /// If the iterator is empty, `None` is returned.
     pub fn peek_front_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<
-        PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, RefMutLengthDecreaser<'iter>>,
-    > {
+    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, RefMutLengthDecreaser<'iter>>> {
         self.peek_front().is_some().then(|| {
             PeekFrontMultiplicityMut::new(
                 &mut self.iter,
@@ -431,9 +394,7 @@ impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, Al
     /// If the iterator is empty, `None` is returned.
     pub fn peek_back_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<
-        PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, RefMutLengthDecreaser<'iter>>,
-    > {
+    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, RefMutLengthDecreaser<'iter>>> {
         self.peek_back().is_some().then(|| {
             PeekBackMultiplicityMut::new(
                 &mut self.iter,
@@ -445,9 +406,7 @@ impl<'alignment, AlignmentType: IAlignmentType> FlatAlignmentIter<'alignment, Al
     }
 }
 
-impl<'alignment, AlignmentType: IAlignmentType> Iterator
-    for FlatAlignmentIter<'alignment, AlignmentType>
-{
+impl<'alignment> Iterator for FlatAlignmentIter<'alignment> {
     type Item = &'alignment AlignmentType;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -464,7 +423,7 @@ impl<'alignment, AlignmentType: IAlignmentType> Iterator
     }
 }
 
-impl<AlignmentType: IAlignmentType> DoubleEndedIterator for FlatAlignmentIter<'_, AlignmentType> {
+impl DoubleEndedIterator for FlatAlignmentIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if let Some(result) = self.peek_back() {
             *self.peek_back_multiplicity_mut().unwrap() -= 1;
@@ -475,15 +434,13 @@ impl<AlignmentType: IAlignmentType> DoubleEndedIterator for FlatAlignmentIter<'_
     }
 }
 
-impl<AlignmentType: IAlignmentType> ExactSizeIterator for FlatAlignmentIter<'_, AlignmentType> {}
+impl ExactSizeIterator for FlatAlignmentIter<'_> {}
 
 //////////////////////////////////////////////
 // FlatAlignmentIterCloned ///////////////////
 //////////////////////////////////////////////
 
-impl<'alignment, AlignmentType: IAlignmentType + Clone>
-    FlatAlignmentIterCloned<'alignment, AlignmentType>
-{
+impl<'alignment> FlatAlignmentIterCloned<'alignment> {
     pub fn new(alignment: &'alignment [(usize, AlignmentType)]) -> Self {
         Self {
             iter: FlatAlignmentIter::new(alignment),
@@ -524,9 +481,7 @@ impl<'alignment, AlignmentType: IAlignmentType + Clone>
     /// If the iterator is empty, `None` is returned.
     pub fn peek_front_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<
-        PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, RefMutLengthDecreaser<'iter>>,
-    > {
+    ) -> Option<PeekFrontMultiplicityMut<'iter, 'alignment, RefMutLengthDecreaser<'iter>>> {
         self.iter.peek_front_multiplicity_mut()
     }
 
@@ -536,16 +491,12 @@ impl<'alignment, AlignmentType: IAlignmentType + Clone>
     /// If the iterator is empty, `None` is returned.
     pub fn peek_back_multiplicity_mut<'iter>(
         &'iter mut self,
-    ) -> Option<
-        PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, RefMutLengthDecreaser<'iter>>,
-    > {
+    ) -> Option<PeekBackMultiplicityMut<'iter, 'alignment, RefMutLengthDecreaser<'iter>>> {
         self.iter.peek_back_multiplicity_mut()
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> Iterator
-    for FlatAlignmentIterCloned<'_, AlignmentType>
-{
+impl Iterator for FlatAlignmentIterCloned<'_> {
     type Item = AlignmentType;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -557,28 +508,23 @@ impl<AlignmentType: IAlignmentType + Clone> Iterator
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> DoubleEndedIterator
-    for FlatAlignmentIterCloned<'_, AlignmentType>
-{
+impl DoubleEndedIterator for FlatAlignmentIterCloned<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().cloned()
     }
 }
 
-impl<AlignmentType: IAlignmentType + Clone> ExactSizeIterator
-    for FlatAlignmentIterCloned<'_, AlignmentType>
-{
-}
+impl ExactSizeIterator for FlatAlignmentIterCloned<'_> {}
 
 //////////////////////////////////////////////
 // Peek multiplicities ///////////////////////
 //////////////////////////////////////////////
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser>
+    PeekFrontMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn new(
-        iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
+        iter: &'iter mut CompactAlignmentIter<'alignment>,
         length_decreaser: LengthDecreaser,
     ) -> Self {
         Self {
@@ -589,8 +535,8 @@ impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: P
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    Deref for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> Deref
+    for PeekFrontMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     type Target = usize;
 
@@ -599,16 +545,16 @@ impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: P
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    DerefMut for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> DerefMut
+    for PeekFrontMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.iter.front_multiplicity
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    Drop for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> Drop
+    for PeekFrontMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn drop(&mut self) {
         assert!(
@@ -621,11 +567,11 @@ impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: P
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser>
+    PeekBackMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn new(
-        iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
+        iter: &'iter mut CompactAlignmentIter<'alignment>,
         length_decreaser: LengthDecreaser,
     ) -> Self {
         Self {
@@ -636,8 +582,8 @@ impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: P
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    Deref for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> Deref
+    for PeekBackMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     type Target = usize;
 
@@ -646,16 +592,16 @@ impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: P
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    DerefMut for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> DerefMut
+    for PeekBackMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.iter.back_multiplicity
     }
 }
 
-impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
-    Drop for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, LengthDecreaser: PeekLengthDecreaser> Drop
+    for PeekBackMultiplicityMut<'iter, 'alignment, LengthDecreaser>
 {
     fn drop(&mut self) {
         assert!(

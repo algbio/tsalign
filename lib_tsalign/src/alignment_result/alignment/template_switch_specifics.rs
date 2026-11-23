@@ -7,7 +7,7 @@ use log::{error, trace};
 
 use crate::{
     aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
-    alignment_result::{AlignmentType, IAlignmentType, alignment::stream::AlignmentStream},
+    alignment_result::{AlignmentType, alignment::stream::AlignmentStream},
     config::TemplateSwitchConfig,
 };
 
@@ -16,7 +16,7 @@ use super::Alignment;
 #[cfg(test)]
 mod tests;
 
-impl Alignment<AlignmentType> {
+impl Alignment {
     /// Moves the start of a template switch one character pair to the left if possible, moving the character pair into the template switch.
     ///
     /// Only works if the alignment preceding the template switch is a match or substitution, and not a flank.

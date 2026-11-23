@@ -52,7 +52,7 @@ use crate::{
         },
     },
     alignment_geometry::AlignmentRange,
-    alignment_result::{AlignmentResult, AlignmentType},
+    alignment_result::AlignmentResult,
 };
 
 pub use compact_genome::implementation::alphabets;
@@ -298,7 +298,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
         tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         // TODO error handling
         let reference_genome = VectorGenome::<AlphabetType>::from_iter_u8(
             reference
@@ -378,7 +378,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
         tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         let data = QueryData {
             reference_name,
             reference,
@@ -399,7 +399,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         match self.min_length_strategy {
             MinLengthStrategySelector::None => self
                 .align_select_chaining_strategy::<_, NoTemplateSwitchMinLengthStrategy<U64Cost>>(data),
@@ -416,7 +416,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         match self.chaining_strategy {
             ChainingStrategySelector::None => {
                 self.align_select_total_length_strategy::<_, ML, NoChainingStrategy<U64Cost>>(data)
@@ -436,7 +436,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         match self.total_length_strategy {
             TotalLengthStrategySelector::None => self
                 .align_select_no_ts_strategy::<_, ML, CH, NoTemplateSwitchTotalLengthStrategy>(
@@ -457,7 +457,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         if self.no_ts {
             self.align_select_descendant_strategy::<_, ML, CH, TL, MaxTemplateSwitchCountStrategy>(
                 data, 0,
@@ -480,7 +480,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         match self.descendant_strategy {
             DescendantStrategySelector::AllowAny => self
                 .align_select_primary_range_strategy::<_, ML, CH, TL, TC, AnyTemplateSwitchDescendantStrategy>(
@@ -506,7 +506,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         match self.primary_range_strategy {
             PrimaryRangeStrategySelector::Prune => self
                 .align_call::<_, ML, CH, TL, TC, DS, RangePrunePrimaryRangeStrategy>(
@@ -533,7 +533,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<AlignmentType, U64Cost> {
+    ) -> AlignmentResult<U64Cost> {
         template_switch_distance_a_star_align::<
             AlignmentStrategySelection<
                 AlphabetType,

@@ -123,10 +123,7 @@ fn chain_align_full(
     k: u32,
     max_anchor_mutations: u8,
     costs: &AlignmentCosts<U32Cost>,
-) -> lib_tsalign::alignment_result::AlignmentResult<
-    lib_tsalign::alignment_result::AlignmentType,
-    U32Cost,
-> {
+) -> lib_tsalign::alignment_result::AlignmentResult<U32Cost> {
     use lib_tsalign::alignment_geometry::AlignmentRange;
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -350,8 +347,7 @@ fn chain_align_result(
     query: &[u8],
     k: u32,
     costs: &AlignmentCosts<U32Cost>,
-) -> lib_tsalign::alignment_result::alignment::Alignment<lib_tsalign::alignment_result::AlignmentType>
-{
+) -> lib_tsalign::alignment_result::alignment::Alignment {
     use lib_tsalign::{alignment_geometry::AlignmentRange, alignment_result::AlignmentResult};
 
     use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
@@ -389,9 +385,7 @@ fn chain_align_result(
 /// following the semantics of lib_tsalign: after a template switch, the descendant continues after the characters
 /// consumed by the template switch, and the anti-descendant continues at its entrance index plus the anti-descendant gap.
 fn consumed_lengths(
-    alignment: &lib_tsalign::alignment_result::alignment::Alignment<
-        lib_tsalign::alignment_result::AlignmentType,
-    >,
+    alignment: &lib_tsalign::alignment_result::alignment::Alignment,
 ) -> (usize, usize) {
     use lib_tsalign::{aligner::TemplateSwitchDescendant, alignment_result::AlignmentType as T};
 

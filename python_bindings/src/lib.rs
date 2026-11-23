@@ -4,7 +4,7 @@ use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN
 use lib_tsalign::{
     Aligner,
     alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-    alignment_result::{AlignmentResult, AlignmentType, TSMUncertaintyRangeExtensionMode},
+    alignment_result::{AlignmentResult, TSMUncertaintyRangeExtensionMode},
     costs::U64Cost,
 };
 use lib_tsshow::plain_text::show_template_switches;
@@ -13,7 +13,7 @@ use pythonize::{depythonize, pythonize};
 
 #[pyclass]
 struct TSPairwiseAlignment {
-    result: AlignmentResult<AlignmentType, U64Cost>,
+    result: AlignmentResult<U64Cost>,
 }
 
 #[pymethods]

@@ -33,7 +33,6 @@ use crate::{
         ts_14_out_of_range::Ts14OutOfRangeStrategy,
     },
     alignment_geometry::AlignmentRange,
-    alignment_result::IAlignmentType,
     config::{BaseCost, TemplateSwitchConfig},
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
 };

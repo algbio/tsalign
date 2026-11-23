@@ -68,7 +68,7 @@ impl AlignmentStream {
         self.stream_iter().collect()
     }
 
-    pub fn stream_alignment(&self) -> Alignment<AlignmentType> {
+    pub fn stream_alignment(&self) -> Alignment {
         self.stream_vec().into()
     }
 

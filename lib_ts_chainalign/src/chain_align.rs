@@ -55,7 +55,7 @@ pub(crate) fn align<Cost: AStarCost>(
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
+) -> AlignmentResult<Cost> {
     match performance_parameters.open_list {
         ChainingOpenList::StdHeap => {
             choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
@@ -88,7 +88,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
+) -> AlignmentResult<Cost> {
     match performance_parameters.closed_list {
         ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
             sequences,
@@ -123,7 +123,7 @@ fn actually_align<
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<lib_tsalign::alignment_result::AlignmentType, Cost> {
+) -> AlignmentResult<Cost> {
     info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));

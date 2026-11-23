@@ -4,7 +4,7 @@ use super::{
 };
 use lib_tsalign::{
     aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
-    alignment_result::{AlignmentType, TSMUncertaintyRange, alignment::Alignment},
+    alignment_result::{TSMUncertaintyRange, alignment::Alignment},
 };
 
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ pub struct TemplateSwitch {
     pub sp2_ancestor: SourceColumn,
     pub sp3_ancestor: SourceColumn,
     pub inner: Vec<SourceChar>,
-    pub inner_alignment: Alignment<AlignmentType>,
+    pub inner_alignment: Alignment,
     pub uncertainty_range: TSMUncertaintyRange,
 }
 

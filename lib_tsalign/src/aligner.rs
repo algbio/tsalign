@@ -16,9 +16,7 @@ use log::{debug, info};
 use crate::{
     aligner::{context::DynamicStrategies, ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds},
     alignment_geometry::AlignmentRange,
-    alignment_result::{
-        AlignmentResult, AlignmentType, IAlignmentType, TSMUncertaintyRangeExtensionMode,
-    },
+    alignment_result::{AlignmentResult, TSMUncertaintyRangeExtensionMode},
     config,
 };
 
@@ -62,7 +60,7 @@ pub fn template_switch_distance_a_star_align<
     extend_beyond_range: bool,
     tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<AlignmentType, Strategies::Cost>
+) -> AlignmentResult<Strategies::Cost>
 where
     Strategies::Cost: From<u64>,
 {

@@ -12,7 +12,7 @@ use font::{
 use indexed_str::IndexedStr;
 use lib_tsalign::{
     aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
-    alignment_result::{AlignmentResult, AlignmentType},
+    alignment_result::AlignmentResult,
     costs::U64Cost,
 };
 use log::{debug, info};
@@ -106,8 +106,8 @@ pub enum UncertaintyRangeMode {
 
 pub fn create_ts_svg(
     output: impl Write,
-    result: &AlignmentResult<AlignmentType, U64Cost>,
-    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    result: &AlignmentResult<U64Cost>,
+    no_ts_result: &Option<AlignmentResult<U64Cost>>,
     config: &SvgConfig,
 ) -> Result<()> {
     info!("Creating template switch SVG");
