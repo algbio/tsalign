@@ -150,7 +150,6 @@ fn chain_align_full(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
-        max_anchor_mutations,
         &performance_parameters,
         &rc_fn,
         "reference",
@@ -380,7 +379,6 @@ fn chain_align_result(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
-        0,
         &performance_parameters,
         &rc_fn,
         "reference",
@@ -683,10 +681,11 @@ fn double_gap_open_between_gap_and_inexact_anchor() {
     }
 }
 
-/// `align` must take the maximum number of anchor mutations from the lower bounds,
+/// `align` takes the maximum number of anchor mutations from the lower bounds,
 /// so that the anchors, the gap alignments and the lower bounds agree on it.
-/// Exact anchors evaluated with the gap rules of inexact anchors (at most `k - 1 - max_anchor_mutations`
-/// consecutive matches in a gap) used to produce a chain that is more expensive than the optimum.
+/// It used to take it as a separate argument, and exact anchors evaluated with the gap rules of inexact anchors
+/// (at most `k - 1 - max_anchor_mutations` consecutive matches in a gap) produced a chain that is more expensive
+/// than the optimum (cost 8 instead of 4 for this input).
 #[test]
 fn anchor_mutations_are_taken_from_the_lower_bounds() {
     use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
@@ -717,8 +716,6 @@ fn anchor_mutations_are_taken_from_the_lower_bounds() {
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
-        // Disagrees with the lower bounds.
-        0,
         &performance_parameters,
         &rc_fn,
         "reference",
