@@ -31,7 +31,6 @@ lib_tsshow = { version = "7.0.2", path = "../lib_tsshow" }
 clap.workspace = true
 compact-genome = { workspace = true, features = ["io"] }
 traitsequence.workspace = true
-serde.workspace = true
 toml = "1.1.4"
 log.workspace = true
 simplelog = "0.12.2"

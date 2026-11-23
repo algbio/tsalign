@@ -6,7 +6,7 @@ use std::{
 use alignment_geometry::AlignmentRange;
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost, reset::Reset};
+use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, reset::Reset};
 use log::{debug, info};
 use template_switch_distance::{
     context::Memory,
@@ -33,10 +33,7 @@ use crate::{
 pub mod alignment_geometry;
 pub mod alignment_result;
 pub mod configurable_a_star_align;
-pub mod gap_affine_edit_distance;
 pub mod template_switch_distance;
-#[cfg(test)]
-mod tests;
 
 pub trait AlignmentContext: AStarContext {
     type AlphabetType: Alphabet;
@@ -182,21 +179,6 @@ where
             a_star.context().query().len(),
         )
     }
-}
-
-pub fn gap_affine_edit_distance_a_star_align<
-    AlphabetType: Alphabet,
-    Cost: AStarCost,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    scoring_table: gap_affine_edit_distance::ScoringTable<Cost>,
-) -> AlignmentResult<gap_affine_edit_distance::AlignmentType, Cost> {
-    a_star_align(
-        gap_affine_edit_distance::Context::new(reference, query, scoring_table),
-        vec![],
-    )
 }
 
 #[expect(clippy::too_many_arguments)]

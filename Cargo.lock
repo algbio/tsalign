@@ -1714,7 +1714,6 @@ dependencies = [
  "lib_tsalign",
  "lib_tsshow",
  "log",
- "serde",
  "sha",
  "simplelog",
  "tempfile",
