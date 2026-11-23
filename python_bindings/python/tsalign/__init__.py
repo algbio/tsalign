@@ -98,7 +98,9 @@ class Aligner:
         ``"preprocess_filter"``, ``"preprocess_lookahead"``.
     chaining_strategy : str
         A* lower-bound chaining strategy.
-        One of ``"none"`` (default), ``"lower_bound"``.
+        Only ``"none"`` (default) is supported.
+        ``"lower_bound"`` is disabled and raises :class:`ValueError`
+        (see https://github.com/algbio/tsalign/issues/248).
     total_length_strategy : str
         Total template switch length strategy.
         One of ``"none"``, ``"maximise"`` (default).
@@ -132,6 +134,12 @@ class Aligner:
     ) -> None:
         if costs is not None and costs_file is not None:
             raise ValueError("Provide at most one of 'costs' or 'costs_file'.")
+        if chaining_strategy == "lower_bound":
+            raise ValueError(
+                "chaining_strategy 'lower_bound' is disabled because it is too expensive "
+                "and did not help in practice (https://github.com/algbio/tsalign/issues/248). "
+                "Use 'none'."
+            )
         if costs_file is not None:
             costs = pathlib.Path(costs_file).read_text()
         kwargs: dict = {

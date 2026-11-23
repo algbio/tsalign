@@ -69,6 +69,12 @@ pub enum TemplateSwitchMinLengthStrategySelector {
 pub enum TemplateSwitchChainingStrategySelector {
     None,
     // PrecomputeOnly,
+    /// Chain exact reference blocks and use the chain cost as an additional A* lower bound.
+    ///
+    /// Currently disabled in the CLI (issue #248): the memory and time of the precomputation grow with about n^4.8,
+    /// and the chain lower bound was 0 in practice. Remove `#[value(skip)]` to re-enable it.
+    #[value(skip)]
+    #[allow(dead_code, reason = "disabled in the CLI, see issue #248")]
     LowerBound,
 }
 

@@ -118,6 +118,9 @@ pub struct Cli {
     #[clap(long, default_value = "lookahead")]
     ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
 
+    /// The chaining strategy of the classic aligner.
+    ///
+    /// The `lower-bound` strategy is currently disabled (issue #248).
     #[clap(long, default_value = "none")]
     ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
 

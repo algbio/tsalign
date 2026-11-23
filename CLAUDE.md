@@ -76,6 +76,9 @@ cargo fmt --check
   Environment variables: `TSALIGN_E2E_SEED`, `TSALIGN_E2E_RANDOM_CASES`, `TSALIGN_E2E_TIMEOUT_SECS`.
 - `lib_ts_chainalign` has two known failing tests in `windowed_min_mutation_chaining` (tie-breaking); the windowed
   min mutations lower bound is disabled in the CLI.
+- The classic aligner's `lower_bound` chaining strategy (`LowerBoundChainingStrategy`) is disabled in the CLI, the
+  Python bindings and the public `Aligner` API (#248: too expensive, chain lower bound 0 in practice). Its code and its
+  lib-internal tests (`configurable_a_star_align/tests.rs`, via a `#[cfg(test)]` selector variant) are kept.
 
 ## GitHub
 

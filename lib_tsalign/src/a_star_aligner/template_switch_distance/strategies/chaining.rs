@@ -66,11 +66,23 @@ pub struct NoChainingStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
 }
 
+/// Computes the chain like [`LowerBoundChainingStrategy`], but does not use it.
+///
+/// **Disabled:** like [`LowerBoundChainingStrategy`], this cannot be selected in the CLI, the Python bindings
+/// or [`Aligner`](crate::a_star_aligner::configurable_a_star_align::Aligner) (issue #248).
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PrecomputeOnlyChainingStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
 }
 
+/// Chains exact reference blocks and uses the chain cost as an additional A* lower bound.
+///
+/// **Disabled:** this strategy cannot be selected in the CLI, the Python bindings
+/// or [`Aligner`](crate::a_star_aligner::configurable_a_star_align::Aligner),
+/// because it is not worth its cost (issue #248, <https://github.com/algbio/tsalign/issues/248>):
+/// precomputing the lower bound matrices takes time and memory that grow with about n^4.8,
+/// and the resulting chain lower bound was 0 in practice.
+/// The code is kept so that the strategy can be re-enabled later.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct LowerBoundChainingStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
