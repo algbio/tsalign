@@ -165,7 +165,8 @@ impl AlignmentCoordinates {
     ///
     /// The TS kind is given by the `start` coordinates.
     /// The left and right limits of the jump are given by the `start` and `end` coordinates.
-    /// The `end` coordinates must be in primary form and simply be the end of the aligned sequences.
+    /// The `end` coordinates must be in primary form and simply be the end of the full sequences (not of the alignment range),
+    /// since point 2 of a template switch may lie outside of the alignment range.
     /// The `start` coordinates are in secondary form.
     pub fn generate_12_jumps(
         &self,
@@ -331,7 +332,8 @@ impl PrimaryAlignmentCoordinates {
     ///
     /// The TS kind is given by the `start` coordinates.
     /// The left and right limits of the jump are given by the `start` and `end` coordinates.
-    /// The `end` coordinates must be in primary form and simply be the end of the aligned sequences.
+    /// The `end` coordinates must be in primary form and simply be the end of the full sequences (not of the alignment range),
+    /// since point 2 of a template switch may lie outside of the alignment range.
     /// The `start` coordinates are in secondary form.
     pub fn generate_12_jumps(
         &self,

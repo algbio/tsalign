@@ -98,6 +98,14 @@ impl AlignmentSequences {
         self.end
     }
 
+    /// Returns the end of the full sequences, without restricting to the alignment range.
+    ///
+    /// Points 2 and 3 of a template switch may lie outside of the alignment range,
+    /// so this is the limit for 12-jumps.
+    pub fn full_sequence_end(&self) -> PrimaryAlignmentCoordinates {
+        PrimaryAlignmentCoordinates::new(self.seq1.len(), self.seq2.len())
+    }
+
     pub fn secondary_end(&self, ts_kind: TsKind) -> SpecificSecondaryAlignmentCoordinates {
         match ts_kind {
             ts_kind @ (TsKind::TS11 | TsKind::TS21) => {
