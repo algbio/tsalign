@@ -759,7 +759,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "lib_ts_chainalign"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "binary-heap-plus",
  "bincode",
@@ -785,7 +785,7 @@ dependencies = [
 
 [[package]]
 name = "lib_tsalign"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
@@ -806,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "lib_tsshow"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "base64 0.22.1",
  "clap",
@@ -1050,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "py_lib_tsalign"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "compact-genome",
  "lib_tsalign",
@@ -1301,7 +1301,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "seed_chain"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "compact-genome",
  "generic_a_star",
@@ -1703,7 +1703,7 @@ checksum = "2b939c825d0c4295ac520f7b479927c1e5b458c9107a9d6f5ba65bc867bb93a5"
 
 [[package]]
 name = "tsalign"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "tsalign-tests"
-version = "7.0.2"
+version = "8.0.0"
 dependencies = [
  "anyhow",
  "clap",
