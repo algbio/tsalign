@@ -70,6 +70,10 @@ pub fn align_a_star_chain_ts<
         let chaining_lower_bounds = ChainingLowerBounds::read(&mut file).unwrap();
         assert_eq!(chaining_lower_bounds.alignment_costs(), &alignment_costs);
         assert_eq!(chaining_lower_bounds.anchor_k(), k);
+        assert_eq!(
+            chaining_lower_bounds.max_anchor_mutations(),
+            cli.max_anchor_mutations
+        );
         chaining_lower_bounds
     } else {
         assert!(
@@ -99,7 +103,6 @@ pub fn align_a_star_chain_ts<
         reference,
         query,
         range,
-        cli.max_anchor_mutations,
         &performance_parameters,
         &|c| {
             AlphabetType::character_to_ascii(
