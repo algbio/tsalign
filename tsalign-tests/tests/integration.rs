@@ -27,3 +27,9 @@ fn align_with_memory_limit() -> Result<()> {
 fn align_with_embedded_rq_ranges() -> Result<()> {
     run_in_repo_root("align -p test_files/twin_embedded.fa --use-embedded-rq-ranges")
 }
+
+/// Issue #245: the reference is shorter than the block size of the lower bound chaining strategy.
+#[test]
+fn test_align_lower_bound_chaining_short_reference() -> Result<()> {
+    run_in_repo_root("align -p test_files/twin_10_eq.fa --ts-chaining-strategy lower-bound")
+}
