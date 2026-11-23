@@ -12,7 +12,7 @@ use crate::{
     },
     alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::AlignmentCosts,
-    windowed_min_mutation_chaining::ts_34_jump::algo::{Context, Node},
+    gap_fill::windowed_min_mutations::ts_34_jump::algo::{Context, Node},
 };
 
 mod algo;

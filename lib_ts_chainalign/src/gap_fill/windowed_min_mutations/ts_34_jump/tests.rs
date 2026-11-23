@@ -9,7 +9,7 @@ use crate::{
     },
     alignment_history::history_vec::unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
-    windowed_min_mutation_chaining::ts_34_jump::Ts34JumpAligner,
+    gap_fill::windowed_min_mutations::ts_34_jump::Ts34JumpAligner,
 };
 
 fn rc_fn(c: u8) -> u8 {

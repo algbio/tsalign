@@ -6,7 +6,7 @@ use crate::alignment::coordinates::{
     AlignmentCoordinates, PrimaryAlignmentCoordinates, SpecificSecondaryAlignmentCoordinates,
 };
 use crate::alignment::ts_kind::TsKind;
-use crate::max_match_run_chaining::gap_affine::GapAffineAligner;
+use crate::gap_fill::max_match_run::gap_affine::GapAffineAligner;
 use crate::panic_on_extend::PanicOnExtend;
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
 

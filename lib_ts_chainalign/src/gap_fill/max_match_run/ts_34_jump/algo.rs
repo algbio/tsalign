@@ -18,7 +18,7 @@ use crate::{
         ts_kind::TsKind,
     },
     costs::AlignmentCosts,
-    max_match_run_chaining::alignment_search::{
+    gap_fill::max_match_run::alignment_search::{
         AlignmentContext, AlignmentNode, NodeCost, SuccessorOutput,
     },
 };

@@ -9,7 +9,7 @@ use crate::{
         ts_kind::TsKind,
     },
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
-    max_match_run_chaining::ts_12_jump::Ts12JumpAligner,
+    gap_fill::max_match_run::ts_12_jump::Ts12JumpAligner,
 };
 
 fn rc_fn(c: u8) -> u8 {

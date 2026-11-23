@@ -11,7 +11,7 @@ use crate::{
         ts_kind::{TsDescendant, TsKind},
     },
     costs::AlignmentCosts,
-    max_match_run_chaining::{
+    gap_fill::max_match_run::{
         alignment_search::{
             Datastructures, iter_min_cost_nodes_matching, new_dijkstra, search_best_target,
             search_until_cost_limit,

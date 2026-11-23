@@ -20,7 +20,7 @@ use num_traits::bounds::UpperBounded;
 
 use crate::{
     alignment::{Alignment, AlignmentType},
-    max_match_run_chaining::multicriteria_dijkstra::{PruneList, TwoCriteriaCost},
+    gap_fill::max_match_run::multicriteria_dijkstra::{PruneList, TwoCriteriaCost},
 };
 
 /// The cost of a node, consisting of the alignment cost and the length of the current run of matches.

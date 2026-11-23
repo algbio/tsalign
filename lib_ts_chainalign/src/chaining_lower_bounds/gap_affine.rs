@@ -14,7 +14,7 @@ use crate::{
     },
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::GapAffineCosts,
-    max_match_run_chaining::multicriteria_dijkstra::PruneList,
+    gap_fill::max_match_run::multicriteria_dijkstra::PruneList,
 };
 
 mod max_match_run_algo;

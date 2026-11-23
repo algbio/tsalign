@@ -16,7 +16,7 @@ use crate::{
     chaining_cost_function::ChainingCostFunction,
     config::ChainingLowerBoundConfig,
     costs::AlignmentCosts,
-    max_match_run_chaining::{
+    gap_fill::max_match_run::{
         gap_affine::GapAffineAligner, ts_12_jump::Ts12JumpAligner, ts_34_jump::Ts34JumpAligner,
     },
     panic_on_extend::PanicOnExtend,

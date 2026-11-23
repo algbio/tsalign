@@ -1,7 +1,7 @@
 //! The algorithm for computing lower bounds for the case where the match runs of the alignment are limited.
 //!
 //! This uses a bicriteria Dijkstra, minimising the alignment cost and the length of the current match run,
-//! like the aligners in [`max_match_run_chaining`](crate::max_match_run_chaining).
+//! like the aligners in [`max_match_run`](crate::gap_fill::max_match_run).
 
 use std::fmt::Display;
 
@@ -15,7 +15,7 @@ use multicriteria_dijkstra::{
 use crate::{
     alignment::{GapType, coordinates::PrimaryAlignmentCoordinates},
     costs::GapAffineCosts,
-    max_match_run_chaining::alignment_search::{NodeCost, SuccessorOutput},
+    gap_fill::max_match_run::alignment_search::{NodeCost, SuccessorOutput},
 };
 
 pub struct Context<'a, Cost> {
