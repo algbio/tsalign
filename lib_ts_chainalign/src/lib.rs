@@ -9,22 +9,28 @@ use lib_tsalign::a_star_aligner::{
 use log::{debug, info, trace};
 
 use crate::{
-    alignment::{coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    alignment::{coordinates::PrimaryAlignmentCoordinates, sequences::AlignmentSequences},
     anchors::Anchors,
     chain_align::performance_parameters::AlignmentPerformanceParameters,
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::AlignmentCosts,
 };
 
 pub mod alignment;
+pub mod alignment_history;
 pub mod anchors;
 pub mod chain_align;
 pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
+pub mod config;
 pub mod costs;
-pub mod exact_chaining;
+pub mod max_match_run_chaining;
 pub mod panic_on_extend;
+#[cfg(test)]
+mod tests;
+pub mod windowed_min_mutation_chaining;
 
 /// A reverse complement function for DNA alphabets.
 pub fn dna_rc_fn(c: u8) -> u8 {
@@ -40,15 +46,18 @@ pub fn dna_rc_fn(c: u8) -> u8 {
 /// Perform preprocessing for tschainalign.
 ///
 /// * `max_n` is the maximum sequence length that the lower bounds should support.
-/// * `max_match_run` is the maximum consecutive sequence of matches that is allowed.
-///   Set this to `k-1`, if the anchors are supposed to be `k`-mers.
+/// * `anchor_k` is the size of the anchors.
+/// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `alignment_costs` is the cost function for the alignment.
+///
+/// Panics if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
+/// Validate it beforehand to report unsupported parameters as an error.
 pub fn preprocess(
     max_n: usize,
-    max_match_run: u32,
+    config: ChainingLowerBoundConfig,
     alignment_costs: AlignmentCosts<U32Cost>,
 ) -> ChainingLowerBounds<U32Cost> {
-    ChainingLowerBounds::new(max_n, max_match_run, alignment_costs)
+    ChainingLowerBounds::new(max_n, config, alignment_costs)
 }
 
 /// Align two sequences.
@@ -61,10 +70,12 @@ pub fn preprocess(
 /// * `query` is the query string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
 /// * `performance_parameters` is a set of parameters for the aligner that only affect performance.
+///   They do not affect the cost of the optimal chain.
 /// * `rc_fn` is a function that maps a character to its reverse complement.
 /// * `reference_name` is the name of the reference string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `chaining_lower_bounds` are the lower bounds computed with the function [`preprocess`].
+///   Their config also determines the anchors, i.e. the anchor size `k` and the maximum number of mutations allowed in an anchor.
 #[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
@@ -88,12 +99,40 @@ pub fn align<AlphabetType: Alphabet>(
         query,
         reference_name.to_string(),
         query_name.to_string(),
-        AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset()),
-        AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit()),
+        PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
+        PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
-    let k = chaining_lower_bounds.max_match_run() + 1;
+    // The anchors, the gap alignments and the lower bounds must agree on these parameters,
+    // so they are taken from the config of the lower bounds only.
+    let k = chaining_lower_bounds.config().anchor_k;
+    let max_mutations = chaining_lower_bounds.config().max_anchor_mutations;
 
-    let anchors = Anchors::new(&sequences, k, rc_fn);
+    let anchors = if max_mutations == 0 {
+        Anchors::new_exact(&sequences, k, rc_fn)
+    } else {
+        let mut anchors = Anchors::new_inexact(
+            &sequences,
+            k,
+            max_mutations,
+            chaining_lower_bounds.alignment_costs(),
+            rc_fn,
+        );
+        // Pruning dominated anchors is only proven to be sound for the max-match-run chaining.
+        if performance_parameters.prune_dominated_anchors
+            && matches!(
+                chaining_lower_bounds.config().inexact_lower_bound,
+                InexactLowerBoundKind::MaxMatchRun
+            )
+        {
+            anchors.prune_dominated_primary_anchors(
+                &sequences,
+                k,
+                max_mutations,
+                chaining_lower_bounds.alignment_costs(),
+            );
+        }
+        anchors
+    };
     trace!("Anchors:\n{anchors}");
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
         chaining_lower_bounds,
@@ -108,67 +147,8 @@ pub fn align<AlphabetType: Alphabet>(
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
-        chaining_lower_bounds.max_match_run(),
+        chaining_lower_bounds.config(),
         &anchors,
         &mut chaining_cost_function,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
-
-    use crate::costs::{GapAffineCosts, TsLimits};
-
-    use super::*;
-
-    fn align_on_range(reference: &[u8], query: &[u8], range: AlignmentRange) -> (U32Cost, String) {
-        let costs = AlignmentCosts {
-            primary_costs: GapAffineCosts::new(2u32.into(), 3u32.into(), 1u32.into()),
-            secondary_costs: GapAffineCosts::new(4u32.into(), 3u32.into(), 2u32.into()),
-            ts_base_cost: U32Cost::from(2u32).into(),
-            ts_limits: TsLimits {
-                length_23: 8..401,
-                ..TsLimits::new_unlimited()
-            },
-        };
-        let k = 5;
-        let max_n = reference.len().max(query.len()).next_power_of_two();
-        let lower_bounds = preprocess(max_n, k - 1, costs);
-
-        let result = align::<DnaAlphabet>(
-            reference.to_vec(),
-            query.to_vec(),
-            range,
-            &AlignmentPerformanceParameters::default(),
-            &dna_rc_fn,
-            "reference",
-            "query",
-            &lower_bounds,
-        );
-        (result.statistics().result.cost(), result.cigar())
-    }
-
-    /// The template switch starts and ends close to the range edges, matches in between.
-    #[test]
-    fn match_run_between_range_edge_and_template_switch() {
-        let reference = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGTGCATGGCCAG";
-        let query = b"CAAATCCCACACTTGTGTGAGGATGTACACGTGTGTGTGTGTGTGTGTGTGCAAGGCCAG";
-
-        let (cost, cigar) = align_on_range(reference, query, AlignmentRange::new(25, 25, 47, 35));
-        assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
-    }
-
-    /// The template of the template switch lies outside the range
-    #[test]
-    fn template_beyond_range_end() {
-        let reference =
-            b"GATTACAGCTTGACCTAGGCATCGTTAGCAATGCCGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
-        // `reference` with 25..35 replaced by the reverse complement of 60..70.
-        let query =
-            b"GATTACAGCTTGACCTAGGCATCGTACTGCAACGTGTAAGCTTCGAGGTACCTTAGGCTAACGTTGCAGTCCATGGAATC";
-
-        let (cost, cigar) = align_on_range(reference, query, AlignmentRange::new(20, 20, 40, 40));
-        assert_eq!(cost, U32Cost::from(2u32), "{cigar}");
-    }
 }

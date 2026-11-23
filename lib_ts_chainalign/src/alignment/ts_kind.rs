@@ -74,6 +74,35 @@ impl TsKind {
             (TsAncestor::Seq2, TsDescendant::Seq2) => "22",
         }
     }
+
+    pub fn from_index(index: usize) -> Self {
+        match index {
+            0 => Self::TS11,
+            1 => Self::TS12,
+            2 => Self::TS21,
+            3 => Self::TS22,
+            _ => panic!("Invalid index for TsKind: {index}"),
+        }
+    }
+
+    pub fn swap(&self) -> Self {
+        match (self.ancestor, self.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => Self::TS22,
+            (TsAncestor::Seq1, TsDescendant::Seq2) => Self::TS21,
+            (TsAncestor::Seq2, TsDescendant::Seq1) => Self::TS12,
+            (TsAncestor::Seq2, TsDescendant::Seq2) => Self::TS11,
+        }
+    }
+
+    pub fn swap_index(index: usize) -> usize {
+        match index {
+            0 => 3,
+            1 => 2,
+            2 => 1,
+            3 => 0,
+            _ => panic!("Invalid index for TsKind: {index}"),
+        }
+    }
 }
 
 impl TsAncestor {

@@ -156,6 +156,7 @@ class Aligner:
         reference_limit: Optional[int] = None,
         query_start: Optional[int] = None,
         query_limit: Optional[int] = None,
+        gap_characters: str = "",
         cost_limit: Optional[int] = None,
         memory_limit: Optional[int] = None,
     ) -> Optional[Alignment]:
@@ -176,6 +177,8 @@ class Aligner:
             Coordinate window to align within.  When provided, overrides the
             individual ``reference_start`` / ``reference_limit`` /
             ``query_start`` / ``query_limit`` arguments.
+            All coordinates refer to the sequences after removing
+            ``gap_characters``.
         reference_start : int, optional
             Start position in the reference (inclusive).  Default: ``0``.
         reference_limit : int, optional
@@ -184,6 +187,10 @@ class Aligner:
             Start position in the query (inclusive).  Default: ``0``.
         query_limit : int, optional
             End position in the query (exclusive).  Default: full length.
+        gap_characters : str
+            ASCII characters to remove from both sequences before aligning,
+            e.g. ``"-"``.
+            Default: ``""`` (remove nothing).
         cost_limit : int, optional
             Abandon the search and return ``None`` if the alignment cost would
             exceed this value.
@@ -205,14 +212,15 @@ class Aligner:
         inner = self._inner.align(
             reference,
             query,
-            reference_name,
-            query_name,
-            reference_start,
-            reference_limit,
-            query_start,
-            query_limit,
-            cost_limit,
-            memory_limit,
+            reference_name=reference_name,
+            query_name=query_name,
+            reference_start=reference_start,
+            reference_limit=reference_limit,
+            query_start=query_start,
+            query_limit=query_limit,
+            gap_characters=gap_characters,
+            cost_limit=cost_limit,
+            memory_limit=memory_limit,
         )
         return Alignment(inner) if inner is not None else None
 
