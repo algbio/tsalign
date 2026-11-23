@@ -208,9 +208,14 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             query_limit: alignment_range.query_limit(),
 
             cost: (cost.as_f64()).try_into().unwrap(),
-            cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
-                .try_into()
-                .unwrap(),
+            cost_per_base: if reference_length + query_length == 0 {
+                // Avoid NaN when aligning two empty sequences.
+                r64(0.0)
+            } else {
+                ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
+                    .try_into()
+                    .unwrap()
+            },
             duration_seconds: duration_seconds.try_into().unwrap(),
             opened_nodes: (opened_nodes as f64).try_into().unwrap(),
             closed_nodes: (closed_nodes as f64).try_into().unwrap(),
