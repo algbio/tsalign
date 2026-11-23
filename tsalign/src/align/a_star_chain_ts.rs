@@ -33,8 +33,8 @@ pub fn align_a_star_chain_ts<
     reference_name: &str,
     query_name: &str,
 ) -> Result<()> {
-    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory).unwrap();
-    let alignment_costs: AlignmentCosts<_> = alignment_costs.try_into().unwrap();
+    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory)?;
+    let alignment_costs = AlignmentCosts::try_from(alignment_costs)?;
 
     let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {
         warn!("No cache directory specified, dropping files into current working directory.");
