@@ -10,7 +10,7 @@ use crate::{
     },
     alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::GapAffineCosts,
-    windowed_min_mutation_chaining::gap_affine::algo::{Context, Node},
+    gap_fill::windowed_min_mutations::gap_affine::algo::{Context, Node},
 };
 
 mod algo;

@@ -22,7 +22,7 @@ pub struct AlignmentPerformanceParameters<Cost> {
 
     /// Remove dominated inexact primary anchors before chaining.
     ///
-    /// This does not change the cost of the optimal chain, see [`crate::anchors::domination`].
+    /// This does not change the cost of the optimal chain, see the module `anchors::domination`.
     /// It is only applied in the cases in which this is proven.
     /// Disabling it is useful to compare against the chaining with all anchors.
     pub prune_dominated_anchors: bool,

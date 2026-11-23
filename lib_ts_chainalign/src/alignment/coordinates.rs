@@ -41,6 +41,7 @@ impl AlignmentCoordinates {
         Self::Primary(PrimaryAlignmentCoordinates::new(a, b))
     }
 
+    #[cfg(test)]
     pub fn new_secondary(ancestor: usize, descendant: usize, ts_kind: TsKind) -> Self {
         Self::Secondary(SpecificSecondaryAlignmentCoordinates::new(
             ancestor, descendant, ts_kind,
@@ -58,22 +59,6 @@ impl AlignmentCoordinates {
         match self {
             Self::Primary(primary) => Some(primary.b()),
             Self::Secondary { .. } => None,
-        }
-    }
-
-    /// Ancestor right index in the forward sequence.
-    pub fn secondary_ordinate_ancestor(&self) -> Option<usize> {
-        match self {
-            Self::Secondary(secondary) => Some(secondary.ancestor()),
-            Self::Primary { .. } => None,
-        }
-    }
-
-    /// Descendant left index in the forward sequence.
-    pub fn secondary_ordinate_descendant(&self) -> Option<usize> {
-        match self {
-            Self::Secondary(secondary) => Some(secondary.descendant()),
-            Self::Primary { .. } => None,
         }
     }
 
@@ -159,39 +144,6 @@ impl AlignmentCoordinates {
 
     pub fn increment_both(&self) -> Self {
         self.increment_a().increment_b()
-    }
-
-    /// Generate all possible 12-jumps.
-    ///
-    /// The TS kind is given by the `start` coordinates.
-    /// The left and right limits of the jump are given by the `start` and `end` coordinates.
-    /// The `end` coordinates must be in primary form and simply be the end of the full sequences (not of the alignment range),
-    /// since point 2 of a template switch may lie outside of the alignment range.
-    /// The `start` coordinates are in secondary form.
-    pub fn generate_12_jumps(
-        &self,
-        start: SpecificSecondaryAlignmentCoordinates,
-        end: PrimaryAlignmentCoordinates,
-    ) -> impl Iterator<Item = (isize, AnySecondaryAlignmentCoordinates)> {
-        let Self::Primary(primary) = self else {
-            panic!("Can only generate 12-jumps from primary coordinates");
-        };
-
-        primary.generate_12_jumps(start, end)
-    }
-
-    /// Generate all possible 34-jumps.
-    ///
-    /// The `end` coordinates are in primary form and limit the jump to the left of (or into) them.
-    pub fn generate_34_jumps(
-        &self,
-        end: PrimaryAlignmentCoordinates,
-    ) -> impl Iterator<Item = (isize, PrimaryAlignmentCoordinates)> {
-        let Self::Secondary(secondary) = self else {
-            panic!("Can only generate 34-jumps from secondary coordinates");
-        };
-
-        secondary.generate_34_jumps(end)
     }
 }
 
@@ -307,14 +259,6 @@ impl PrimaryAlignmentCoordinates {
         }
     }
 
-    pub fn can_increment_both(
-        &self,
-        end: AlignmentCoordinates,
-        sequences: Option<&AlignmentSequences>,
-    ) -> bool {
-        self.can_increment_a(end, sequences) && self.can_increment_b(end, sequences)
-    }
-
     pub fn can_increment_both_primary(&self, end: PrimaryAlignmentCoordinates) -> bool {
         self.can_increment_a_primary(end) && self.can_increment_b_primary(end)
     }
@@ -363,6 +307,7 @@ impl PrimaryAlignmentCoordinates {
         })
     }
 
+    #[cfg(test)]
     pub fn swap(self) -> Self {
         Self {
             a: self.b,
@@ -499,35 +444,6 @@ impl AnySecondaryAlignmentCoordinates {
         assert_eq!(ts_kind, end.ts_kind());
         // Incrementing ordinate b is always a plus operation, so we only need to check the upper bound.
         self.descendant() < end.descendant()
-    }
-
-    pub fn can_increment_both(
-        &self,
-        end: AlignmentCoordinates,
-        sequences: Option<&AlignmentSequences>,
-        ts_kind: TsKind,
-    ) -> bool {
-        self.can_increment_ancestor(end, sequences, ts_kind)
-            && self.can_increment_descendant(end, sequences, ts_kind)
-    }
-
-    pub fn can_increment_both_primary(
-        &self,
-        end: PrimaryAlignmentCoordinates,
-        sequences: Option<&AlignmentSequences>,
-        ts_kind: TsKind,
-    ) -> bool {
-        self.can_increment_ancestor_primary(sequences)
-            && self.can_increment_descendant_primary(end, sequences, ts_kind)
-    }
-
-    pub fn can_increment_both_secondary(
-        &self,
-        end: SpecificSecondaryAlignmentCoordinates,
-        ts_kind: TsKind,
-    ) -> bool {
-        self.can_increment_ancestor_secondary(end, ts_kind)
-            && self.can_increment_descendant_secondary(end, ts_kind)
     }
 
     /// Generate all possible 34-jumps.
@@ -678,14 +594,6 @@ impl SpecificSecondaryAlignmentCoordinates {
     ) -> bool {
         AnySecondaryAlignmentCoordinates::from(*self)
             .can_increment_descendant_secondary(end, self.ts_kind)
-    }
-
-    pub fn can_increment_both(
-        &self,
-        end: AlignmentCoordinates,
-        sequences: Option<&AlignmentSequences>,
-    ) -> bool {
-        self.can_increment_ancestor(end, sequences) && self.can_increment_descendant(end, sequences)
     }
 
     pub fn can_increment_both_primary(

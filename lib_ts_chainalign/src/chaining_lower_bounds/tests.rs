@@ -8,7 +8,7 @@ use crate::{
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::{AlignmentCosts, GapAffineCosts, TsBaseCost, TsLimits},
-    max_match_run_chaining::gap_affine::GapAffineAligner,
+    gap_fill::max_match_run::gap_affine::GapAffineAligner,
     panic_on_extend::PanicOnExtend,
 };
 

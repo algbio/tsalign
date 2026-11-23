@@ -12,10 +12,10 @@ use crate::{
 };
 
 mod cost_array;
-pub mod gap_affine;
+pub(crate) mod gap_affine;
 #[cfg(test)]
 mod tests;
-pub mod ts_jump;
+pub(crate) mod ts_jump;
 
 pub struct ChainingLowerBounds<Cost> {
     primary: GapAffineLowerBounds<Cost>,

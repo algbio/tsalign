@@ -7,10 +7,7 @@ use num_traits::Zero;
 
 use crate::{
     alignment::{
-        coordinates::{
-            AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
-            range::{PrimaryAlignmentRange, SpecificSecondaryAlignmentRange},
-        },
+        coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
@@ -27,7 +24,9 @@ use crate::{
 pub mod domination;
 pub mod exact_kmer_matches;
 pub mod index;
-pub mod inexact_kmer_matches;
+/// Superseded by the crate `inexact_alignment_anchors`, only kept for its tests.
+#[cfg(test)]
+mod inexact_kmer_matches;
 pub mod kmers;
 pub mod primary;
 pub mod reverse_lookup;
@@ -328,7 +327,11 @@ impl<Cost> Anchors<Cost> {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
-    pub fn primary_index_from_range(&self, range: PrimaryAlignmentRange) -> Option<AnchorIndex>
+    #[cfg(test)]
+    pub fn primary_index_from_range(
+        &self,
+        range: crate::alignment::coordinates::range::PrimaryAlignmentRange,
+    ) -> Option<AnchorIndex>
     where
         Cost: Copy,
     {
@@ -363,9 +366,10 @@ impl<Cost> Anchors<Cost> {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
+    #[cfg(test)]
     pub fn secondary_index_from_range(
         &self,
-        start: SpecificSecondaryAlignmentRange,
+        start: crate::alignment::coordinates::range::SpecificSecondaryAlignmentRange,
     ) -> Option<AnchorIndex>
     where
         Cost: Copy,

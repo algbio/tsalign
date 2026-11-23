@@ -16,9 +16,7 @@ pub struct Kmer<Store> {
     kmer: Store,
 }
 
-pub type Kmer64 = Kmer<u128>;
-pub type Kmer32 = Kmer<u64>;
-pub type Kmer16 = Kmer<u32>;
+#[cfg(test)]
 pub type Kmer8 = Kmer<u16>;
 
 impl KmerStore for u128 {}
@@ -81,6 +79,7 @@ impl<Store: KmerStore> LowerBounded for Kmer<Store> {
 }
 
 impl<Store: KmerStore> Kmer<Store> {
+    #[cfg(test)]
     pub fn push(&mut self, char: u8) {
         self.kmer <<= 2;
         self.kmer |= char_to_bits(char);

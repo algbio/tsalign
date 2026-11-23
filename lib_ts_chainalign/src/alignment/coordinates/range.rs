@@ -1,10 +1,7 @@
 use std::ops::Range;
 
 use crate::alignment::{
-    coordinates::{
-        AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates,
-        SpecificSecondaryAlignmentCoordinates,
-    },
+    coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
     ts_kind::TsKind,
 };
 
@@ -61,14 +58,17 @@ impl PrimaryAlignmentRange {
         self.limit
     }
 
+    #[cfg(test)]
     pub fn len_a(&self) -> usize {
         self.limit.a() - self.offset.a()
     }
 
+    #[cfg(test)]
     pub fn len_b(&self) -> usize {
         self.limit.b() - self.offset.b()
     }
 
+    #[cfg(test)]
     pub fn swap(self) -> Self {
         Self {
             offset: self.offset.swap(),
@@ -113,24 +113,12 @@ impl AnySecondaryAlignmentRange {
         self.limit
     }
 
+    #[cfg(test)]
     pub fn into_specific(self, ts_kind: TsKind) -> SpecificSecondaryAlignmentRange {
         SpecificSecondaryAlignmentRange::new(self.offset, self.limit, ts_kind)
     }
 
-    pub fn len_ancestor(&self) -> usize {
-        self.offset
-            .ancestor()
-            .checked_sub(self.limit.ancestor())
-            .unwrap()
-    }
-
-    pub fn len_descendant(&self) -> usize {
-        self.limit
-            .descendant()
-            .checked_sub(self.offset.descendant())
-            .unwrap()
-    }
-
+    #[cfg(test)]
     pub fn swap(self) -> Self {
         Self {
             offset: AnySecondaryAlignmentCoordinates::new(
@@ -146,6 +134,7 @@ impl AnySecondaryAlignmentRange {
 }
 
 impl SpecificSecondaryAlignmentRange {
+    #[cfg(test)]
     pub fn new(
         offset: AnySecondaryAlignmentCoordinates,
         limit: AnySecondaryAlignmentCoordinates,
@@ -158,38 +147,9 @@ impl SpecificSecondaryAlignmentRange {
         }
     }
 
-    pub fn new_from_ranges(
-        ancestor: Range<usize>,
-        descendant: Range<usize>,
-        ts_kind: TsKind,
-    ) -> Self {
-        let offset = AnySecondaryAlignmentCoordinates::new(ancestor.start, descendant.start);
-        let limit = AnySecondaryAlignmentCoordinates::new(ancestor.end, descendant.end);
-        Self::new(offset, limit, ts_kind)
-    }
-
-    pub fn new_equal_length(offset: SpecificSecondaryAlignmentCoordinates, length: usize) -> Self {
-        let limit = AnySecondaryAlignmentCoordinates::new(
-            offset.ancestor().checked_sub(length).unwrap(),
-            offset.descendant() + length,
-        );
-        Self::new(offset.into(), limit, offset.ts_kind())
-    }
-
-    pub fn offset(&self) -> AnySecondaryAlignmentCoordinates {
-        self.range.offset
-    }
-
-    pub fn limit(&self) -> AnySecondaryAlignmentCoordinates {
-        self.range.limit
-    }
-
+    #[cfg(test)]
     pub fn ts_kind(&self) -> TsKind {
         self.ts_kind
-    }
-
-    pub fn into_any(self) -> AnySecondaryAlignmentRange {
-        self.range
     }
 }
 

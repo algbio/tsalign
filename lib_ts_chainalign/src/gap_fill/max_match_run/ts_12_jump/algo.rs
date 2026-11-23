@@ -18,19 +18,17 @@ use crate::{
         ts_kind::TsKind,
     },
     costs::AlignmentCosts,
-    max_match_run_chaining::alignment_search::{
+    gap_fill::max_match_run::alignment_search::{
         AlignmentContext, AlignmentNode, NodeCost, SuccessorOutput,
     },
 };
-
-const DEBUG_EXACT_34_JUMP: bool = false;
 
 pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-    start: SpecificSecondaryAlignmentCoordinates,
-    end: PrimaryAlignmentCoordinates,
+    start: PrimaryAlignmentCoordinates,
+    end: SpecificSecondaryAlignmentCoordinates,
     enforce_non_match: bool,
     max_match_run: u32,
     enforcement_offset: u8,
@@ -49,17 +47,17 @@ pub struct Node<Cost> {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Identifier {
-    Secondary {
-        coordinates: AnySecondaryAlignmentCoordinates,
+    Primary {
+        coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
     },
-    Jump34 {
-        coordinates: PrimaryAlignmentCoordinates,
+    Jump12 {
+        coordinates: AnySecondaryAlignmentCoordinates,
         has_non_match: bool,
     },
-    Primary {
-        coordinates: PrimaryAlignmentCoordinates,
+    Secondary {
+        coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
         final_unenforced_section: bool,
@@ -72,8 +70,8 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-        start: SpecificSecondaryAlignmentCoordinates,
-        end: PrimaryAlignmentCoordinates,
+        start: PrimaryAlignmentCoordinates,
+        end: SpecificSecondaryAlignmentCoordinates,
         enforce_non_match: bool,
         max_match_run: u32,
         enforcement_offset: u8,
@@ -92,16 +90,22 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         }
     }
 
+    /// Returns true if the primary part of the alignment must start with a non-match.
+    ///
+    /// If non-matches are enforced next to anchors, then a primary part that starts at a primary anchor must start with a non-match,
+    /// unless it is empty.
+    /// The start of the alignment is no anchor.
+    fn requires_start_non_match(&self) -> bool {
+        self.enforce_non_match_next_to_anchors && self.start != self.sequences.primary_start()
+    }
+
     /// Returns true if an alignment ending in the given node fulfils the condition on its last alignment operation.
     ///
-    /// If non-matches are enforced next to anchors, then a primary part that ends at a primary anchor must end with a non-match,
+    /// If non-matches are enforced next to anchors, then the secondary part of the alignment must end with a non-match,
     /// unless it is empty.
-    /// The end of the alignment is no anchor.
     /// The jump itself does not count as match, so jump nodes have a match run of zero.
     pub fn fulfils_end_condition(&self, node: &Node<Cost>) -> bool {
-        !self.enforce_non_match_next_to_anchors
-            || node.identifier.coordinates(self.ts_kind()) == self.sequences.primary_end().into()
-            || node.cost.match_run == 0
+        !self.enforce_non_match_next_to_anchors || node.cost.match_run == 0
     }
 
     /// Returns true if nodes with the given identifier are targets.
@@ -111,7 +115,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
     }
 
     pub fn ts_kind(&self) -> TsKind {
-        self.start.ts_kind()
+        self.end.ts_kind()
     }
 }
 
@@ -121,14 +125,14 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
     fn generate_root_nodes(&self, output: &mut impl Extend<NodeWithIsTarget<Self::Node>>) {
         output.extend(std::iter::once(NodeWithIsTarget {
             node: Node {
-                identifier: Identifier::Secondary {
-                    coordinates: self.start.into(),
+                identifier: Identifier::Primary {
+                    coordinates: self.start,
                     gap_type: GapType::None,
                     has_non_match: false,
                 },
                 predecessor_alignment_type: None,
                 cost: NodeCost {
-                    cost: Cost::zero(),
+                    cost: self.costs.ts_base_cost.get(self.end.ts_kind()),
                     match_run: 0,
                 },
             },
@@ -158,44 +162,38 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
         } = node;
         let match_run = *current_match_run;
 
-        let is_secondary = matches!(identifier, Identifier::Secondary { .. });
-        let gap_affine_costs = if is_secondary {
-            &self.costs.secondary_costs
-        } else {
+        let is_primary = matches!(identifier, Identifier::Primary { .. });
+        let gap_affine_costs = if is_primary {
             &self.costs.primary_costs
+        } else {
+            &self.costs.secondary_costs
         };
 
         match *identifier {
-            Identifier::Secondary {
+            Identifier::Primary {
                 coordinates,
                 gap_type,
                 has_non_match,
             } => {
-                let coordinates = coordinates.into_specific(self.ts_kind());
-
                 // Generate gap-affine successors.
-                if coordinates.can_increment_both_primary(self.end, Some(self.sequences)) {
-                    let (ca, cb) = self.sequences.secondary_characters(coordinates, self.rc_fn);
+                if coordinates.can_increment_both_secondary(self.end, Some(self.sequences)) {
+                    let (ca, cb) = self.sequences.primary_characters(coordinates);
                     let is_match = ca == cb;
 
                     if is_match {
                         // Disallow runs of matches longer than the maximum.
                         // This is because we do not want the exact chaining to find new anchors (which actually already exist).
-                        // If non-matches are enforced next to anchors, the secondary part must start with a non-match,
-                        // since it starts at a secondary anchor.
                         if (match_run < self.max_match_run
-                            || (self.start.ancestor() - coordinates.ancestor()
-                                < self.enforcement_offset.into()
-                                && coordinates.descendant() - self.start.descendant()
+                            || (coordinates.a() - self.start.a() < self.enforcement_offset.into()
+                                && coordinates.b() - self.start.b()
                                     < self.enforcement_offset.into()))
-                            && !(coordinates == self.start
-                                && self.enforce_non_match_next_to_anchors)
+                            && !(coordinates == self.start && self.requires_start_non_match())
                         {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
-                                identifier: Identifier::new_secondary(
-                                    coordinates.increment_both(1).into(),
+                                identifier: Identifier::new_primary(
+                                    coordinates.increment_both(1),
                                     GapType::None,
                                     has_non_match,
                                 ),
@@ -210,8 +208,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
-                            identifier: Identifier::new_secondary(
-                                coordinates.increment_both(1).into(),
+                            identifier: Identifier::new_primary(
+                                coordinates.increment_both(1),
                                 GapType::None,
                                 true,
                             ),
@@ -224,7 +222,7 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                     }
                 }
 
-                if coordinates.can_increment_ancestor_primary(Some(self.sequences)) {
+                if coordinates.can_increment_a_secondary(self.end, Some(self.sequences)) {
                     // Gap in b
                     let new_cost = *cost
                         + match gap_type {
@@ -232,8 +230,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_secondary(
-                            coordinates.increment_ancestor().into(),
+                        identifier: Identifier::new_primary(
+                            coordinates.increment_a(),
                             GapType::InB,
                             true,
                         ),
@@ -245,7 +243,7 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                     }));
                 }
 
-                if coordinates.can_increment_descendant_primary(self.end, Some(self.sequences)) {
+                if coordinates.can_increment_b_secondary(self.end, Some(self.sequences)) {
                     // Gap in a
                     let new_cost = *cost
                         + match gap_type {
@@ -253,8 +251,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_secondary(
-                            coordinates.increment_descendant().into(),
+                        identifier: Identifier::new_primary(
+                            coordinates.increment_b(),
                             GapType::InA,
                             true,
                         ),
@@ -267,54 +265,53 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                 }
 
                 // Generate jump successors.
+                // We do not count the jump costs here, because all paths anyways need to jump at some point.
+                // Instead, we count them at the start.
                 let new_cost = *cost;
 
                 // This generates too many jumps, most of these are gonna be much too far.
-                output.extend(coordinates.generate_34_jumps(self.end).map(
-                    |(jump, coordinates)| {
-                        if DEBUG_EXACT_34_JUMP {
-                            println!(
-                                "Jump from {} to {coordinates} by {jump}",
-                                node.identifier.coordinates(self.ts_kind())
-                            );
-                        }
-                        Node {
-                            identifier: Identifier::Jump34 {
+                output.extend(
+                    coordinates
+                        .generate_12_jumps(self.end, self.sequences.full_sequence_end())
+                        .map(|(jump, coordinates)| Node {
+                            identifier: Identifier::Jump12 {
                                 coordinates,
                                 has_non_match,
                             },
-                            predecessor_alignment_type: Some(AlignmentType::TsEnd { jump }),
+                            predecessor_alignment_type: Some(AlignmentType::TsStart {
+                                jump,
+                                ts_kind: self.ts_kind(),
+                            }),
                             cost: NodeCost {
                                 cost: new_cost,
                                 match_run: 0,
                             },
-                        }
-                    },
-                ));
+                        }),
+                );
             }
-
-            Identifier::Jump34 {
+            Identifier::Jump12 {
                 coordinates,
                 has_non_match,
             }
-            | Identifier::Primary {
+            | Identifier::Secondary {
                 coordinates,
                 has_non_match,
                 ..
             } => {
+                let coordinates = coordinates.into_specific(self.ts_kind());
                 let gap_type = identifier.gap_type();
 
                 // Generate a successor into a possible final unenforced section.
                 // The jump node may enter it directly only if the maximum match run is zero and anchors are inexact,
-                // such that the primary part may consist of matches only (up to the enforcement offset).
+                // such that the secondary part may consist of matches only (up to the enforcement offset).
                 // Otherwise, this is redundant: with a positive maximum match run, the section can be entered
                 // after one ordinary match with the same limit, and with exact anchors it allows no additional matches.
                 if !identifier.final_unenforced_section()
-                    && (matches!(identifier, Identifier::Primary { .. })
+                    && (matches!(identifier, Identifier::Secondary { .. })
                         || (self.max_match_run == 0 && self.enforcement_offset > 0))
                 {
-                    let identifier = Identifier::Primary {
-                        coordinates,
+                    let identifier = Identifier::Secondary {
+                        coordinates: coordinates.into_any(),
                         gap_type,
                         has_non_match,
                         final_unenforced_section: true,
@@ -329,8 +326,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                 let final_unenforced_section = identifier.final_unenforced_section();
 
                 // Generate gap-affine successors.
-                if coordinates.can_increment_both_primary(self.end) {
-                    let (ca, cb) = self.sequences.primary_characters(coordinates);
+                if coordinates.can_increment_both_secondary(self.end) {
+                    let (ca, cb) = self.sequences.secondary_characters(coordinates, self.rc_fn);
                     let is_match = ca == cb;
 
                     if is_match {
@@ -343,8 +340,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
-                                identifier: Identifier::new_primary(
-                                    coordinates.increment_both(1),
+                                identifier: Identifier::new_secondary(
+                                    coordinates.increment_both(1).into(),
                                     GapType::None,
                                     has_non_match,
                                     final_unenforced_section,
@@ -360,8 +357,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
                         output.extend(std::iter::once(Node {
-                            identifier: Identifier::new_primary(
-                                coordinates.increment_both(1),
+                            identifier: Identifier::new_secondary(
+                                coordinates.increment_both(1).into(),
                                 GapType::None,
                                 true,
                                 final_unenforced_section,
@@ -375,7 +372,9 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                     }
                 }
 
-                if coordinates.can_increment_a_primary(self.end) && !final_unenforced_section {
+                if coordinates.can_increment_ancestor_secondary(self.end)
+                    && !final_unenforced_section
+                {
                     // Gap in b
                     let new_cost = *cost
                         + match gap_type {
@@ -383,8 +382,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary(
-                            coordinates.increment_a(),
+                        identifier: Identifier::new_secondary(
+                            coordinates.increment_ancestor().into(),
                             GapType::InB,
                             true,
                             final_unenforced_section,
@@ -397,7 +396,9 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                     }));
                 }
 
-                if coordinates.can_increment_b_primary(self.end) && !final_unenforced_section {
+                if coordinates.can_increment_descendant_secondary(self.end)
+                    && !final_unenforced_section
+                {
                     // Gap in a
                     let new_cost = *cost
                         + match gap_type {
@@ -405,8 +406,8 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
                             _ => gap_affine_costs.gap_open,
                         };
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier::new_primary(
-                            coordinates.increment_b(),
+                        identifier: Identifier::new_secondary(
+                            coordinates.increment_descendant().into(),
                             GapType::InA,
                             true,
                             final_unenforced_section,
@@ -429,11 +430,11 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
 
 impl<Cost: AStarCost> AlignmentContext for Context<'_, '_, '_, Cost> {
     fn target_identifiers(&self) -> impl Iterator<Item = Identifier> {
-        let coordinates = self.end;
+        let coordinates = self.end.into();
         [false, true]
             .into_iter()
             .flat_map(move |has_non_match| {
-                std::iter::once(Identifier::Jump34 {
+                std::iter::once(Identifier::Jump12 {
                     coordinates,
                     has_non_match,
                 })
@@ -441,7 +442,7 @@ impl<Cost: AStarCost> AlignmentContext for Context<'_, '_, '_, Cost> {
                     [GapType::None, GapType::InA, GapType::InB]
                         .into_iter()
                         .flat_map(move |gap_type| {
-                            [false, true].map(|final_unenforced_section| Identifier::Primary {
+                            [false, true].map(|final_unenforced_section| Identifier::Secondary {
                                 coordinates,
                                 gap_type,
                                 has_non_match,
@@ -481,13 +482,11 @@ impl Identifier {
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
-        final_unenforced_section: bool,
     ) -> Self {
         Identifier::Primary {
             coordinates,
             gap_type,
             has_non_match,
-            final_unenforced_section,
         }
     }
 
@@ -495,18 +494,20 @@ impl Identifier {
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
         has_non_match: bool,
+        final_unenforced_section: bool,
     ) -> Self {
         Identifier::Secondary {
             coordinates,
             gap_type,
             has_non_match,
+            final_unenforced_section,
         }
     }
 
     pub fn coordinates(&self, ts_kind: TsKind) -> AlignmentCoordinates {
         match self {
             Identifier::Primary { coordinates, .. } => coordinates.into(),
-            Identifier::Jump34 { coordinates, .. } => coordinates.into(),
+            Identifier::Jump12 { coordinates, .. } => coordinates.into_specific(ts_kind).into(),
             Identifier::Secondary { coordinates, .. } => coordinates.into_specific(ts_kind).into(),
         }
     }
@@ -514,7 +515,7 @@ impl Identifier {
     pub fn gap_type(&self) -> GapType {
         match self {
             Identifier::Primary { gap_type, .. } => *gap_type,
-            Identifier::Jump34 { .. } => GapType::None,
+            Identifier::Jump12 { .. } => GapType::None,
             Identifier::Secondary { gap_type, .. } => *gap_type,
         }
     }
@@ -522,14 +523,14 @@ impl Identifier {
     pub fn has_non_match(&self) -> bool {
         match self {
             Identifier::Primary { has_non_match, .. } => *has_non_match,
-            Identifier::Jump34 { has_non_match, .. } => *has_non_match,
+            Identifier::Jump12 { has_non_match, .. } => *has_non_match,
             Identifier::Secondary { has_non_match, .. } => *has_non_match,
         }
     }
 
     pub fn final_unenforced_section(&self) -> bool {
         match self {
-            Identifier::Primary {
+            Identifier::Secondary {
                 final_unenforced_section,
                 ..
             } => *final_unenforced_section,
@@ -547,17 +548,25 @@ impl<Cost: Display> Display for Node<Cost> {
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Identifier::Primary {
+            Self::Primary {
                 coordinates,
                 gap_type,
-                ..
-            } => write!(f, "P({coordinates}, {gap_type})"),
-            Identifier::Jump34 { coordinates, .. } => write!(f, "J({coordinates})"),
-            Identifier::Secondary {
+                has_non_match,
+            } => write!(f, "P({}, {}, {})", coordinates, gap_type, has_non_match,),
+            Self::Jump12 {
+                coordinates,
+                has_non_match,
+            } => write!(f, "J({}, {})", coordinates, has_non_match),
+            Self::Secondary {
                 coordinates,
                 gap_type,
-                ..
-            } => write!(f, "S({coordinates}, {gap_type})"),
+                has_non_match,
+                final_unenforced_section,
+            } => write!(
+                f,
+                "S({}, {}, {}, {})",
+                coordinates, gap_type, has_non_match, final_unenforced_section,
+            ),
         }
     }
 }

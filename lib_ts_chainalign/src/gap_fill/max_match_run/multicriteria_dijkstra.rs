@@ -179,11 +179,6 @@ where
         self.nodes.len()
     }
 
-    /// Returns true if no nodes were inserted.
-    pub fn is_empty(&self) -> bool {
-        self.nodes.is_empty()
-    }
-
     /// Returns true if the given front entry is pruned by a target node other than itself.
     fn is_entry_dominated_by_target(&self, entry: &FrontEntry<Node::Cost>) -> bool {
         self.targets
@@ -206,20 +201,6 @@ where
                     .map(|entry| &self.nodes[entry.index].node),
             )
         })
-    }
-
-    /// Returns the node with the smallest first criterion at the given identifier.
-    ///
-    /// Nodes dominated by a target node other than themselves are skipped.
-    pub fn min_first_node_at(&self, identifier: &Node::Identifier) -> Option<&Node>
-    where
-        Node::Identifier: Hash,
-    {
-        self.fronts
-            .get(identifier)?
-            .iter()
-            .find(|entry| !self.is_entry_dominated_by_target(entry))
-            .map(|entry| &self.nodes[entry.index].node)
     }
 
     /// Returns the node with the smallest first criterion among the nodes at the given identifier that match the filter.

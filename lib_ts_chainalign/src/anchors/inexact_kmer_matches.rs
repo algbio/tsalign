@@ -1,65 +1,17 @@
-use std::{iter, mem, ops::RangeBounds};
+use std::iter;
 
 use extend_map::ExtendMap;
 use generic_a_star::cost::AStarCost;
 use integer_composition::WeakKCompositionIterator;
-use itertools::{Itertools, iproduct};
-use num_traits::bounds::LowerBounded;
+use itertools::Itertools;
 
 use crate::{
-    anchors::{
-        exact_kmer_matches::compute_exact_kmers,
-        kmers::{Kmer, KmerStore},
-    },
+    anchors::kmers::{Kmer, KmerStore},
     costs::GapAffineCosts,
 };
 
 #[cfg(test)]
 mod tests;
-
-struct Cluster<Store, Cost> {
-    indexes_a: Vec<(usize, Cost)>,
-    indexes_b: Vec<usize>,
-    kmer: Kmer<Store>,
-}
-
-impl<Store, Cost> Cluster<Store, Cost> {
-    /// Creates a new cluster with the given k-mer.
-    fn new(kmer: Kmer<Store>) -> Self {
-        Self {
-            indexes_a: Vec::new(),
-            indexes_b: Vec::new(),
-            kmer,
-        }
-    }
-
-    /// Resets the cluster with a new k-mer and returns an iterator over the previous matches.
-    fn reset(&mut self, kmer: Kmer<Store>) -> impl Iterator<Item = (usize, usize, Cost)>
-    where
-        Cost: Clone,
-    {
-        self.kmer = kmer;
-        let indexes_a = mem::take(&mut self.indexes_a);
-        let indexes_b = mem::take(&mut self.indexes_b);
-
-        iproduct!(indexes_a, indexes_b).map(|((a, c), b)| (a, b, c))
-    }
-
-    /// Returns the current k-mer of the cluster.
-    fn kmer(&self) -> &Kmer<Store> {
-        &self.kmer
-    }
-
-    /// Pushes a k-mer incidence from sequence A into the cluster.
-    fn push_a(&mut self, index: usize, cost: Cost) {
-        self.indexes_a.push((index, cost));
-    }
-
-    /// Pushes a k-mer incidence from sequence B into the cluster.
-    fn push_b(&mut self, index: usize) {
-        self.indexes_b.push(index);
-    }
-}
 
 /// Compute the k-mers of the given `sequence`, and all l-mers that can be created by mutating these k-mers up to `max_mutations` times.
 ///
@@ -311,82 +263,4 @@ fn generate_kmer_substitutions<Store: KmerStore, Cost: AStarCost>(
             output.extend(iter::once((result_kmer, cost)));
         }
     }
-}
-
-/// For each k in the given range, computes all k-mers of a sequence and returns them in alphabetical order.
-/// The result is a [`Vec`] of `Vec`s, with one inner `Vec` for each k.
-///
-/// * `applied_sequence_offset` is the offset to apply to the k-mer positions.
-///   If the sequence is for example a subsequence starting at position `i`, then `applied_sequence_offset` should be set to `i`.
-pub fn compute_exact_kmers_range<Store: KmerStore>(
-    sequence: &[u8],
-    applied_sequence_offset: usize,
-    k_range: &impl RangeBounds<usize>,
-) -> Vec<Vec<(Kmer<Store>, usize)>> {
-    let start_inclusive = match k_range.start_bound() {
-        std::ops::Bound::Included(start) => *start,
-        std::ops::Bound::Excluded(start) => start + 1,
-        std::ops::Bound::Unbounded => 0,
-    };
-    let end_exclusive = match k_range.end_bound() {
-        std::ops::Bound::Included(end) => end + 1,
-        std::ops::Bound::Excluded(end) => *end,
-        std::ops::Bound::Unbounded => sequence.len() + 1,
-    };
-
-    (start_inclusive..end_exclusive)
-        .map(|k| compute_exact_kmers::<Store>(sequence, applied_sequence_offset, k))
-        .collect()
-}
-
-/// Computes the inexact k-mer matches between the two sequences.
-///
-/// The inexact k-mer matches are exact matches between the inexact k-mers of the first sequence and the exact k-mers of the second sequence.
-///
-/// # Return value
-/// (`first_sequence_offset`, `second_sequence_offset`, `cost`)
-pub fn find_inexact_kmer_matches<Store: KmerStore, Cost: AStarCost>(
-    mut a: &[(Kmer<Store>, usize, Cost)],
-    mut b: &[(Kmer<Store>, usize)],
-) -> Vec<(usize, usize, Cost)> {
-    debug_assert!(a.is_sorted());
-    debug_assert!(b.is_sorted());
-
-    let mut result = Vec::new();
-    let mut cluster = Cluster::new(Kmer::min_value());
-
-    while let (Some((kmer_a, index_a, cost)), Some((kmer_b, index_b))) = (a.first(), b.first()) {
-        if kmer_a < kmer_b {
-            a = &a[1..];
-
-            if kmer_a != cluster.kmer() {
-                result.extend(cluster.reset(*kmer_a));
-            }
-            cluster.push_a(*index_a, *cost);
-        } else {
-            b = &b[1..];
-
-            if kmer_b != cluster.kmer() {
-                result.extend(cluster.reset(*kmer_b));
-            }
-            cluster.push_b(*index_b);
-        }
-    }
-
-    for (kmer, index, cost) in a {
-        if kmer != cluster.kmer() {
-            result.extend(cluster.reset(*kmer));
-        }
-        cluster.push_a(*index, *cost);
-    }
-
-    for (kmer, index) in b {
-        if kmer != cluster.kmer() {
-            result.extend(cluster.reset(*kmer));
-        }
-        cluster.push_b(*index);
-    }
-
-    result.extend(cluster.reset(*cluster.kmer()));
-    result
 }

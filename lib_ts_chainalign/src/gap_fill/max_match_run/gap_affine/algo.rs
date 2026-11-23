@@ -12,7 +12,7 @@ use crate::{
         AlignmentType, GapType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
-    max_match_run_chaining::alignment_search::{AlignmentContext, AlignmentNode, NodeCost},
+    gap_fill::max_match_run::alignment_search::{AlignmentContext, AlignmentNode, NodeCost},
 };
 
 pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {

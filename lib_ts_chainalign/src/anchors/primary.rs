@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Range};
+use std::fmt::Display;
 
 use num_traits::Zero;
 
@@ -26,7 +26,12 @@ impl<Cost> PrimaryAnchor<Cost> {
         Self { range, cost }
     }
 
-    pub fn new_from_ranges(seq1: Range<usize>, seq2: Range<usize>, cost: Cost) -> Self {
+    #[cfg(test)]
+    pub fn new_from_ranges(
+        seq1: std::ops::Range<usize>,
+        seq2: std::ops::Range<usize>,
+        cost: Cost,
+    ) -> Self {
         Self::new(PrimaryAlignmentRange::new_from_ranges(seq1, seq2), cost)
     }
 
@@ -59,6 +64,7 @@ impl<Cost> PrimaryAnchor<Cost> {
         self.cost
     }
 
+    #[cfg(test)]
     pub fn is_at(&self, range: PrimaryAlignmentRange) -> bool {
         self.range == range
     }
@@ -119,6 +125,7 @@ impl<Cost> PrimaryAnchor<Cost> {
             && successor.cost.is_zero()
     }
 
+    #[cfg(test)]
     pub fn swap(self) -> Self {
         Self {
             range: self.range.swap(),

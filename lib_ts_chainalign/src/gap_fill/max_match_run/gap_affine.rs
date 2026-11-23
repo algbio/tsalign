@@ -9,7 +9,7 @@ use crate::{
         sequences::AlignmentSequences,
     },
     costs::GapAffineCosts,
-    max_match_run_chaining::{
+    gap_fill::max_match_run::{
         alignment_search::{
             Datastructures, Dijkstra, iter_min_cost_nodes_matching, new_dijkstra,
             search_best_target, search_until_cost_limit,
@@ -22,7 +22,7 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
-/// Aligns with a bicriteria Dijkstra, see [`alignment_search`](crate::max_match_run_chaining::alignment_search).
+/// Aligns with a bicriteria Dijkstra, see [`alignment_search`](crate::gap_fill::max_match_run::alignment_search).
 pub struct GapAffineAligner<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost> {
     datastructures: Option<Datastructures<Node<Cost>>>,
     sequences: &'sequences AlignmentSequences,
@@ -59,6 +59,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// By default, non-matches are enforced next to anchors for exact anchors (`enforcement_offset == 0`),
     /// where the lower bounds assume it.
     /// This allows to use the aligner for alignments between arbitrary coordinates.
+    #[cfg(test)]
     pub fn without_enforced_non_match_next_to_anchors(mut self) -> Self {
         self.enforce_non_match_next_to_anchors = false;
         self

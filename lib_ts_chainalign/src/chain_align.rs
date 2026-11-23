@@ -47,7 +47,7 @@ mod chainer;
 mod evaluation;
 pub mod performance_parameters;
 
-pub fn align<Cost: AStarCost>(
+pub(crate) fn align<Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
@@ -80,7 +80,7 @@ pub fn align<Cost: AStarCost>(
     }
 }
 
-pub fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
+pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
