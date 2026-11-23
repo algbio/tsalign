@@ -44,7 +44,7 @@ use super::{
     template_switch_distance::{
         AlignmentType,
         strategies::{
-            chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
+            chaining::{ChainingStrategy, NoChainingStrategy},
             node_ord::AntiDiagonalNodeOrdStrategy,
             primary_match::AllowPrimaryMatchStrategy,
             template_switch_count::{
@@ -65,6 +65,9 @@ use super::{
 
 pub use compact_genome::implementation::alphabets;
 pub use compact_genome::interface::alphabet::Alphabet;
+
+#[cfg(test)]
+use super::template_switch_distance::strategies::chaining::LowerBoundChainingStrategy;
 
 #[cfg(test)]
 mod tests;
@@ -91,6 +94,13 @@ pub enum ChainingStrategySelector {
     #[default]
     None,
     // PrecomputeOnly,
+    /// Use [`LowerBoundChainingStrategy`].
+    ///
+    /// **Disabled** (issue #248): this variant exists only in tests of this crate,
+    /// so it cannot be selected through the public API or deserialised (e.g. from Python).
+    /// The memory and time of the precomputation grow with about n^4.8, and the chain lower bound was 0 in practice.
+    /// To re-enable it, remove the `#[cfg(test)]` attributes here and in `align_select_chaining_strategy`.
+    #[cfg(test)]
     LowerBound,
 }
 
@@ -314,6 +324,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             ChainingStrategySelector::None => {
                 self.align_select_total_length_strategy::<ML, NoChainingStrategy<U64Cost>>(data)
             }
+            #[cfg(test)]
             ChainingStrategySelector::LowerBound => self
                 .align_select_total_length_strategy::<ML, LowerBoundChainingStrategy<U64Cost>>(
                     data,

@@ -30,7 +30,6 @@ Create an `Aligner` once and reuse it for many sequences:
 ```python
 aligner = tsalign.Aligner(
     min_length_strategy="preprocess_lookahead",  # default: "lookahead"
-    chaining_strategy="lower_bound",             # default: "none"
     total_length_strategy="maximise",            # default: "maximise"
     no_ts=False,                                 # set True for plain gap-affine
 )
