@@ -88,8 +88,7 @@ result = aligner.align(
 ## Skipping gap characters
 
 Characters listed in `gap_characters` are removed from both sequences
-before aligning, e.g. the `-` of sequences taken from a multiple sequence
-alignment.  Range coordinates refer to the sequences without these characters.
+before aligning.  Range coordinates refer to the sequences without these characters.
 
 ```python
 result = aligner.align("ACG-TACGT", "AC-GACGT", gap_characters="-")
