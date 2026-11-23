@@ -150,7 +150,6 @@ fn chain_align_full(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
-        max_anchor_mutations,
         &performance_parameters,
         &rc_fn,
         "reference",
@@ -380,7 +379,6 @@ fn chain_align_result(
         reference.to_vec(),
         query.to_vec(),
         AlignmentRange::new_complete(reference.len(), query.len()),
-        0,
         &performance_parameters,
         &rc_fn,
         "reference",
@@ -681,4 +679,48 @@ fn double_gap_open_between_gap_and_inexact_anchor() {
             result.cigar(),
         );
     }
+}
+
+/// `align` takes the maximum number of anchor mutations from the lower bounds,
+/// so that the anchors, the gap alignments and the lower bounds agree on it.
+/// It used to take it as a separate argument, and exact anchors evaluated with the gap rules of inexact anchors
+/// (at most `k - 1 - max_anchor_mutations` consecutive matches in a gap) produced a chain that is more expensive
+/// than the optimum (cost 8 instead of 4 for this input).
+#[test]
+fn anchor_mutations_are_taken_from_the_lower_bounds() {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+    use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+
+    use crate::chain_align::performance_parameters::AlignmentPerformanceParameters;
+
+    let costs = no_ts_costs();
+    let reference = b"CAAACAC";
+    let query = b"CCAACCC";
+    let expected = gap_affine_cost(reference, query);
+    assert_eq!(expected, 4);
+
+    let lower_bounds = ChainingLowerBounds::new(
+        8,
+        ChainingLowerBoundConfig {
+            anchor_k: 4,
+            max_anchor_mutations: 1,
+            inexact_lower_bound: InexactLowerBoundKind::MaxMatchRun,
+        },
+        costs,
+    );
+    let performance_parameters = AlignmentPerformanceParameters {
+        max_exact_cost_function_cost: U32Cost::from(0u32),
+        ..Default::default()
+    };
+    let result = crate::align::<DnaAlphabet>(
+        reference.to_vec(),
+        query.to_vec(),
+        AlignmentRange::new_complete(reference.len(), query.len()),
+        &performance_parameters,
+        &rc_fn,
+        "reference",
+        "query",
+        &lower_bounds,
+    );
+    assert_eq!(result.statistics().cost.raw() as u32, expected);
 }

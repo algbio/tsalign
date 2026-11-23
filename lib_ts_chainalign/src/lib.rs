@@ -66,19 +66,18 @@ pub fn preprocess(
 /// * `reference` is the reference string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `query` is the query string in ASCII format. Only characters `A`, `C`, `G` and `T` are allowed.
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
-/// * `max_mutations` is the maximum number of mutations allowed in an anchor.
 /// * `performance_parameters` is a set of parameters for the aligner that only affect performance.
 ///   They do not affect the cost of the optimal chain.
 /// * `rc_fn` is a function that maps a character to its reverse complement.
 /// * `reference_name` is the name of the reference string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `chaining_lower_bounds` are the lower bounds computed with the function [`preprocess`].
+///   Their config also determines the anchors, i.e. the anchor size `k` and the maximum number of mutations allowed in an anchor.
 #[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
-    max_mutations: u8,
     performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     reference_name: &str,
@@ -100,7 +99,10 @@ pub fn align<AlphabetType: Alphabet>(
         PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
         PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
+    // The anchors, the gap alignments and the lower bounds must agree on these parameters,
+    // so they are taken from the config of the lower bounds only.
     let k = chaining_lower_bounds.config().anchor_k;
+    let max_mutations = chaining_lower_bounds.config().max_anchor_mutations;
 
     let anchors = if max_mutations == 0 {
         Anchors::new_exact(&sequences, k, rc_fn)

@@ -289,7 +289,6 @@ fn chain_costs(
             reference.to_vec(),
             query.to_vec(),
             AlignmentRange::new_complete(reference.len(), query.len()),
-            lower_bounds.max_anchor_mutations(),
             &performance_parameters,
             &dna_rc_fn,
             "reference",
