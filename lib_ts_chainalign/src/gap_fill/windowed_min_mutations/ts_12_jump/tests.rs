@@ -7,7 +7,6 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::history_vec::unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
     gap_fill::windowed_min_mutations::ts_12_jump::Ts12JumpAligner,
 };
@@ -50,13 +49,7 @@ fn start_end() {
 
     let start = PrimaryAlignmentCoordinates::new(0, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 5, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        50,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 50, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -106,13 +99,7 @@ fn partial_alignment() {
 
     let start = PrimaryAlignmentCoordinates::new(1, 1);
     let end = SpecificSecondaryAlignmentCoordinates::new(1, 4, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        50,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 50, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -161,13 +148,7 @@ fn gap_directions() {
 
     let start = PrimaryAlignmentCoordinates::new(9, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 18, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        50,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 50, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -223,13 +204,7 @@ fn max_match_run_0() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        1,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 1, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -249,7 +224,6 @@ fn max_match_run_0() {
 }
 
 #[test]
-#[ignore = "windowed min mutation chaining is broken; re-enable when #224 is tackled"]
 fn max_match_run_1() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"AAAAAAAACCTCCTCC".to_vec();
@@ -277,17 +251,11 @@ fn max_match_run_1() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        2,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(
-        alignment.alignment,
+    // Both alignments have cost 18 and contain no match run of length 2, so the tie may be broken either way.
+    let alternatives = [
         vec![
             (1, AlignmentType::Match),
             (5, AlignmentType::GapA),
@@ -298,11 +266,28 @@ fn max_match_run_1() {
                 1,
                 AlignmentType::TsStart {
                     jump: -10,
-                    ts_kind: TsKind::TS12
-                }
+                    ts_kind: TsKind::TS12,
+                },
             ),
             (1, AlignmentType::Match),
-        ]
+        ],
+        vec![
+            (1, AlignmentType::Match),
+            (14, AlignmentType::GapA),
+            (
+                1,
+                AlignmentType::TsStart {
+                    jump: -8,
+                    ts_kind: TsKind::TS12,
+                },
+            ),
+            (1, AlignmentType::Match),
+        ],
+    ];
+    assert!(
+        alternatives.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(18u8));
 }
@@ -335,13 +320,7 @@ fn max_match_run_2() {
 
     let start = PrimaryAlignmentCoordinates::new(8, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 16, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        3,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 3, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -397,13 +376,7 @@ fn only_jump() {
 
     let start = PrimaryAlignmentCoordinates::new(5, 6);
     let end = SpecificSecondaryAlignmentCoordinates::new(3, 6, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        3,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 3, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -447,13 +420,7 @@ fn only_jump_start() {
 
     let start = PrimaryAlignmentCoordinates::new(0, 0);
     let end = SpecificSecondaryAlignmentCoordinates::new(0, 0, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        3,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 3, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(
@@ -497,13 +464,7 @@ fn only_jump_end() {
 
     let start = PrimaryAlignmentCoordinates::new(10, 10);
     let end = SpecificSecondaryAlignmentCoordinates::new(10, 10, TsKind::TS12);
-    let mut aligner = Ts12JumpAligner::<_, UnsignedIntAlignmentHistoryVec<u64>>::new(
-        &sequences,
-        &cost_table,
-        &rc_fn,
-        3,
-        0,
-    );
+    let mut aligner = Ts12JumpAligner::new(&sequences, &cost_table, &rc_fn, 3, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
     assert_eq!(

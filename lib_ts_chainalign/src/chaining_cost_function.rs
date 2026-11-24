@@ -14,9 +14,6 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::history_vec::{
-        AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
-    },
     anchors::{Anchors, index::AnchorIndex},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
@@ -65,82 +62,15 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 rc_fn,
             )
         } else {
-            let anchor_k = u8::try_from(chaining_lower_bounds.anchor_k())
-                .expect("Inexact chaining supports only k <= 255.");
-            let max_anchor_mutations = chaining_lower_bounds.max_anchor_mutations();
-
             match chaining_lower_bounds.config().inexact_lower_bound {
                 InexactLowerBoundKind::WindowedMinMutations => {
-                    if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
-                        anchor_k,
-                        max_anchor_mutations,
-                    ) {
-                        Self::new_windowed_min_mutations_from_lower_bounds::<
-                            UnsignedIntAlignmentHistoryVec<u8>,
-                        >(
-                            chaining_lower_bounds,
-                            anchors,
-                            sequences,
-                            max_exact_cost_function_cost,
-                            rc_fn,
-                        )
-                    } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
-                        anchor_k,
-                        max_anchor_mutations,
-                    ) {
-                        Self::new_windowed_min_mutations_from_lower_bounds::<
-                            UnsignedIntAlignmentHistoryVec<u16>,
-                        >(
-                            chaining_lower_bounds,
-                            anchors,
-                            sequences,
-                            max_exact_cost_function_cost,
-                            rc_fn,
-                        )
-                    } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
-                        anchor_k,
-                        max_anchor_mutations,
-                    ) {
-                        Self::new_windowed_min_mutations_from_lower_bounds::<
-                            UnsignedIntAlignmentHistoryVec<u32>,
-                        >(
-                            chaining_lower_bounds,
-                            anchors,
-                            sequences,
-                            max_exact_cost_function_cost,
-                            rc_fn,
-                        )
-                    } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
-                        anchor_k,
-                        max_anchor_mutations,
-                    ) {
-                        Self::new_windowed_min_mutations_from_lower_bounds::<
-                            UnsignedIntAlignmentHistoryVec<u64>,
-                        >(
-                            chaining_lower_bounds,
-                            anchors,
-                            sequences,
-                            max_exact_cost_function_cost,
-                            rc_fn,
-                        )
-                    } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
-                        anchor_k,
-                        max_anchor_mutations,
-                    ) {
-                        Self::new_windowed_min_mutations_from_lower_bounds::<
-                            UnsignedIntAlignmentHistoryVec<u128>,
-                        >(
-                            chaining_lower_bounds,
-                            anchors,
-                            sequences,
-                            max_exact_cost_function_cost,
-                            rc_fn,
-                        )
-                    } else {
-                        panic!(
-                            "No suitable alignment history type found for anchor_k = {anchor_k} and max_anchor_mutations = {max_anchor_mutations}."
-                        )
-                    }
+                    Self::new_windowed_min_mutations_from_lower_bounds(
+                        chaining_lower_bounds,
+                        anchors,
+                        sequences,
+                        max_exact_cost_function_cost,
+                        rc_fn,
+                    )
                 }
 
                 InexactLowerBoundKind::MaxMatchRun => Self::new_max_match_run_from_lower_bounds(
@@ -636,7 +566,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
     }
 
-    fn new_windowed_min_mutations_from_lower_bounds<AlignmentHistoryVec: AlignmentHistory>(
+    fn new_windowed_min_mutations_from_lower_bounds(
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
         anchors: &Anchors<Cost>,
         sequences: &AlignmentSequences,
@@ -654,46 +584,38 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let k = u8::try_from(chaining_lower_bounds.anchor_k())
             .expect("Inexact chaining supports only k <= 255.");
 
-        let mut primary_aligner = gap_fill::windowed_min_mutations::gap_affine::GapAffineAligner::<
-            _,
-            AlignmentHistoryVec,
-        >::new(
-            sequences,
-            &chaining_lower_bounds.alignment_costs().primary_costs,
-            rc_fn,
-            k,
-            chaining_lower_bounds.max_anchor_mutations(),
-        );
-        let mut secondary_aligner = gap_fill::windowed_min_mutations::gap_affine::GapAffineAligner::<
-            _,
-            AlignmentHistoryVec,
-        >::new(
-            sequences,
-            &chaining_lower_bounds.alignment_costs().secondary_costs,
-            rc_fn,
-            k,
-            chaining_lower_bounds.max_anchor_mutations(),
-        );
-        let mut ts_12_jump_aligner = gap_fill::windowed_min_mutations::ts_12_jump::Ts12JumpAligner::<
-            _,
-            AlignmentHistoryVec,
-        >::new(
-            sequences,
-            chaining_lower_bounds.alignment_costs(),
-            rc_fn,
-            k,
-            chaining_lower_bounds.max_anchor_mutations(),
-        );
-        let mut ts_34_jump_aligner = gap_fill::windowed_min_mutations::ts_34_jump::Ts34JumpAligner::<
-            _,
-            AlignmentHistoryVec,
-        >::new(
-            sequences,
-            chaining_lower_bounds.alignment_costs(),
-            rc_fn,
-            k,
-            chaining_lower_bounds.max_anchor_mutations(),
-        );
+        let mut primary_aligner =
+            gap_fill::windowed_min_mutations::gap_affine::GapAffineAligner::new(
+                sequences,
+                &chaining_lower_bounds.alignment_costs().primary_costs,
+                rc_fn,
+                k,
+                chaining_lower_bounds.max_anchor_mutations(),
+            );
+        let mut secondary_aligner =
+            gap_fill::windowed_min_mutations::gap_affine::GapAffineAligner::new(
+                sequences,
+                &chaining_lower_bounds.alignment_costs().secondary_costs,
+                rc_fn,
+                k,
+                chaining_lower_bounds.max_anchor_mutations(),
+            );
+        let mut ts_12_jump_aligner =
+            gap_fill::windowed_min_mutations::ts_12_jump::Ts12JumpAligner::new(
+                sequences,
+                chaining_lower_bounds.alignment_costs(),
+                rc_fn,
+                k,
+                chaining_lower_bounds.max_anchor_mutations(),
+            );
+        let mut ts_34_jump_aligner =
+            gap_fill::windowed_min_mutations::ts_34_jump::Ts34JumpAligner::new(
+                sequences,
+                chaining_lower_bounds.alignment_costs(),
+                rc_fn,
+                k,
+                chaining_lower_bounds.max_anchor_mutations(),
+            );
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
         let ts_base_cost = &chaining_lower_bounds.alignment_costs().ts_base_cost;
