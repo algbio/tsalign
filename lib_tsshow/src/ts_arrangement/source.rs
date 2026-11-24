@@ -726,6 +726,36 @@ impl TsSourceArrangement {
         Self::try_source_to_arrangement_column(&self.query, column)
     }
 
+    /// Returns the arrangement column of the first character whose source column is at least the given source column.
+    ///
+    /// Unlike [`Self::reference_source_to_arrangement_column`], this also works for source columns of hidden characters
+    /// that were removed from the arrangement. If there is no such character, then the width of the arrangement is returned.
+    pub fn reference_source_to_arrangement_column_at_or_after(
+        &self,
+        column: SourceColumn,
+    ) -> ArrangementColumn {
+        Self::source_to_arrangement_column_at_or_after(&self.reference, column)
+    }
+
+    /// See [`Self::reference_source_to_arrangement_column_at_or_after`].
+    pub fn query_source_to_arrangement_column_at_or_after(
+        &self,
+        column: SourceColumn,
+    ) -> ArrangementColumn {
+        Self::source_to_arrangement_column_at_or_after(&self.query, column)
+    }
+
+    fn source_to_arrangement_column_at_or_after(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        source_column: SourceColumn,
+    ) -> ArrangementColumn {
+        sequence
+            .iter(..)
+            .filter_map(|(i, c)| (c.is_char() && c.source_column() >= source_column).then_some(i))
+            .min()
+            .unwrap_or_else(|| sequence.len().into())
+    }
+
     fn source_to_arrangement_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         source_column: SourceColumn,
