@@ -27,9 +27,6 @@ pub fn load_tsa_config<AlphabetType: Alphabet, Cost: AStarCost>(
     Ok(costs)
 }
 
-/// The configuration directory of the classic aligner (`a-star-template-switch`) if `-c` is not given.
-pub const DEFAULT_CONFIGURATION_DIRECTORY: &str = "sample_tsa_config";
-
 /// Load the config of tschainalign from the configuration directory,
 /// or the built-in default config of tschainalign if no directory is given.
 pub fn load_tschain_config<AlphabetType: Alphabet, Cost: AStarCost>(

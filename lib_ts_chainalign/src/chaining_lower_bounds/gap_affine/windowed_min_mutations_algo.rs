@@ -7,19 +7,16 @@ use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, 
 use crate::{
     alignment::{GapType, coordinates::AlignmentCoordinates},
     alignment_history::{
-        extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
-        history_alignment_operations::AlignmentHistoryOperation,
-        history_vec::AlignmentHistory,
+        history_alignment_operations::AlignmentHistoryOperation, profile::HistoryProfile,
     },
     costs::GapAffineCosts,
 };
 
-pub struct Context<'a, Cost, AlignmentHistoryVec> {
+pub struct Context<'a, Cost> {
     costs: &'a GapAffineCosts<Cost>,
     anchor_k: u8,
     max_anchor_mutations: u8,
     max_n: usize,
-    history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -31,11 +28,11 @@ pub struct Node<Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
-    pub history: HistoryExtensionGraphNodeIndex,
+    pub history: HistoryProfile,
     gap_type: GapType,
 }
 
-impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, AlignmentHistoryVec> {
+impl<'a, Cost> Context<'a, Cost> {
     pub fn new(
         costs: &'a GapAffineCosts<Cost>,
         anchor_k: u8,
@@ -47,21 +44,18 @@ impl<'a, Cost, AlignmentHistoryVec: AlignmentHistory> Context<'a, Cost, Alignmen
             anchor_k,
             max_anchor_mutations,
             max_n,
-            history_graph: HistoryExtensionGraph::new(),
         }
     }
 }
 
-impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
-    for Context<'_, Cost, AlignmentHistoryVec>
-{
+impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
         Node {
             identifier: Identifier {
                 coordinates: AlignmentCoordinates::new_primary(0, 0),
-                history: self.history_graph.empty_node_id(),
+                history: HistoryProfile::new_empty(self.anchor_k, self.max_anchor_mutations),
                 gap_type: GapType::None,
             },
             cost: Cost::zero(),
@@ -81,8 +75,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
         let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
 
         if coordinates.can_increment_both(end, None) {
-            if let Some(history) = self.history_graph.try_extend(
-                *history,
+            if let Some(history) = history.try_extend(
                 AlignmentHistoryOperation::Match,
                 self.anchor_k,
                 self.max_anchor_mutations,
@@ -99,8 +92,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 }));
             }
 
-            if let Some(history) = self.history_graph.try_extend(
-                *history,
+            if let Some(history) = history.try_extend(
                 AlignmentHistoryOperation::Substitution,
                 self.anchor_k,
                 self.max_anchor_mutations,
@@ -119,8 +111,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
         }
 
         if coordinates.can_increment_a_or_ancestor(end, None) {
-            if let Some(history) = self.history_graph.try_extend(
-                *history,
+            if let Some(history) = history.try_extend(
                 AlignmentHistoryOperation::GapInB,
                 self.anchor_k,
                 self.max_anchor_mutations,
@@ -143,8 +134,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
         }
 
         if coordinates.can_increment_b_or_descendant(end, None) {
-            if let Some(history) = self.history_graph.try_extend(
-                *history,
+            if let Some(history) = history.try_extend(
                 AlignmentHistoryOperation::GapInA,
                 self.anchor_k,
                 self.max_anchor_mutations,
@@ -181,7 +171,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
     }
 }
 
-impl<Cost, AlignmentHistoryVec> Reset for Context<'_, Cost, AlignmentHistoryVec> {
+impl<Cost> Reset for Context<'_, Cost> {
     fn reset(&mut self) {
         unimplemented!()
     }

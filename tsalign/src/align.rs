@@ -85,9 +85,9 @@ struct CommonArgs {
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
-    /// Default: `sample_tsa_config` for `a-star-template-switch`;
-    /// for `a-star-chain-ts`, the built-in default config of tschainalign
-    /// (equal to `test_files/config/chainalign`), since tschainalign does not support `sample_tsa_config`.
+    /// Default: a built-in config, independent of the working directory.
+    /// For `a-star-template-switch`, it equals `sample_tsa_config` of the repository;
+    /// for `a-star-chain-ts`, it equals `test_files/config/chainalign`, since tschainalign does not support the former.
     #[clap(long, short = 'c')]
     configuration_directory: Option<PathBuf>,
 

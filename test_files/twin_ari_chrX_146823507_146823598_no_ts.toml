@@ -1,6 +1,8 @@
 type = "WithoutTarget"
 reference_offset = 490
 query_offset = 490
+reference_limit = 490
+query_limit = 490
 cost = 7.0
 cost_per_base = 0.006369426751592357
 duration_seconds = 0.000311365

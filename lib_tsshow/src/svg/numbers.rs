@@ -119,3 +119,71 @@ impl Display for NumberAlignment {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Number, NumberAlignment};
+    use crate::{
+        svg::font::{sans_serif_mono, typewriter},
+        ts_arrangement::index_types::ArrangementColumn,
+    };
+
+    #[test]
+    fn width_scales_with_the_label() {
+        let one = Number::new(
+            "A",
+            ArrangementColumn::new(0usize),
+            (),
+            NumberAlignment::Left,
+            1.0,
+        );
+        let two = Number::new(
+            "A1",
+            ArrangementColumn::new(0usize),
+            (),
+            NumberAlignment::Left,
+            1.0,
+        );
+        let half = Number::new(
+            "A1",
+            ArrangementColumn::new(0usize),
+            (),
+            NumberAlignment::Left,
+            0.5,
+        );
+        assert!((two.width() - one.width() - sans_serif_mono::FONT.character_width).abs() < 1e-4);
+        assert!((half.width() - 0.5 * two.width()).abs() < 1e-4);
+    }
+
+    /// Left aligned numbers start at the column, right aligned numbers end at it.
+    #[test]
+    fn alignment() {
+        let column = ArrangementColumn::new(5usize);
+        let left = Number::new("A1", column, (), NumberAlignment::Left, 0.5);
+        let right = Number::new("A1", column, (), NumberAlignment::Right, 0.5);
+        let x = |number: &Number<()>| -> f32 {
+            let rendered = number.render(|_| 7.0).to_string();
+            let start = rendered.find("translate(").unwrap() + "translate(".len();
+            let end = start + rendered[start..].find(',').unwrap();
+            rendered[start..end].parse().unwrap()
+        };
+
+        let column_x = 5.0 * typewriter::FONT.character_width;
+        assert!(x(&left) >= column_x);
+        assert!((x(&left) - x(&right) - right.width()).abs() < 1e-4);
+        assert!(left.render(|_| 7.0).to_string().contains(",7) scale(0.5)"));
+        assert!(left.render(|_| 7.0).to_string().contains("A1"));
+    }
+
+    #[test]
+    fn display() {
+        let number = Number::new(
+            "B4",
+            ArrangementColumn::new(3usize),
+            "R",
+            NumberAlignment::Right,
+            1.0,
+        );
+        assert_eq!(number.to_string(), "B4 at ArrangementColumn(3)/R/R");
+    }
+}

@@ -368,7 +368,11 @@ impl TsInnerArrangement {
                         last_initial_blank.map(|i| i + 1usize).unwrap_or(0.into());
                     let mut source_column = first_source_column;
                     for _ in 0..ts.uncertainty_range.end_right_shift {
-                        arrangement_column -= 1;
+                        // The range characters cannot be shown left of the arrangement.
+                        let Some(previous_column) = arrangement_column.checked_sub(1) else {
+                            break;
+                        };
+                        arrangement_column = previous_column;
                         source_column += 1;
 
                         inner[arrangement_column] = InnerChar::OptionalInner {
@@ -383,6 +387,10 @@ impl TsInnerArrangement {
                     let mut arrangement_column = first_final_blank - 1usize;
                     let mut source_column = last_source_column;
                     for _ in 0..ts.uncertainty_range.start_left_shift {
+                        // The range characters cannot be shown right of the arrangement.
+                        if arrangement_column.primitive() + 1 >= inner.len() {
+                            break;
+                        }
                         arrangement_column += 1;
                         source_column -= 1;
 

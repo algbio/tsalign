@@ -1,0 +1,42 @@
+Parent: REF 
+Child: ALT 
+Direction: reverse
+
+Switch process:
+Child1:  ATATACATAGCATATATAGC                                                                                      
+Child3:                                                                                                            
+ParentF: ATATACATAGCATATATAGCATATACTATATACATAGTATATATAGCATATACTATGTATATAGTATATGCTATATATACTATGTATATAGTATATATAGCATATA
+ParentR: TATATGTATCGTATATATCGTATATGATATATGTATCATATATATCGTATATGATACATATATCATATACGATATATATGATACATATATCATATATATCGTATAT
+Child2:                                           ATATCGTATATGATACATATATCATATACGATATATATGATACATATATCATATA          
+
+No-ts alignment:
+Parent: ATATACATAGCATATATAGCATATACTATATACATAGTATATATAGCATATACTATgTAtATAGTATATGC
+Child:  ATATACATAGCATATATAGCATATACTATATACATAGTATATATAGCATATACTATaTAcATAGTATATGC
+Parent: REF 
+Child: ALT 
+Direction: reverse
+
+Switch process:
+Child1:                                                             
+Child3:                                                            C
+ParentF: ATAGCATATACTATGTATATAGTATATGCTATATATACTATGTATATAGTATATATAGC
+ParentR: TATCGTATATGATACATATATCATATACGATATATATGATACATATATCATATATATCG
+Child2:            GATACATATATCATATACGATATATATGATACATATATC          
+
+No-ts alignment:
+Parent: TATA-----------------------TATACTATgTAtATAGtATATATAGC
+Child:  TATACTATATACATAGTATATATAGCATATACTATaTAcATAGcATATATAGC
+Parent: REF 
+Child: ALT 
+Direction: reverse
+
+Switch process:
+Child1:                                                            C                                     
+Child3:                                                                              CATATATAGCATATACTATA
+ParentF: ATAGCATATACTATGTATATAGTATATGCTATATATACTATGTATATAGTATATATAGCATATACTATATACATAGCATATATAGCATATACTATA
+ParentR: TATCGTATATGATACATATATCATATACGATATATATGATACATATATCATATATATCGTATATGATATATGTATCGTATATATCGTATATGATAT
+Child2:            GATACATATATCATATACGATATATA                                                            
+
+No-ts alignment:
+Parent: CATATACTATATACATAGCATATATAGCATATACTATA
+Child:  CATATACTATATACATAGCATATATAGCATATACTATA

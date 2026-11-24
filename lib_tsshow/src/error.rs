@@ -13,6 +13,12 @@ pub enum Error {
     #[error("No-TS alignment is incomplete, and hence cannot be rendered.")]
     NoTsAlignmentHasNoTarget,
 
+    #[error("The no-TS alignment contains template switches.")]
+    NoTsAlignmentHasTemplateSwitches,
+
+    #[error("The no-TS alignment aligns other sequences than the TS alignment.")]
+    NoTsAlignmentHasDifferentSequences,
+
     #[error("A negative anti-descendant gap is not supported for SVG generation.")]
     SvgNegativeAntiDescendantGap,
 

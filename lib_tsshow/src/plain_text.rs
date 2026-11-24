@@ -23,6 +23,8 @@ pub fn show_template_switches(
     result: &AlignmentResult<U64Cost>,
     no_ts_result: &Option<AlignmentResult<U64Cost>>,
 ) -> Result<()> {
+    crate::check_no_ts_result(result, no_ts_result)?;
+
     let AlignmentResult::WithTarget {
         alignment,
         statistics,
@@ -58,7 +60,7 @@ pub fn show_template_switches(
             no_ts_result,
             statistics.reference_offset,
             statistics.query_offset,
-        );
+        )?;
     }
 
     Ok(())
@@ -71,7 +73,7 @@ fn show_template_switch(
     no_ts_result: &Option<AlignmentResult<U64Cost>>,
     reference_offset: usize,
     query_offset: usize,
-) {
+) -> Result<()> {
     trace!("Showing template switch\n{template_switch:?}");
 
     let forward = template_switch.sp2_ancestor_offset < template_switch.sp3_ancestor_offset;
@@ -290,33 +292,33 @@ fn show_template_switch(
             false,
         );
 
-        println!("{anti_primary_label}: {anti_primary_name}");
-        println!("{primary_label}: {primary_name}");
-        println!("Direction: {}", if forward { "forward" } else { "reverse" });
-        println!();
-        println!("Switch process:");
+        writeln!(output, "{anti_primary_label}: {anti_primary_name}")?;
+        writeln!(output, "{primary_label}: {primary_name}")?;
+        writeln!(
+            output,
+            "Direction: {}",
+            if forward { "forward" } else { "reverse" }
+        )?;
+        writeln!(output)?;
+        writeln!(output, "Switch process:")?;
 
         debug!("Rendering");
-        outside_renderer
-            .render(
-                &mut output,
-                [&f1_label, &f3_label, &anti_primary_forward_label],
-            )
-            .unwrap();
-        println!();
-        inside_renderer
-            .render(
-                &mut output,
-                [
-                    if forward {
-                        &primary_forward_label
-                    } else {
-                        &primary_reverse_label
-                    },
-                    &f2_label,
-                ],
-            )
-            .unwrap();
+        outside_renderer.render(
+            &mut output,
+            [&f1_label, &f3_label, &anti_primary_forward_label],
+        )?;
+        writeln!(output)?;
+        inside_renderer.render(
+            &mut output,
+            [
+                if forward {
+                    &primary_forward_label
+                } else {
+                    &primary_reverse_label
+                },
+                &f2_label,
+            ],
+        )?;
     } else {
         let anti_primary_extended_offset = anti_primary_offset.min(
             template_switch
@@ -398,29 +400,31 @@ fn show_template_switch(
             false,
         );
 
-        println!("{anti_primary_label}: {anti_primary_name}");
-        println!("{primary_label}: {primary_name}");
-        println!("Direction: {}", if forward { "forward" } else { "reverse" });
-        println!();
-        println!("Switch process:");
+        writeln!(output, "{anti_primary_label}: {anti_primary_name}")?;
+        writeln!(output, "{primary_label}: {primary_name}")?;
+        writeln!(
+            output,
+            "Direction: {}",
+            if forward { "forward" } else { "reverse" }
+        )?;
+        writeln!(output)?;
+        writeln!(output, "Switch process:")?;
 
         debug!("Rendering");
-        renderer
-            .render(
-                &mut output,
-                if forward {
-                    vec![&f1_label, &f3_label, &anti_primary_forward_label, &f2_label]
-                } else {
-                    vec![
-                        &f1_label,
-                        &f3_label,
-                        &anti_primary_forward_label,
-                        &anti_primary_reverse_label,
-                        &f2_label,
-                    ]
-                },
-            )
-            .unwrap();
+        renderer.render(
+            &mut output,
+            if forward {
+                vec![&f1_label, &f3_label, &anti_primary_forward_label, &f2_label]
+            } else {
+                vec![
+                    &f1_label,
+                    &f3_label,
+                    &anti_primary_forward_label,
+                    &anti_primary_reverse_label,
+                    &f2_label,
+                ]
+            },
+        )?;
     }
 
     if let Some(no_ts_result) = no_ts_result {
@@ -430,18 +434,8 @@ fn show_template_switch(
         } = no_ts_result
         else {
             warn!("No-ts alignment was aborted early, unable to render");
-            return;
+            return Ok(());
         };
-
-        assert!(
-            no_ts_alignment
-                .iter_compact()
-                .all(|(_, alignment_type)| !matches!(
-                    alignment_type,
-                    AlignmentType::TemplateSwitchEntrance { .. }
-                )),
-            "No-ts alignment must not contain template switches."
-        );
 
         // Find subsequence of no-ts alignment that matches ts alignment interval.
         let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
@@ -484,14 +478,14 @@ fn show_template_switch(
             invert_alignment,
         );
 
-        println!();
-        println!("No-ts alignment:");
+        writeln!(output)?;
+        writeln!(output, "No-ts alignment:")?;
 
         debug!("Rendering");
-        renderer
-            .render(&mut output, [&anti_primary_label, &primary_label])
-            .unwrap();
+        renderer.render(&mut output, [&anti_primary_label, &primary_label])?;
     } else {
         debug!("No no-ts alignment given, skipping");
     }
+
+    Ok(())
 }

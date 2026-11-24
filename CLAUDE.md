@@ -39,6 +39,9 @@ Rust workspace for aligning two DNA sequences while allowing for template switch
 
 Configs are directories with a `config.tsa` (see `sample_tsa_config/`, `test_files/config/*`).
 tschainalign uses only reverse TSMs; `test_files/config/chainalign` is the standard config for it.
+Without `-c`, the CLI and the Python bindings use built-in defaults embedded from `lib_tsalign/default_config.tsa`
+(equal to `sample_tsa_config`) and `lib_ts_chainalign/default_config.tsa` (equal to `test_files/config/chainalign`);
+unit tests check that the copies stay equal.
 Test inputs are pair fasta files in `test_files/`.
 
 ## Building and running
@@ -74,8 +77,18 @@ cargo fmt --check
   max anchor mutations, monotonicity, symmetry, and for inexact anchors the chain cost of a run without pruning
   dominated anchors, `--anchor-pruning none`; and for `--anchor-pruning inexact`, that it succeeds and does not decrease the chain cost). Failing inputs are written to `target/tsalign-e2e/failures/`.
   Environment variables: `TSALIGN_E2E_SEED`, `TSALIGN_E2E_RANDOM_CASES`, `TSALIGN_E2E_TIMEOUT_SECS`.
-- `lib_ts_chainalign` has two known failing tests in `gap_fill::windowed_min_mutations` (tie-breaking); the windowed
-  min mutations lower bound is disabled in the CLI.
+- Visualisation (`lib_tsshow`, `tsalign show`): `cargo test -p lib_tsshow` runs unit tests, snapshot tests
+  (`tests/snapshots.rs`), structural SVG checks (`tests/svg_structure.rs`) and property tests with random alignments
+  (`tests/fuzz.rs`; `TSSHOW_FUZZ_SEED`, `TSSHOW_FUZZ_CASES`; known unfixed panics are listed in `KNOWN_BUGS`).
+  The inputs are alignment fixtures in `lib_tsshow/tests/fixtures`, created by both aligners with
+  `lib_tsshow/tests/fixtures/generate.sh` and committed, so that aligner changes do not change the snapshots.
+  The snapshots (`lib_tsshow/tests/snapshots`, plain text and SVG with the embedded fonts replaced by a placeholder)
+  are updated deliberately with `TSSHOW_BLESS=1 cargo test -p lib_tsshow --test snapshots`; review their diff.
+  On a mismatch, the actual output is written to `<target>/tmp/tsshow-snapshots/`.
+  The end-to-end tests of `tsalign show` are in `tsalign-tests/tests/show.rs`, the Python smoke tests of
+  `viz_template_switches()` in `python_bindings/tests/test_viz.py`.
+- The windowed min mutations lower bound is disabled in the CLI (#224). Its search nodes store the alignment history as a
+  `HistoryProfile` (`lib_ts_chainalign/src/alignment_history/profile.rs`).
 - The classic aligner's `lower_bound` chaining strategy (`LowerBoundChainingStrategy`) is disabled in the CLI, the
   Python bindings and the public `Aligner` API (#248: too expensive, chain lower bound 0 in practice). Its code and its
   lib-internal tests (`lib_tsalign/src/aligner/configurable/tests.rs`, via a `#[cfg(test)]` selector variant) are kept.

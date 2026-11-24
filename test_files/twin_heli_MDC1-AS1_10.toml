@@ -1,7 +1,9 @@
 type = "WithTarget"
-alignment = [[1, "PrimarySubstitution"], [1, "PrimaryMatch"], [152, { TemplateSwitchEntrance = { first_offset = -151, equal_cost_range = { min_start = 0, max_start = 0, min_end = 0, max_end = 0 }, primary = "Reference", secondary = "Reference", direction = "Reverse" } }], [7, "SecondaryMatch"], [1, "SecondarySubstitution"], [2, "SecondaryMatch"], [69, { TemplateSwitchExit = { anti_primary_gap = 78 } }], [273, { TemplateSwitchEntrance = { first_offset = 272, equal_cost_range = { min_start = 0, max_start = 0, min_end = 0, max_end = 0 }, primary = "Query", secondary = "Reference", direction = "Reverse" } }], [5, "SecondaryMatch"], [1, "SecondaryInsertion"], [4, "SecondaryMatch"], [85, { TemplateSwitchExit = { anti_primary_gap = 94 } }], [2, "PrimaryMatch"], [1, "PrimarySubstitution"], [1, "PrimaryMatch"]]
+alignment = [[1, "PrimarySubstitution"], [1, "PrimaryMatch"], [152, { TemplateSwitchEntrance = { first_offset = -151, uncertainty_range = { start_left_shift = 0, start_right_shift = 0, end_left_shift = 0, end_right_shift = 0 }, descendant = "Reference", ancestor = "Reference", direction = "Reverse" } }], [7, "SecondaryMatch"], [1, "SecondarySubstitution"], [2, "SecondaryMatch"], [69, { TemplateSwitchExit = { anti_descendant_gap = 78 } }], [273, { TemplateSwitchEntrance = { first_offset = 272, uncertainty_range = { start_left_shift = 0, start_right_shift = 0, end_left_shift = 0, end_right_shift = 0 }, descendant = "Query", ancestor = "Reference", direction = "Reverse" } }], [5, "SecondaryMatch"], [1, "SecondaryInsertion"], [4, "SecondaryMatch"], [85, { TemplateSwitchExit = { anti_descendant_gap = 94 } }], [2, "PrimaryMatch"], [1, "PrimarySubstitution"], [1, "PrimaryMatch"]]
 reference_offset = 200
 query_offset = 164
+reference_limit = 310
+query_limit = 258
 cost = 24.0
 cost_per_base = 0.05263157894736842
 duration_seconds = 69.622919049

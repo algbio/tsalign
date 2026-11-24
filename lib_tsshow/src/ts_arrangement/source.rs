@@ -187,13 +187,13 @@ impl TsSourceArrangement {
         if result
             .try_reference_arrangement_to_source_column(current_reference_index)
             .map(|source_current_reference_index| {
-                source_current_reference_index < SourceColumn::new(reference_length - 1)
+                source_current_reference_index < SourceColumn::new(reference_length)
             })
             .unwrap_or(false)
             || result
                 .try_query_arrangement_to_source_column(current_query_index)
                 .map(|source_current_query_index| {
-                    source_current_query_index < SourceColumn::new(query_length - 1)
+                    source_current_query_index < SourceColumn::new(query_length)
                 })
                 .unwrap_or(false)
         {
@@ -581,14 +581,20 @@ impl TsSourceArrangement {
         self.reference.len()
     }
 
+    /// Marks the ancestor character at the given column as substituted.
+    ///
+    /// Hidden characters (e.g. the inner of another TS that is also used as ancestor of this TS) stay hidden.
     pub fn ancestor_to_lower_case(
         &mut self,
         ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match ancestor {
-            TemplateSwitchAncestor::Reference => self.reference[column].to_lower_case(),
-            TemplateSwitchAncestor::Query => self.query[column].to_lower_case(),
+        let character = match ancestor {
+            TemplateSwitchAncestor::Reference => &mut self.reference[column],
+            TemplateSwitchAncestor::Query => &mut self.query[column],
+        };
+        if !character.is_hidden() {
+            character.to_lower_case();
         }
     }
 
@@ -720,6 +726,36 @@ impl TsSourceArrangement {
         Self::try_source_to_arrangement_column(&self.query, column)
     }
 
+    /// Returns the arrangement column of the first character whose source column is at least the given source column.
+    ///
+    /// Unlike [`Self::reference_source_to_arrangement_column`], this also works for source columns of hidden characters
+    /// that were removed from the arrangement. If there is no such character, then the width of the arrangement is returned.
+    pub fn reference_source_to_arrangement_column_at_or_after(
+        &self,
+        column: SourceColumn,
+    ) -> ArrangementColumn {
+        Self::source_to_arrangement_column_at_or_after(&self.reference, column)
+    }
+
+    /// See [`Self::reference_source_to_arrangement_column_at_or_after`].
+    pub fn query_source_to_arrangement_column_at_or_after(
+        &self,
+        column: SourceColumn,
+    ) -> ArrangementColumn {
+        Self::source_to_arrangement_column_at_or_after(&self.query, column)
+    }
+
+    fn source_to_arrangement_column_at_or_after(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        source_column: SourceColumn,
+    ) -> ArrangementColumn {
+        sequence
+            .iter(..)
+            .filter_map(|(i, c)| (c.is_char() && c.source_column() >= source_column).then_some(i))
+            .min()
+            .unwrap_or_else(|| sequence.len().into())
+    }
+
     fn source_to_arrangement_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         source_column: SourceColumn,
@@ -768,11 +804,17 @@ impl TsSourceArrangement {
         Self::arrangement_to_arrangement_char_column(&self.query, arrangement_column)
     }
 
+    /// Returns the number of characters left of the given arrangement column.
+    ///
+    /// The column must contain a character, or be the column right of the arrangement (e.g. if a TS ends at the end of the sequence).
     fn arrangement_to_arrangement_char_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         arrangement_column: ArrangementColumn,
     ) -> ArrangementCharColumn {
-        assert!(sequence[arrangement_column].is_char());
+        assert!(
+            arrangement_column.primitive() == sequence.len()
+                || sequence[arrangement_column].is_char()
+        );
         sequence
             .iter_values()
             .take(arrangement_column.primitive())
@@ -868,19 +910,24 @@ impl TsSourceArrangement {
         &self,
         column: ArrangementCharColumn,
     ) -> SourceColumn {
-        Self::arrangement_char_to_source_column(&self.reference, column)
+        Self::arrangement_char_to_source_column(&self.reference, column, self.reference_length)
     }
 
     pub fn query_arrangement_char_to_source_column(
         &self,
         column: ArrangementCharColumn,
     ) -> SourceColumn {
-        Self::arrangement_char_to_source_column(&self.query, column)
+        Self::arrangement_char_to_source_column(&self.query, column, self.query_length)
     }
 
+    /// Returns the source column of the character at the given arrangement char column.
+    ///
+    /// The column right of the last character (e.g. the SP4 of a TS that ends at the end of the sequence)
+    /// is mapped to the source column right of the sequence.
     fn arrangement_char_to_source_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         column: ArrangementCharColumn,
+        source_length: usize,
     ) -> SourceColumn {
         sequence
             .iter_values()
@@ -891,6 +938,7 @@ impl TsSourceArrangement {
                     None
                 }
             })
+            .chain(iter::once(source_length.into()))
             .nth(column.primitive())
             .unwrap()
     }
