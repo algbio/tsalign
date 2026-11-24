@@ -34,6 +34,7 @@ use crate::{
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
         evaluation::build_chain_evaluator,
+        limits::AlignmentLimits,
         performance_parameters::{
             AlignmentPerformanceParameters, ChainingClosedList, ChainingOpenList,
         },
@@ -45,11 +46,13 @@ use crate::{
 
 mod chainer;
 mod evaluation;
+pub mod limits;
 pub mod performance_parameters;
 
 pub(crate) fn align<Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -61,6 +64,7 @@ pub(crate) fn align<Cost: AStarCost>(
             choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
                 sequences,
                 performance_parameters,
+                limits,
                 alignment_costs,
                 rc_fn,
                 config,
@@ -71,6 +75,7 @@ pub(crate) fn align<Cost: AStarCost>(
         ChainingOpenList::LinearHeap => choose_closed_list::<_, LinearHeap<_>>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -83,6 +88,7 @@ pub(crate) fn align<Cost: AStarCost>(
 pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -93,6 +99,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
         ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -102,6 +109,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
         ChainingClosedList::Special => actually_align::<_, ChainerClosedList<_>, OpenList>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -118,12 +126,15 @@ fn actually_align<
 >(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<Cost> {
+    // The limits are not implemented yet.
+    let _ = limits;
     info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));
