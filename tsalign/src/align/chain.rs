@@ -6,7 +6,10 @@ use compact_genome::interface::{
 use generic_a_star::cost::AStarCost;
 use lib_ts_chainalign::{
     chain_align::{
-        limits::AlignmentLimits, performance_parameters::AlignmentPerformanceParameters,
+        limits::AlignmentLimits,
+        performance_parameters::{
+            AlignmentPerformanceParameters, AnchorPruning, InexactPruningParameters,
+        },
     },
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
@@ -98,6 +101,31 @@ pub fn align_a_star_chain_ts<
         chaining_lower_bounds
     };
 
+    let anchor_pruning = if cli.chain.no_anchor_domination_pruning {
+        warn!("--no-anchor-domination-pruning is deprecated, use --anchor-pruning none");
+        AnchorPruning::None
+    } else {
+        cli.chain.anchor_pruning
+    };
+    // The inexact pruning options are rejected for the other modes, so that they are not silently ignored.
+    ensure!(
+        anchor_pruning == AnchorPruning::Inexact
+            || (cli.chain.inexact_pruning_rules.is_none()
+                && cli.chain.exact_overlap_diagonal_distance.is_none()),
+        "--inexact-pruning-rules and --exact-overlap-diagonal-distance require --anchor-pruning inexact"
+    );
+    let default_inexact_pruning = InexactPruningParameters::default();
+    let inexact_pruning = InexactPruningParameters {
+        rules: cli
+            .chain
+            .inexact_pruning_rules
+            .unwrap_or(default_inexact_pruning.rules),
+        exact_overlap_diagonal_distance: cli
+            .chain
+            .exact_overlap_diagonal_distance
+            .unwrap_or(default_inexact_pruning.exact_overlap_diagonal_distance),
+    };
+
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
     let performance_parameters = AlignmentPerformanceParameters {
@@ -105,7 +133,8 @@ pub fn align_a_star_chain_ts<
         max_exact_cost_function_cost: cli.chain.max_exact_cost_function_cost.into(),
         closed_list: cli.chain.chaining_closed_list,
         open_list: cli.chain.chaining_open_list,
-        prune_dominated_anchors: !cli.chain.no_anchor_domination_pruning,
+        anchor_pruning,
+        inexact_pruning,
     };
 
     let limits = AlignmentLimits {

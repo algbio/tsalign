@@ -72,7 +72,7 @@ cargo fmt --check
   `tsalign` binary with the `e2e` profile and check each result against independent oracles
   (recomputed cost with lib_tsalign, classic aligner with and without TSMs, invariance of TSM-free costs over k and
   max anchor mutations, monotonicity, symmetry, and for inexact anchors the chain cost of a run without pruning
-  dominated anchors, `--no-anchor-domination-pruning`). Failing inputs are written to `target/tsalign-e2e/failures/`.
+  dominated anchors, `--anchor-pruning none`; and for `--anchor-pruning inexact`, that it succeeds and does not decrease the chain cost). Failing inputs are written to `target/tsalign-e2e/failures/`.
   Environment variables: `TSALIGN_E2E_SEED`, `TSALIGN_E2E_RANDOM_CASES`, `TSALIGN_E2E_TIMEOUT_SECS`.
 - `lib_ts_chainalign` has two known failing tests in `gap_fill::windowed_min_mutations` (tie-breaking); the windowed
   min mutations lower bound is disabled in the CLI.

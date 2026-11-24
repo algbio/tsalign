@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result, Write};
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter, Result, Write},
+};
 
 use a_star_sequences::SequencePair;
 use alignment::Alignment;
@@ -81,6 +84,15 @@ pub struct AlignmentStatistics<Cost> {
     )]
     pub exceeded_iteration_limit: Option<u64>,
 
+    /// Statistics about the anchors and the chaining of tschainalign, if the alignment was computed by tschainalign.
+    ///
+    /// This is ignored by the piecewise operations on statistics.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub chain_statistics: Option<ChainStatistics>,
+
     /// Runtime in seconds.
     ///
     /// To be filled by some other tool, not collected by tsalign.
@@ -92,6 +104,52 @@ pub struct AlignmentStatistics<Cost> {
     /// To be filled by some other tool, not collected by tsalign.
     #[cfg_attr(feature = "serde", serde(default))]
     pub memory: R64,
+}
+
+/// Statistics about the anchors and the chaining of tschainalign.
+///
+/// The anchor counts are summed over all template switch kinds for secondary anchors.
+/// Pruning statistics are keyed by the name of the pruning rule, e.g. `primary-prefix-domination`
+/// (see `lib_ts_chainalign::chain_align::performance_parameters::InexactPruningRule`).
+/// The exact pruning mode reports its removed anchors as `primary-exact-domination`.
+#[derive(Debug, Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+pub struct ChainStatistics {
+    /// The anchor pruning mode (`none`, `exact` or `inexact`).
+    pub anchor_pruning: String,
+    /// The enabled inexact pruning rules as a comma-separated list, or `none`.
+    /// Empty if the pruning mode is not `inexact`.
+    pub inexact_pruning_rules: String,
+    /// The number of primary anchors before pruning.
+    pub primary_anchors: u64,
+    /// The number of primary anchors after pruning.
+    pub primary_anchors_after_pruning: u64,
+    /// The number of secondary anchors before pruning.
+    pub secondary_anchors: u64,
+    /// The number of secondary anchors after pruning.
+    pub secondary_anchors_after_pruning: u64,
+    /// The time for generating the anchors, in seconds.
+    pub anchor_seconds: R64,
+    /// The time for pruning the anchors, in seconds.
+    pub pruning_seconds: R64,
+    /// The time for initialising the chaining cost function, in seconds.
+    pub cost_function_seconds: R64,
+    /// The time spent in the chaining searches (all rounds), in seconds.
+    pub chaining_seconds: R64,
+    /// The time spent evaluating chains (all rounds), in seconds.
+    pub evaluation_seconds: R64,
+    /// The number of chaining rounds (chains computed).
+    pub chaining_rounds: u64,
+    /// The number of nodes opened by the chaining searches (all rounds).
+    pub chaining_opened_nodes: u64,
+    /// The number of nodes closed by the chaining searches (all rounds).
+    pub chaining_closed_nodes: u64,
+    /// The number of anchors removed by each pruning rule.
+    /// Each removed anchor is attributed to exactly one rule.
+    pub pruned_anchors: BTreeMap<String, u64>,
+    /// The number of anchors matched by each pruning rule, independently of the other rules.
+    pub matched_anchors: BTreeMap<String, u64>,
 }
 
 macro_rules! each_statistic {
@@ -287,6 +345,7 @@ impl<Cost: AStarCost> AlignmentResult<Cost> {
                 .unwrap_or(0.0)),
             chain_cost: None,
             exceeded_iteration_limit: None,
+            chain_statistics: None,
             runtime: r64(0.0),
             memory: r64(0.0),
         };
@@ -921,6 +980,7 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
             template_switch_amount: Default::default(),
             chain_cost: None,
             exceeded_iteration_limit: None,
+            chain_statistics: None,
             runtime: Default::default(),
             memory: Default::default(),
         }

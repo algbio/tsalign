@@ -13,8 +13,9 @@ use generic_a_star::{
 use indicatif::ProgressBar;
 use itertools::Itertools;
 use lib_tsalign::{
-    aligner::TemplateSwitchDirection, alignment_geometry::AlignmentRange,
-    alignment_result::AlignmentResult,
+    aligner::TemplateSwitchDirection,
+    alignment_geometry::AlignmentRange,
+    alignment_result::{AlignmentResult, ChainStatistics},
 };
 use log::{debug, info, trace};
 use rustc_hash::FxHashMapSeed;
@@ -54,6 +55,7 @@ pub(crate) fn align<Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     limits: &AlignmentLimits<Cost>,
+    statistics: &mut ChainStatistics,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -66,6 +68,7 @@ pub(crate) fn align<Cost: AStarCost>(
                 sequences,
                 performance_parameters,
                 limits,
+                statistics,
                 alignment_costs,
                 rc_fn,
                 config,
@@ -77,6 +80,7 @@ pub(crate) fn align<Cost: AStarCost>(
             sequences,
             performance_parameters,
             limits,
+            statistics,
             alignment_costs,
             rc_fn,
             config,
@@ -91,6 +95,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     limits: &AlignmentLimits<Cost>,
+    statistics: &mut ChainStatistics,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -102,6 +107,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
             sequences,
             performance_parameters,
             limits,
+            statistics,
             alignment_costs,
             rc_fn,
             config,
@@ -112,6 +118,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
             sequences,
             performance_parameters,
             limits,
+            statistics,
             alignment_costs,
             rc_fn,
             config,
@@ -130,6 +137,7 @@ fn actually_align<
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     limits: &AlignmentLimits<Cost>,
+    statistics: &mut ChainStatistics,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -213,8 +221,11 @@ fn actually_align<
         total_chaining_suboptimal_opened_nodes +=
             astar.performance_counters().suboptimal_opened_nodes;
         total_chaining_closed_nodes += astar.performance_counters().closed_nodes;
+        statistics.chaining_opened_nodes = total_chaining_opened_nodes as u64;
+        statistics.chaining_closed_nodes = total_chaining_closed_nodes as u64;
 
         chaining_execution_count += 1;
+        statistics.chaining_rounds = chaining_execution_count as u64;
         let chain = match result {
             AStarResult::FoundTarget { cost, .. } => {
                 trace!("Found chain with cost {cost}");
@@ -321,6 +332,7 @@ fn actually_align<
 
         let chaining_end_time = Instant::now();
         chaining_duration += chaining_end_time - chaining_start_time;
+        statistics.chaining_seconds = chaining_duration.as_secs_f64().try_into().unwrap();
 
         let evaluation_start_time = Instant::now();
 
@@ -336,6 +348,7 @@ fn actually_align<
 
         let evaluation_end_time = Instant::now();
         evaluation_duration += evaluation_end_time - evaluation_start_time;
+        statistics.evaluation_seconds = evaluation_duration.as_secs_f64().try_into().unwrap();
 
         if !cost_increased {
             break (chain, result);

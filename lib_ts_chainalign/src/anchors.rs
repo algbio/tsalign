@@ -9,11 +9,14 @@ use crate::{
     alignment::{
         coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
         sequences::AlignmentSequences,
-        ts_kind::TsKind,
+        ts_kind::{TsAncestor, TsDescendant, TsKind},
     },
     anchors::{
         exact_kmer_matches::{compute_exact_kmers, find_exact_kmer_matches},
         index::AnchorIndex,
+        inexact_pruning::{
+            AnchorType, InexactPruningParameters, PruningContext, RawAnchor, RuleCounts,
+        },
         kmers::KmerStore,
         primary::PrimaryAnchor,
         secondary::SecondaryAnchor,
@@ -27,6 +30,7 @@ pub mod index;
 /// Superseded by the crate `inexact_alignment_anchors`, only kept for its tests.
 #[cfg(test)]
 mod inexact_kmer_matches;
+pub mod inexact_pruning;
 pub mod kmers;
 pub mod primary;
 pub mod reverse_lookup;
@@ -306,6 +310,114 @@ impl<Cost> Anchors<Cost> {
             self.primary.len()
         );
         pruned
+    }
+
+    /// Removes anchors with the rules of the inexact pruning mode.
+    ///
+    /// See the [`inexact_pruning`] module for the rules.
+    ///
+    /// * `k` and `max_mutations` are the parameters that the anchors were created with by [`Self::new_inexact`].
+    /// * `max_match_run_lower_bound` is true if the anchors are chained with the max-match-run lower bound.
+    ///
+    /// Returns the statistics for primary and for secondary anchors (summed over all template switch kinds).
+    #[expect(clippy::too_many_arguments)]
+    pub fn prune_inexact(
+        &mut self,
+        sequences: &AlignmentSequences,
+        k: u32,
+        max_mutations: u8,
+        costs: &AlignmentCosts<Cost>,
+        max_match_run_lower_bound: bool,
+        parameters: &InexactPruningParameters,
+        rc_fn: &dyn Fn(u8) -> u8,
+    ) -> (RuleCounts, RuleCounts)
+    where
+        Cost: AStarCost,
+    {
+        let k = usize::try_from(k).unwrap();
+        let max_mutations = usize::from(max_mutations);
+        let context = |seq_a, seq_b, costs, anchor_type| PruningContext {
+            seq_a,
+            seq_b,
+            k,
+            max_mutations,
+            costs,
+            max_match_run_lower_bound,
+            rules: parameters.rules.rule_set(anchor_type),
+            exact_overlap_diagonal_distance: parameters.exact_overlap_diagonal_distance,
+        };
+
+        let primary_counts = inexact_pruning::prune(
+            &mut self.primary,
+            |anchor| RawAnchor {
+                a_start: anchor.start().a(),
+                a_end: anchor.end().a(),
+                b_start: anchor.start().b(),
+                b_end: anchor.end().b(),
+                cost: anchor.cost(),
+            },
+            &context(
+                sequences.seq1(),
+                sequences.seq2(),
+                &costs.primary_costs,
+                AnchorType::Primary,
+            ),
+        );
+
+        let mut secondary_counts = RuleCounts::default();
+        if parameters.rules.any_for(AnchorType::Secondary) {
+            let s1_rc: Vec<_> = sequences.seq1().iter().copied().rev().map(rc_fn).collect();
+            let s2_rc: Vec<_> = sequences.seq2().iter().copied().rev().map(rc_fn).collect();
+            for ts_kind in TsKind::iter() {
+                // The secondary anchors are generated between the reverse complement of the ancestor
+                // and the descendant, see `Self::new_inexact`.
+                let ancestor_rc = match ts_kind.ancestor {
+                    TsAncestor::Seq1 => s1_rc.as_slice(),
+                    TsAncestor::Seq2 => s2_rc.as_slice(),
+                };
+                let descendant = match ts_kind.descendant {
+                    TsDescendant::Seq1 => sequences.seq1(),
+                    TsDescendant::Seq2 => sequences.seq2(),
+                };
+                let ancestor_len = ancestor_rc.len();
+                let counts = inexact_pruning::prune(
+                    &mut self.secondaries[ts_kind.index()],
+                    |anchor| RawAnchor {
+                        a_start: ancestor_len - anchor.start().ancestor(),
+                        a_end: ancestor_len - anchor.end().ancestor(),
+                        b_start: anchor.start().descendant(),
+                        b_end: anchor.end().descendant(),
+                        cost: anchor.cost(),
+                    },
+                    &context(
+                        ancestor_rc,
+                        descendant,
+                        &costs.secondary_costs,
+                        AnchorType::Secondary,
+                    ),
+                );
+                secondary_counts.add(&counts);
+            }
+        }
+
+        info!(
+            "Inexact pruning removed {} primary and {} secondary anchors, {} primary and {} secondary anchors remain",
+            primary_counts.total_removed(),
+            secondary_counts.total_removed(),
+            self.primary.len(),
+            self.secondary_anchor_count(),
+        );
+        (primary_counts, secondary_counts)
+    }
+
+    /// The number of primary anchors.
+    pub fn primary_anchor_count(&self) -> usize {
+        self.primary.len()
+    }
+
+    /// The number of secondary anchors of all template switch kinds.
+    pub fn secondary_anchor_count(&self) -> usize {
+        self.secondaries.iter().map(Vec::len).sum()
     }
 
     pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor<Cost> {

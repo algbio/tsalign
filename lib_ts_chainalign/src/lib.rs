@@ -1,14 +1,22 @@
 #![allow(rustdoc::redundant_explicit_links)]
 
 use generic_a_star::cost::U32Cost;
-use lib_tsalign::{alignment_geometry::AlignmentRange, alignment_result::AlignmentResult};
+use std::time::Instant;
+
+use clap::ValueEnum;
+use lib_tsalign::{
+    alignment_geometry::AlignmentRange,
+    alignment_result::{AlignmentResult, ChainStatistics},
+};
 use log::{debug, info, trace};
+use noisy_float::types::R64;
 
 use crate::{
     alignment::{coordinates::PrimaryAlignmentCoordinates, sequences::AlignmentSequences},
-    anchors::Anchors,
+    anchors::{Anchors, inexact_pruning::AnchorType},
     chain_align::{
-        limits::AlignmentLimits, performance_parameters::AlignmentPerformanceParameters,
+        limits::AlignmentLimits,
+        performance_parameters::{AlignmentPerformanceParameters, AnchorPruning},
     },
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
@@ -127,38 +135,18 @@ pub fn align_with_limits(
         PrimaryAlignmentCoordinates::new(range.reference_offset(), range.query_offset()),
         PrimaryAlignmentCoordinates::new(range.reference_limit(), range.query_limit()),
     );
-    // The anchors, the gap alignments and the lower bounds must agree on these parameters,
-    // so they are taken from the config of the lower bounds only.
-    let k = chaining_lower_bounds.config().anchor_k;
-    let max_mutations = chaining_lower_bounds.config().max_anchor_mutations;
 
-    let anchors = if max_mutations == 0 {
-        Anchors::new_exact(&sequences, k, rc_fn)
-    } else {
-        let mut anchors = Anchors::new_inexact(
-            &sequences,
-            k,
-            max_mutations,
-            chaining_lower_bounds.alignment_costs(),
-            rc_fn,
-        );
-        // Pruning dominated anchors is only proven to be sound for the max-match-run chaining.
-        if performance_parameters.prune_dominated_anchors
-            && matches!(
-                chaining_lower_bounds.config().inexact_lower_bound,
-                InexactLowerBoundKind::MaxMatchRun
-            )
-        {
-            anchors.prune_dominated_primary_anchors(
-                &sequences,
-                k,
-                max_mutations,
-                chaining_lower_bounds.alignment_costs(),
-            );
-        }
-        anchors
-    };
+    let mut statistics = ChainStatistics::default();
+    let anchors = generate_and_prune_anchors(
+        &sequences,
+        performance_parameters,
+        rc_fn,
+        chaining_lower_bounds,
+        &mut statistics,
+    );
     trace!("Anchors:\n{anchors}");
+
+    let cost_function_start_time = Instant::now();
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
         chaining_lower_bounds,
         &anchors,
@@ -166,15 +154,111 @@ pub fn align_with_limits(
         performance_parameters.max_exact_cost_function_cost,
         rc_fn,
     );
+    statistics.cost_function_seconds = seconds_since(cost_function_start_time);
 
-    chain_align::align(
+    let mut result = chain_align::align(
         &sequences,
         performance_parameters,
         limits,
+        &mut statistics,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
         chaining_lower_bounds.config(),
         &anchors,
         &mut chaining_cost_function,
-    )
+    );
+    result.statistics_mut().chain_statistics = Some(statistics);
+    result
+}
+
+fn seconds_since(start_time: Instant) -> R64 {
+    start_time.elapsed().as_secs_f64().try_into().unwrap()
+}
+
+/// Generates the anchors and prunes them according to the performance parameters.
+///
+/// Fills the anchor counts, the pruning statistics and the times in `statistics`.
+fn generate_and_prune_anchors(
+    sequences: &AlignmentSequences,
+    performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
+    statistics: &mut ChainStatistics,
+) -> Anchors<U32Cost> {
+    // The anchors, the gap alignments and the lower bounds must agree on these parameters,
+    // so they are taken from the config of the lower bounds only.
+    let k = chaining_lower_bounds.config().anchor_k;
+    let max_mutations = chaining_lower_bounds.config().max_anchor_mutations;
+    let max_match_run_lower_bound = matches!(
+        chaining_lower_bounds.config().inexact_lower_bound,
+        InexactLowerBoundKind::MaxMatchRun
+    );
+    let costs = chaining_lower_bounds.alignment_costs();
+
+    let anchor_pruning = performance_parameters.anchor_pruning;
+    statistics.anchor_pruning = anchor_pruning
+        .to_possible_value()
+        .unwrap()
+        .get_name()
+        .to_string();
+    if anchor_pruning == AnchorPruning::Inexact {
+        statistics.inexact_pruning_rules = performance_parameters.inexact_pruning.rules.to_string();
+    }
+
+    let anchor_start_time = Instant::now();
+    let mut anchors = if max_mutations == 0 {
+        Anchors::new_exact(sequences, k, rc_fn)
+    } else {
+        Anchors::new_inexact(sequences, k, max_mutations, costs, rc_fn)
+    };
+    statistics.anchor_seconds = seconds_since(anchor_start_time);
+    statistics.primary_anchors = anchors.primary_anchor_count() as u64;
+    statistics.secondary_anchors = anchors.secondary_anchor_count() as u64;
+
+    // Exact anchors are never pruned.
+    let pruning_start_time = Instant::now();
+    if max_mutations > 0 {
+        match anchor_pruning {
+            AnchorPruning::None => {}
+            AnchorPruning::Exact => {
+                // Pruning dominated anchors is only proven to be sound for the max-match-run chaining.
+                if max_match_run_lower_bound {
+                    let pruned =
+                        anchors.prune_dominated_primary_anchors(sequences, k, max_mutations, costs);
+                    statistics
+                        .pruned_anchors
+                        .insert("primary-exact-domination".to_string(), pruned as u64);
+                    statistics
+                        .matched_anchors
+                        .insert("primary-exact-domination".to_string(), pruned as u64);
+                }
+            }
+            AnchorPruning::Inexact => {
+                let (primary_counts, secondary_counts) = anchors.prune_inexact(
+                    sequences,
+                    k,
+                    max_mutations,
+                    costs,
+                    max_match_run_lower_bound,
+                    &performance_parameters.inexact_pruning,
+                    rc_fn,
+                );
+                primary_counts.insert_into(
+                    AnchorType::Primary,
+                    &mut statistics.matched_anchors,
+                    &mut statistics.pruned_anchors,
+                );
+                secondary_counts.insert_into(
+                    AnchorType::Secondary,
+                    &mut statistics.matched_anchors,
+                    &mut statistics.pruned_anchors,
+                );
+            }
+        }
+    }
+    statistics.pruning_seconds = seconds_since(pruning_start_time);
+    statistics.primary_anchors_after_pruning = anchors.primary_anchor_count() as u64;
+    statistics.secondary_anchors_after_pruning = anchors.secondary_anchor_count() as u64;
+
+    anchors
 }

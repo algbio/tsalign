@@ -8,7 +8,7 @@ use crate::{
         domination::{is_pruning_sound, prune_dominated_primary_anchors},
         primary::PrimaryAnchor,
     },
-    chain_align::performance_parameters::AlignmentPerformanceParameters,
+    chain_align::performance_parameters::{AlignmentPerformanceParameters, AnchorPruning},
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::{AlignmentCosts, GapAffineCosts, TsBaseCost, TsLimits},
@@ -281,7 +281,11 @@ fn chain_costs(
     let chain_cost = |prune_dominated_anchors| {
         let performance_parameters = AlignmentPerformanceParameters {
             max_exact_cost_function_cost: U32Cost::from(0u32),
-            prune_dominated_anchors,
+            anchor_pruning: if prune_dominated_anchors {
+                AnchorPruning::Exact
+            } else {
+                AnchorPruning::None
+            },
             ..Default::default()
         };
         crate::align(

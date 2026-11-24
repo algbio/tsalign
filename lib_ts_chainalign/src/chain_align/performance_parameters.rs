@@ -1,5 +1,9 @@
 use clap::ValueEnum;
 
+pub use crate::anchors::inexact_pruning::{
+    InexactPruningParameters, InexactPruningRule, InexactPruningRules,
+};
+
 /// Performance parameters for chainalign.
 ///
 /// Use the `default()` method for a reasonable choice of parameters that works well in many cases.
@@ -20,12 +24,40 @@ pub struct AlignmentPerformanceParameters<Cost> {
     /// The open list type to use for chaining.
     pub open_list: ChainingOpenList,
 
-    /// Remove dominated inexact primary anchors before chaining.
+    /// Which inexact anchors to remove before chaining.
     ///
-    /// This does not change the cost of the optimal chain, see the module `anchors::domination`.
-    /// It is only applied in the cases in which this is proven.
-    /// Disabling it is useful to compare against the chaining with all anchors.
-    pub prune_dominated_anchors: bool,
+    /// See [`AnchorPruning`].
+    pub anchor_pruning: AnchorPruning,
+
+    /// The rules and parameters of [`AnchorPruning::Inexact`].
+    ///
+    /// Ignored for the other modes.
+    pub inexact_pruning: InexactPruningParameters,
+}
+
+/// The mode of removing inexact anchors before chaining.
+///
+/// Anchor pruning only applies to inexact anchors (`max_anchor_mutations >= 1`).
+/// Exact anchors are never pruned.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
+pub enum AnchorPruning {
+    /// Keep all anchors.
+    ///
+    /// This is useful to compare against the chaining with all anchors.
+    None,
+    /// Remove dominated inexact primary anchors, but only where this provably does not change the cost
+    /// of the optimal chain.
+    ///
+    /// See the module `anchors::domination` for the rule and its proof.
+    /// It only takes effect with `max_anchor_mutations == 1`, the max-match-run lower bound and
+    /// primary costs with `gap_extend <= gap_open`.
+    #[default]
+    Exact,
+    /// Remove primary and secondary inexact anchors with heuristic rules, for any `max_anchor_mutations >= 1`.
+    ///
+    /// This may increase the cost of the optimal chain (it never decreases it), and may lose template switches.
+    /// The rules can be switched on and off individually, see [`InexactPruningRule`].
+    Inexact,
 }
 
 /// The closed list type to use for chaining.
@@ -53,7 +85,8 @@ impl<Cost: From<u8>> Default for AlignmentPerformanceParameters<Cost> {
             max_exact_cost_function_cost: 1u8.into(),
             closed_list: ChainingClosedList::Special,
             open_list: ChainingOpenList::LinearHeap,
-            prune_dominated_anchors: true,
+            anchor_pruning: AnchorPruning::default(),
+            inexact_pruning: InexactPruningParameters::default(),
         }
     }
 }
