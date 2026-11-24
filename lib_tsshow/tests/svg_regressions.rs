@@ -215,7 +215,7 @@ fn uncertainty_range_beyond_the_left_end() {
 
 /// Known bug: overlapping forward TSs (found by the property tests).
 #[test]
-#[ignore = "known bug, not fixed yet (found in #279)"]
+#[ignore = "issue #285"]
 fn overlapping_forward_template_switches() {
     let forward = TemplateSwitchDirection::Forward;
     let result = build_result(
@@ -269,7 +269,7 @@ fn overlapping_forward_template_switches() {
 
 /// Known bug: overlapping reverse TSs with uncertainty ranges (found by the property tests).
 #[test]
-#[ignore = "known bug, not fixed yet (found in #279)"]
+#[ignore = "issue #286"]
 fn overlapping_reverse_template_switches_with_uncertainty() {
     use TemplateSwitchAncestor as A;
     use TemplateSwitchDescendant as D;
