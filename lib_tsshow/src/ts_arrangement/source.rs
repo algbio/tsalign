@@ -187,13 +187,13 @@ impl TsSourceArrangement {
         if result
             .try_reference_arrangement_to_source_column(current_reference_index)
             .map(|source_current_reference_index| {
-                source_current_reference_index < SourceColumn::new(reference_length - 1)
+                source_current_reference_index < SourceColumn::new(reference_length)
             })
             .unwrap_or(false)
             || result
                 .try_query_arrangement_to_source_column(current_query_index)
                 .map(|source_current_query_index| {
-                    source_current_query_index < SourceColumn::new(query_length - 1)
+                    source_current_query_index < SourceColumn::new(query_length)
                 })
                 .unwrap_or(false)
         {
