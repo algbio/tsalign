@@ -1,0 +1,93 @@
+# Base Cost
+
+rrf_cost = 3
+rqf_cost = 2
+qrf_cost = 2
+qqf_cost = 3
+rrr_cost = 3
+rqr_cost = 2
+qrr_cost = 2
+qqr_cost = 3
+
+# Jump Costs
+
+RQQROffset
+ -inf -100 101
+  inf    0 inf
+
+RRQQOffset
+ -inf -100 101
+  inf    0 inf
+
+Length
+   0 5 6 7 8 100
+ inf 5 3 1 0 inf
+
+LengthDifference
+ -inf -100 101
+  inf    0 inf
+
+ForwardAntiDescendantGap
+ -inf   1
+    0 inf
+
+ReverseAntiDescendantGap
+ -inf
+    0
+
+# Primary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  2  2  2  0
+C |  2  0  2  2  0
+G |  2  2  0  2  0
+T |  2  2  2  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 3 3 3 3 3
+
+GapExtendCostVector
+ A C G T N
+ 1 1 1 1 1
+
+# Secondary Forward Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
+
+GapOpenCostVector
+ A C G T N
+ 9 9 9 9 9
+
+GapExtendCostVector
+ A C G T N
+ 2 2 2 2 2
+
+# Secondary Reverse Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
+
+GapOpenCostVector
+ A C G T N
+ 9 9 9 9 9
+
+GapExtendCostVector
+ A C G T N
+ 2 2 2 2 2

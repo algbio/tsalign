@@ -39,6 +39,9 @@ Rust workspace for aligning two DNA sequences while allowing for template switch
 
 Configs are directories with a `config.tsa` (see `sample_tsa_config/`, `test_files/config/*`).
 tschainalign uses only reverse TSMs; `test_files/config/chainalign` is the standard config for it.
+Without `-c`, the CLI and the Python bindings use built-in defaults embedded from `lib_tsalign/default_config.tsa`
+(equal to `sample_tsa_config`) and `lib_ts_chainalign/default_config.tsa` (equal to `test_files/config/chainalign`);
+unit tests check that the copies stay equal.
 Test inputs are pair fasta files in `test_files/`.
 
 ## Building and running
