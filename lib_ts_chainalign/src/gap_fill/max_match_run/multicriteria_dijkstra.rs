@@ -15,6 +15,7 @@ use multicriteria_dijkstra::{
     },
 };
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 
 #[cfg(test)]
 mod tests;
@@ -79,9 +80,14 @@ type OpenEntry<Cost> = (
 /// A set of pairwise non-dominated costs.
 ///
 /// Entries are sorted by strictly increasing `first` and strictly decreasing `second`.
+///
+/// Most fronts are small, so the first entries are stored inline, to avoid allocating for each identifier.
 struct ParetoFront<Cost: TwoCriteriaCost> {
-    entries: Vec<FrontEntry<Cost>>,
+    entries: SmallVec<[FrontEntry<Cost>; INLINE_FRONT_ENTRIES]>,
 }
+
+/// The number of entries of a [`ParetoFront`] that are stored without allocating.
+const INLINE_FRONT_ENTRIES: usize = 2;
 
 struct FrontEntry<Cost: TwoCriteriaCost> {
     first: Cost::First,
@@ -264,7 +270,7 @@ where
             .entry(node.identifier().clone())
             .or_insert_with(|| {
                 spare_fronts.pop().unwrap_or(ParetoFront {
-                    entries: Vec::new(),
+                    entries: SmallVec::new(),
                 })
             })
             .insert(first, second, index, |removed| {
@@ -366,7 +372,7 @@ where
             fronts: FxHashMap::default(),
             spare_fronts: Vec::new(),
             targets: ParetoFront {
-                entries: Vec::new(),
+                entries: SmallVec::new(),
             },
             open: BinaryHeap::new(),
         }

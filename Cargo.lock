@@ -781,6 +781,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "sha",
+ "smallvec",
  "tagged-vec",
  "tempfile",
  "thiserror 2.0.21",
