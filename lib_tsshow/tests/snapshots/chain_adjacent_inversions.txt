@@ -10,8 +10,8 @@ ParentR: ACTAGGCTCGGATGACTGCAGAGCCTTCAAAAGTACGAGTAGGGATAAGACTAT
 Child2:                          CTTCAAAAGTACGAGTAGGG          
 
 No-ts alignment:
-Parent: TGATCCGAGCCT
-Child:  TGATCCGAGCCT
+Parent: TGATCCGAGCCTACTGACGT
+Child:  TGATCCGAGCCTACTGACGT
 Parent: reference 
 Child: query 
 Direction: reverse
