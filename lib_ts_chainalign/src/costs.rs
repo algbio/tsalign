@@ -10,6 +10,14 @@ mod compat;
 
 pub use compat::CostConversionError;
 
+/// The default cost configuration of tschainalign in the plain `.tsa` format of
+/// [`TemplateSwitchConfig::read_plain`](lib_tsalign::config::TemplateSwitchConfig::read_plain).
+///
+/// The classic default config (`sample_tsa_config`) is not supported by tschainalign,
+/// so the CLI (without `-c`) and the Python bindings (without costs) use this one instead.
+/// It is `test_files/config/chainalign/config.tsa` of the repository: only reverse template switches.
+pub const DEFAULT_CONFIG_TSA: &str = include_str!("../../test_files/config/chainalign/config.tsa");
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct GapAffineCosts<Cost> {
     pub substitution: Cost,
@@ -269,5 +277,22 @@ where
 
     fn gap_extend_cost(&self) -> Cost {
         self.gap_extend
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+    use generic_a_star::cost::U32Cost;
+    use lib_tsalign::config::TemplateSwitchConfig;
+
+    use super::{AlignmentCosts, DEFAULT_CONFIG_TSA};
+
+    #[test]
+    fn default_config_is_supported() {
+        let config =
+            TemplateSwitchConfig::<DnaAlphabet, U32Cost>::read_plain(DEFAULT_CONFIG_TSA.as_bytes())
+                .unwrap();
+        AlignmentCosts::try_from(config).unwrap();
     }
 }
