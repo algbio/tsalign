@@ -8,7 +8,6 @@ use crate::{
         coordinates::{AnySecondaryAlignmentCoordinates, PrimaryAlignmentCoordinates},
         sequences::AlignmentSequences,
     },
-    alignment_history::history_vec::AlignmentHistory,
     anchors::Anchors,
     chain_align::{
         chainer::Identifier,
@@ -24,22 +23,13 @@ use crate::{
     panic_on_extend::PanicOnExtend,
 };
 
-pub struct WindowedMinMutationsChainEvaluator<
-    'sequences,
-    'alignment_costs,
-    'rc_fn,
-    Cost: AStarCost,
-    AlignmentHistoryVec,
-> {
+pub struct WindowedMinMutationsChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
+{
     sequences: &'sequences AlignmentSequences,
-    primary_aligner:
-        GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    secondary_aligner:
-        GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    ts_12_jump_aligner:
-        Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
-    ts_34_jump_aligner:
-        Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>,
+    primary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    secondary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+    ts_34_jump_aligner: Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     primary_anchor_aligner: gap_fill::max_match_run::gap_affine::GapAffineAligner<
         'sequences,
         'alignment_costs,
@@ -62,14 +52,8 @@ pub struct WindowedMinMutationsChainEvaluator<
     gap_fill_alignments_per_chain: Vec<u32>,
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
-    WindowedMinMutationsChainEvaluator<
-        'sequences,
-        'alignment_costs,
-        'rc_fn,
-        Cost,
-        AlignmentHistoryVec,
-    >
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
+    WindowedMinMutationsChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
@@ -134,15 +118,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     }
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
-    for WindowedMinMutationsChainEvaluator<
-        'sequences,
-        'alignment_costs,
-        'rc_fn,
-        Cost,
-        AlignmentHistoryVec,
-    >
+    for WindowedMinMutationsChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
 {
     fn evaluate_chain(
         &mut self,

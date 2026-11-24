@@ -74,8 +74,8 @@ cargo fmt --check
   max anchor mutations, monotonicity, symmetry, and for inexact anchors the chain cost of a run without pruning
   dominated anchors, `--anchor-pruning none`; and for `--anchor-pruning inexact`, that it succeeds and does not decrease the chain cost). Failing inputs are written to `target/tsalign-e2e/failures/`.
   Environment variables: `TSALIGN_E2E_SEED`, `TSALIGN_E2E_RANDOM_CASES`, `TSALIGN_E2E_TIMEOUT_SECS`.
-- `lib_ts_chainalign` has two known failing tests in `gap_fill::windowed_min_mutations` (tie-breaking); the windowed
-  min mutations lower bound is disabled in the CLI.
+- The windowed min mutations lower bound is disabled in the CLI (#224). Its search nodes store the alignment history as a
+  `HistoryProfile` (`lib_ts_chainalign/src/alignment_history/profile.rs`).
 - The classic aligner's `lower_bound` chaining strategy (`LowerBoundChainingStrategy`) is disabled in the CLI, the
   Python bindings and the public `Aligner` API (#248: too expensive, chain lower bound 0 in practice). Its code and its
   lib-internal tests (`lib_tsalign/src/aligner/configurable/tests.rs`, via a `#[cfg(test)]` selector variant) are kept.

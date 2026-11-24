@@ -6,9 +6,6 @@ use multicriteria_dijkstra::MulticriteriaDijkstra;
 
 use crate::{
     alignment::coordinates::PrimaryAlignmentCoordinates,
-    alignment_history::history_vec::{
-        AlignmentHistory, unsigned_int_alignment_history_vec::UnsignedIntAlignmentHistoryVec,
-    },
     chaining_lower_bounds::{
         cost_array::LowerBoundCostArray, gap_affine::max_match_run_algo::Context,
     },
@@ -138,61 +135,12 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         match config.inexact_lower_bound {
             InexactLowerBoundKind::WindowedMinMutations => {
                 let max_anchor_mutations = config.max_anchor_mutations;
-                if UnsignedIntAlignmentHistoryVec::<u8>::has_enough_capacity(
+                Self::compute_windowed_min_mutation(
+                    max_n,
                     anchor_k,
                     max_anchor_mutations,
-                ) {
-                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u8>>(
-                        max_n,
-                        anchor_k,
-                        max_anchor_mutations,
-                        cost_table,
-                    )
-                } else if UnsignedIntAlignmentHistoryVec::<u16>::has_enough_capacity(
-                    anchor_k,
-                    max_anchor_mutations,
-                ) {
-                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u16>>(
-                        max_n,
-                        anchor_k,
-                        max_anchor_mutations,
-                        cost_table,
-                    )
-                } else if UnsignedIntAlignmentHistoryVec::<u32>::has_enough_capacity(
-                    anchor_k,
-                    max_anchor_mutations,
-                ) {
-                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u32>>(
-                        max_n,
-                        anchor_k,
-                        max_anchor_mutations,
-                        cost_table,
-                    )
-                } else if UnsignedIntAlignmentHistoryVec::<u64>::has_enough_capacity(
-                    anchor_k,
-                    max_anchor_mutations,
-                ) {
-                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u64>>(
-                        max_n,
-                        anchor_k,
-                        max_anchor_mutations,
-                        cost_table,
-                    )
-                } else if UnsignedIntAlignmentHistoryVec::<u128>::has_enough_capacity(
-                    anchor_k,
-                    max_anchor_mutations,
-                ) {
-                    Self::compute_windowed_min_mutation::<UnsignedIntAlignmentHistoryVec<u128>>(
-                        max_n,
-                        anchor_k,
-                        max_anchor_mutations,
-                        cost_table,
-                    )
-                } else {
-                    panic!(
-                        "This combination of k and max_mismatches exceeds the maximum length of the alignment history vector that can be stored in a u128.",
-                    );
-                }
+                    cost_table,
+                )
             }
 
             InexactLowerBoundKind::MaxMatchRun => Self::compute_max_match_run(
@@ -205,15 +153,14 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         }
     }
 
-    fn compute_windowed_min_mutation<AlignmentHistoryVec: AlignmentHistory>(
+    fn compute_windowed_min_mutation(
         max_n: usize,
         anchor_k: u8,
         max_anchor_mutations: u8,
         cost_table: &GapAffineCosts<Cost>,
     ) -> Self {
         debug!(
-            "Computing gap-affine inexact anchor lower bounds with max_n = {max_n}, anchor_k = {anchor_k}, max_anchor_mutations = {max_anchor_mutations} and alignment history vector type = {}",
-            std::any::type_name::<AlignmentHistoryVec>(),
+            "Computing gap-affine inexact anchor lower bounds with max_n = {max_n}, anchor_k = {anchor_k}, max_anchor_mutations = {max_anchor_mutations}",
         );
 
         let mut lower_bounds =
@@ -221,7 +168,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         let mut reached_lower_bounds = 0;
         let total_lower_bounds = (max_n + 1) * (max_n + 1);
 
-        let context = windowed_min_mutations_algo::Context::<_, AlignmentHistoryVec>::new(
+        let context = windowed_min_mutations_algo::Context::new(
             cost_table,
             anchor_k,
             max_anchor_mutations,

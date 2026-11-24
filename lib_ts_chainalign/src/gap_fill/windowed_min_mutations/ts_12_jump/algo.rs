@@ -13,18 +13,15 @@ use crate::{
         ts_kind::TsKind,
     },
     alignment_history::{
-        extension_graph::{HistoryExtensionGraph, HistoryExtensionGraphNodeIndex},
-        history_alignment_operations::AlignmentHistoryOperation,
-        history_vec::AlignmentHistory,
+        history_alignment_operations::AlignmentHistoryOperation, profile::HistoryProfile,
     },
     costs::AlignmentCosts,
 };
 
-pub struct Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec> {
+pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-    history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
     start: PrimaryAlignmentCoordinates,
     end: SpecificSecondaryAlignmentCoordinates,
     anchor_k: u8,
@@ -44,7 +41,7 @@ pub enum Identifier {
     Primary {
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
-        history: HistoryExtensionGraphNodeIndex,
+        history: HistoryProfile,
     },
     Jump12 {
         coordinates: AnySecondaryAlignmentCoordinates,
@@ -52,19 +49,15 @@ pub enum Identifier {
     Secondary {
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
-        history: HistoryExtensionGraphNodeIndex,
+        history: HistoryProfile,
     },
 }
 
-impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
-    Context<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
-{
-    #[expect(clippy::too_many_arguments)]
+impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
-        history_graph: &'history mut HistoryExtensionGraph<AlignmentHistoryVec>,
         start: PrimaryAlignmentCoordinates,
         end: SpecificSecondaryAlignmentCoordinates,
         anchor_k: u8,
@@ -74,7 +67,6 @@ impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
             costs,
             sequences,
             rc_fn,
-            history_graph,
             start,
             end,
             anchor_k,
@@ -87,9 +79,7 @@ impl<'costs, 'sequences, 'rc_fn, 'history, Cost, AlignmentHistoryVec>
     }
 }
 
-impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
-    for Context<'_, '_, '_, '_, Cost, AlignmentHistoryVec>
-{
+impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
@@ -97,7 +87,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
             identifier: Identifier::Primary {
                 coordinates: self.start,
                 gap_type: GapType::None,
-                history: self.history_graph.empty_node_id(),
+                history: HistoryProfile::new_empty(self.anchor_k, self.max_anchor_mutations),
             },
             predecessor: None,
             predecessor_alignment_type: None,
@@ -130,8 +120,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                     let is_match = ca == cb;
 
                     if is_match {
-                        if let Some(history) = self.history_graph.try_extend(
-                            history,
+                        if let Some(history) = history.try_extend(
                             AlignmentHistoryOperation::Match,
                             self.anchor_k,
                             self.max_anchor_mutations,
@@ -149,8 +138,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                                 cost: new_cost,
                             }));
                         }
-                    } else if let Some(history) = self.history_graph.try_extend(
-                        history,
+                    } else if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::Substitution,
                         self.anchor_k,
                         self.max_anchor_mutations,
@@ -171,8 +159,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 }
 
                 if coordinates.can_increment_a_secondary(self.end, Some(self.sequences)) {
-                    if let Some(history) = self.history_graph.try_extend(
-                        history,
+                    if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::GapInB,
                         self.anchor_k,
                         self.max_anchor_mutations,
@@ -197,8 +184,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 }
 
                 if coordinates.can_increment_b_secondary(self.end, Some(self.sequences)) {
-                    if let Some(history) = self.history_graph.try_extend(
-                        history,
+                    if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::GapInA,
                         self.anchor_k,
                         self.max_anchor_mutations,
@@ -245,9 +231,9 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
             Identifier::Jump12 { coordinates } | Identifier::Secondary { coordinates, .. } => {
                 let coordinates = coordinates.into_specific(self.ts_kind());
                 let gap_type = identifier.gap_type();
-                let history = identifier
-                    .history()
-                    .unwrap_or_else(|| self.history_graph.empty_node_id());
+                let history = identifier.history().unwrap_or_else(|| {
+                    HistoryProfile::new_empty(self.anchor_k, self.max_anchor_mutations)
+                });
 
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_secondary(self.end) {
@@ -255,8 +241,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                     let is_match = ca == cb;
 
                     if is_match {
-                        if let Some(history) = self.history_graph.try_extend(
-                            history,
+                        if let Some(history) = history.try_extend(
                             AlignmentHistoryOperation::Match,
                             self.anchor_k,
                             self.max_anchor_mutations,
@@ -275,8 +260,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                             }));
                         }
                     } else {
-                        if let Some(history) = self.history_graph.try_extend(
-                            history,
+                        if let Some(history) = history.try_extend(
                             AlignmentHistoryOperation::Substitution,
                             self.anchor_k,
                             self.max_anchor_mutations,
@@ -298,8 +282,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 }
 
                 if coordinates.can_increment_ancestor_secondary(self.end) {
-                    if let Some(history) = self.history_graph.try_extend(
-                        history,
+                    if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::GapInB,
                         self.anchor_k,
                         self.max_anchor_mutations,
@@ -324,8 +307,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
                 }
 
                 if coordinates.can_increment_descendant_secondary(self.end) {
-                    if let Some(history) = self.history_graph.try_extend(
-                        history,
+                    if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::GapInA,
                         self.anchor_k,
                         self.max_anchor_mutations,
@@ -369,7 +351,7 @@ impl<Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory> AStarContext
     }
 }
 
-impl<Cost, AlignmentHistoryVec> Reset for Context<'_, '_, '_, '_, Cost, AlignmentHistoryVec> {
+impl<Cost> Reset for Context<'_, '_, '_, Cost> {
     fn reset(&mut self) {
         unimplemented!()
     }
@@ -411,7 +393,7 @@ impl Identifier {
     pub fn new_primary(
         coordinates: PrimaryAlignmentCoordinates,
         gap_type: GapType,
-        history: HistoryExtensionGraphNodeIndex,
+        history: HistoryProfile,
     ) -> Self {
         Identifier::Primary {
             coordinates,
@@ -423,7 +405,7 @@ impl Identifier {
     pub fn new_secondary(
         coordinates: AnySecondaryAlignmentCoordinates,
         gap_type: GapType,
-        history: HistoryExtensionGraphNodeIndex,
+        history: HistoryProfile,
     ) -> Self {
         Identifier::Secondary {
             coordinates,
@@ -448,7 +430,7 @@ impl Identifier {
         }
     }
 
-    pub fn history(&self) -> Option<HistoryExtensionGraphNodeIndex> {
+    pub fn history(&self) -> Option<HistoryProfile> {
         match self {
             Identifier::Primary { history, .. } => Some(*history),
             Identifier::Jump12 { .. } => None,
