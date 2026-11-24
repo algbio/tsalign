@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
+use clap::{ArgMatches, parser::ValueSource};
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::{AStarCost, U32Cost};
 use lib_ts_chainalign::{
@@ -28,6 +29,34 @@ pub fn load_tsa_config<AlphabetType: Alphabet, Cost: AStarCost>(
     let costs = TemplateSwitchConfig::read_plain(config_file)
         .with_context(|| format!("Error parsing template switch config from {config_path:?}"))?;
     Ok(costs)
+}
+
+/// Returns true if the argument with the given id was given on the command line,
+/// as opposed to being set by its default value or not at all.
+pub fn is_explicit(matches: &ArgMatches, id: &str) -> bool {
+    matches.value_source(id) == Some(ValueSource::CommandLine)
+}
+
+/// Reject arguments that only affect inexact anchors, if they are given explicitly while the anchors are exact.
+///
+/// `arguments` are pairs of argument id and the argument as written on the command line.
+pub fn reject_inexact_anchor_arguments_for_exact_anchors(
+    matches: &ArgMatches,
+    max_anchor_mutations: u8,
+    arguments: &[(&str, &str)],
+) -> Result<()> {
+    if max_anchor_mutations != 0 {
+        return Ok(());
+    }
+    for (id, flag) in arguments {
+        if is_explicit(matches, id) {
+            bail!(
+                "{flag} has no effect with exact anchors (--max-anchor-mutations 0); \
+                 remove {flag} or allow mutations in anchors"
+            );
+        }
+    }
+    Ok(())
 }
 
 pub fn infer_tschain_max_n(reference_length: usize, query_length: usize) -> usize {

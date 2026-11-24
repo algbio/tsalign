@@ -8,7 +8,11 @@ use lib_tsalign::{
     costs::U64Cost,
 };
 use lib_tsshow::plain_text::show_template_switches;
-use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyDict};
+use pyo3::{
+    exceptions::{PyRuntimeError, PyValueError},
+    prelude::*,
+    types::PyDict,
+};
 use pythonize::{depythonize, pythonize};
 
 #[pyclass]
@@ -114,7 +118,7 @@ impl TSAligner {
             .chars()
             .map(|c| {
                 u8::try_from(c).map_err(|_| {
-                    PyRuntimeError::new_err("gap_characters must contain only ASCII characters")
+                    PyValueError::new_err("gap_characters must contain only ASCII characters")
                 })
             })
             .collect::<PyResult<_>>()?;
@@ -136,18 +140,21 @@ impl TSAligner {
             AlignmentCoordinates::new(reference_limit, query_limit),
         );
 
-        let result = self.aligner.align(
-            reference_name,
-            &reference,
-            query_name,
-            &query,
-            Some(ranges),
-            &gap_characters,
-            cost_limit,
-            memory_limit,
-            true,
-            TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
-        );
+        let result = self
+            .aligner
+            .align(
+                reference_name,
+                &reference,
+                query_name,
+                &query,
+                Some(ranges),
+                &gap_characters,
+                cost_limit,
+                memory_limit,
+                true,
+                TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
+            )
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
 
         match result {
             result @ AlignmentResult::WithTarget { .. } => {

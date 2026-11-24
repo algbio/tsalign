@@ -13,6 +13,11 @@ pub struct LowerBoundCostArray<const DIMENSION: usize, Cost> {
 }
 
 impl<const DIMENSION: usize, Cost> LowerBoundCostArray<DIMENSION, Cost> {
+    /// The size of the array in each dimension.
+    pub fn dim(&self) -> [usize; DIMENSION] {
+        self.dim
+    }
+
     pub fn new_from_cost(dim: [usize; DIMENSION], cost: Cost) -> Self
     where
         Cost: Clone,

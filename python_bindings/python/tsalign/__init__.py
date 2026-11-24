@@ -211,6 +211,15 @@ class Aligner:
         -------
         Alignment or None
             ``None`` if no valid alignment was found within the given limits.
+
+        Raises
+        ------
+        ValueError
+            If a sequence contains a character that is not part of the DNA
+            alphabet (``A``, ``C``, ``G``, ``T``, ``N``) after removing
+            ``gap_characters``, if ``gap_characters`` contains non-ASCII
+            characters, or if the range does not fit the sequences without
+            gap characters.
         """
         if range is not None:
             reference_start = range.reference_start

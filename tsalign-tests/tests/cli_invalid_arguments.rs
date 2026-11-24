@@ -2,7 +2,7 @@
 //! with an error message and exit code 1, instead of panicking or silently ignoring them (issue #249).
 
 use anyhow::Result;
-use util::run_in_repo_root_output;
+use util::{run_in_repo_root, run_in_repo_root_output};
 
 mod util;
 
@@ -35,14 +35,9 @@ fn assert_rejected(args: &str, expected: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Run tsalign and assert that it succeeded. The output is printed by [`run_in_repo_root`].
 fn assert_accepted(args: &str) -> Result<()> {
-    let output = run_in_repo_root_output(args)?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        output.status.success(),
-        "`{args}`: tsalign failed\nstderr:\n{stderr}"
-    );
-    Ok(())
+    run_in_repo_root(args)
 }
 
 #[test]
@@ -60,10 +55,7 @@ fn a_star_rejects_chain_options() -> Result<()> {
         "--no-anchor-domination-pruning",
     ] {
         let name = option.split_whitespace().next().unwrap();
-        assert_rejected(
-            &format!("{A_STAR} {option}"),
-            &[name, "a-star-chain-ts"],
-        )?;
+        assert_rejected(&format!("{A_STAR} {option}"), &[name, "a-star-chain-ts"])?;
     }
     Ok(())
 }
@@ -107,15 +99,16 @@ fn a_star_rejects_ts_options_with_no_ts() -> Result<()> {
 }
 
 #[test]
-fn a_star_rejects_range_options_without_range() -> Result<()> {
-    for option in ["--allow-ts-14-out-of-range", "--dont-extend-beyond-range"] {
-        assert_rejected(&format!("{A_STAR} {option}"), &[option, "range"])?;
-    }
+fn a_star_rejects_dont_extend_beyond_range_without_range() -> Result<()> {
+    assert_rejected(
+        &format!("{A_STAR} --dont-extend-beyond-range"),
+        &["--dont-extend-beyond-range", "range"],
+    )?;
     assert_accepted(&format!(
-        "{A_STAR} --allow-ts-14-out-of-range --dont-extend-beyond-range --rq-ranges R2..20Q2..20"
+        "{A_STAR} --dont-extend-beyond-range --rq-ranges R2..20Q2..20"
     ))?;
     assert_accepted(&format!(
-        "{A_STAR} --allow-ts-14-out-of-range --reference-offset 2"
+        "{A_STAR} --dont-extend-beyond-range --reference-offset 2"
     ))
 }
 
@@ -126,7 +119,10 @@ fn chain_rejects_inexact_options_with_exact_anchors() -> Result<()> {
         "--no-anchor-domination-pruning",
     ] {
         let name = option.split_whitespace().next().unwrap();
-        assert_rejected(&format!("{CHAIN} {option}"), &[name, "--max-anchor-mutations"])?;
+        assert_rejected(
+            &format!("{CHAIN} {option}"),
+            &[name, "--max-anchor-mutations"],
+        )?;
         assert_rejected(
             &format!("{CHAIN} --max-anchor-mutations 0 {option}"),
             &[name, "--max-anchor-mutations"],
@@ -196,12 +192,21 @@ fn rejects_range_outside_of_sequences() -> Result<()> {
     Ok(())
 }
 
+/// The classic aligner does not support TSMs that start or end outside of the alignment range yet.
+/// It used to panic in this case.
 #[test]
-fn a_star_rejects_range_outside_of_sequences_with_ts_14_out_of_range() -> Result<()> {
-    assert_rejected(
-        &format!("{A_STAR} --allow-ts-14-out-of-range --reference-offset 40 --reference-limit 41"),
-        &["range"],
-    )
+fn a_star_rejects_allow_ts_14_out_of_range() -> Result<()> {
+    for range in [
+        "",
+        "--rq-ranges R2..20Q2..20",
+        "--reference-offset 40 --reference-limit 41",
+    ] {
+        assert_rejected(
+            &format!("{A_STAR} --allow-ts-14-out-of-range {range}"),
+            &["--allow-ts-14-out-of-range", "not supported"],
+        )?;
+    }
+    Ok(())
 }
 
 #[test]

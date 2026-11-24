@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::alignment_geometry::{AlignmentCoordinates, AlignmentRange};
+use crate::{
+    alignment_geometry::{AlignmentCoordinates, AlignmentRange, InvalidAlignmentRange},
+    error::SequenceRole,
+};
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -25,8 +28,15 @@ pub struct AdditionalExplicitTSMStartsAndEnds {
     pub explicit_tsm_ends: Vec<AlignmentCoordinates>,
 }
 
-#[derive(Debug, Error)]
-pub enum AdditionalExplicitTSMStartsAndEndsError {}
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum AdditionalExplicitTSMStartsAndEndsError {
+    /// The range does not fit the original sequences without skip characters.
+    #[error(transparent)]
+    InvalidRange(#[from] InvalidAlignmentRange),
+    /// Embedded RQ ranges are used, but a sequence does not contain two `'|'` characters.
+    #[error("Using embedded RQ ranges, but the {0} sequence contains less than two '|' characters")]
+    MissingEmbeddedRangeDelimiter(SequenceRole),
+}
 
 impl AdditionalExplicitTSMStartsAndEnds {
     pub fn new(
@@ -44,6 +54,26 @@ impl AdditionalExplicitTSMStartsAndEnds {
 
         let do_skip = |c| skip_characters.contains(&c);
 
+        let cleaned_length = |sequence: &[char]| sequence.iter().filter(|c| !do_skip(**c)).count();
+        range.validate(
+            cleaned_length(&original_reference),
+            cleaned_length(&original_query),
+        )?;
+        if has_embedded_rq_ranges {
+            for (sequence, role) in [
+                (&original_reference, SequenceRole::Reference),
+                (&original_query, SequenceRole::Query),
+            ] {
+                if sequence.iter().filter(|c| **c == '|').count() < 2 {
+                    return Err(
+                        AdditionalExplicitTSMStartsAndEndsError::MissingEmbeddedRangeDelimiter(
+                            role,
+                        ),
+                    );
+                }
+            }
+        }
+
         // Find range start in original sequences.
         let original_reference_start = if has_embedded_rq_ranges {
             original_reference
@@ -52,9 +82,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .enumerate()
                 .find(|(_, c)| *c == '|')
                 .map(|(i, _)| i)
-                .expect(
-                    "Using embedded RQ ranges, but reference sequence contains no '|' character.",
-                )
+                .unwrap() // Checked above.
         } else {
             original_reference
                 .iter()
@@ -63,16 +91,8 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .filter(|(_, c)| !do_skip(*c))
                 .nth(range.reference_offset())
                 .map(|(i, _)| i)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Reference alignment range (from: {}, to: {}) must be inside of original reference sequence (len: {})\nOriginal reference: {}\nSkip characters: {:?}",
-                        range.reference_offset(),
-                        range.reference_range().end,
-                        original_reference.len(),
-                        String::from_iter(original_reference.iter().cloned()),
-                        skip_characters,
-                    )
-                })
+                // The range was validated above, so the offset is at most the length.
+                .unwrap_or(original_reference.len())
         };
         let original_query_start = if has_embedded_rq_ranges {
             original_query
@@ -81,7 +101,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .enumerate()
                 .find(|(_, c)| *c == '|')
                 .map(|(i, _)| i)
-                .expect("Using embedded RQ ranges, but query sequence contains no '|' character.")
+                .unwrap() // Checked above.
         } else {
             original_query
                 .iter()
@@ -90,7 +110,8 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .filter(|(_, c)| !do_skip(*c))
                 .nth(range.query_offset())
                 .map(|(i, _)| i)
-                .expect("query alignment range must be inside of query sequence")
+                // The range was validated above, so the offset is at most the length.
+                .unwrap_or(original_query.len())
         };
 
         // Move backwards from range start in original sequences to collect explicit TSM starts.
@@ -144,7 +165,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .filter(|(_, c)| *c == '|')
                 .nth(1)
                 .map(|(i, _)| i + 1)
-                .expect("Using embedded RQ ranges, but reference sequence contains no second '|' character.")
+                .unwrap() // Checked above.
         } else {
             original_reference
                 .iter()
@@ -163,7 +184,7 @@ impl AdditionalExplicitTSMStartsAndEnds {
                 .filter(|(_, c)| *c == '|')
                 .nth(1)
                 .map(|(i, _)| i + 1)
-                .expect("Using embedded RQ ranges, but query sequence contains no second '|' character.")
+                .unwrap() // Checked above.
         } else {
             original_query
                 .iter()

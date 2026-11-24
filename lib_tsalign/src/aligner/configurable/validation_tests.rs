@@ -1,6 +1,9 @@
 //! The aligner API rejects invalid inputs with an error instead of panicking or silently ignoring them (issue #249).
 
-use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
+use compact_genome::{
+    implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
+    interface::sequence::OwnedGenomeSequence,
+};
 
 use crate::{
     alignment_geometry::{AlignmentCoordinates, InvalidAlignmentRange},
@@ -70,7 +73,11 @@ fn rejects_non_alphabet_characters() {
         ),
         "{error:?}"
     );
-    assert!(error.to_string().starts_with("Reference contains non-alphabet character"));
+    assert!(
+        error
+            .to_string()
+            .starts_with("Reference contains non-alphabet character")
+    );
 
     let error = align(&aligner, b"ACGTACGT", b"ACG-ACGT", None, &[]).unwrap_err();
     assert!(
@@ -83,7 +90,11 @@ fn rejects_non_alphabet_characters() {
         ),
         "{error:?}"
     );
-    assert!(error.to_string().starts_with("Query contains non-alphabet character"));
+    assert!(
+        error
+            .to_string()
+            .starts_with("Query contains non-alphabet character")
+    );
 
     // Gap characters are removed before checking the alphabet.
     align(&aligner, b"ACGTACGT", b"ACG-ACGT", None, b"-").unwrap();
@@ -146,32 +157,75 @@ fn rejects_range_with_offset_after_limit() {
     }
 }
 
+/// The aligner does not support TSMs that start or end outside of the alignment range yet.
+/// It used to panic in this case.
 #[test]
-fn rejects_range_outside_of_sequences_with_ts_14_out_of_range() {
+fn rejects_unsupported_ts_14_out_of_range() {
     let mut aligner = Aligner::<DnaAlphabet>::default();
     aligner.set_ts_14_out_of_range_strategy(Ts14OutOfRangeStrategy::Allow);
 
-    let error = align(
-        &aligner,
-        b"ACGTACGT",
-        b"ACGACGT",
-        Some(AlignmentRange::new(10, 0, 12, 7)),
-        &[],
-    )
-    .unwrap_err();
-    assert!(
-        matches!(error, AlignerInputError::InvalidRange(_)),
-        "{error:?}"
+    assert_eq!(
+        aligner.validate_settings(),
+        Err(AlignerInputError::Ts14OutOfRangeNotSupported)
     );
+    for range in [
+        AlignmentRange::new(2, 2, 6, 5),
+        // An invalid range is reported as well, but the unsupported setting first.
+        AlignmentRange::new(10, 0, 12, 7),
+    ] {
+        let error = align(&aligner, b"ACGTACGT", b"ACGACGT", Some(range), &[]).unwrap_err();
+        assert_eq!(error, AlignerInputError::Ts14OutOfRangeNotSupported);
+    }
+}
 
-    align(
-        &aligner,
-        b"ACGTACGT",
-        b"ACGACGT",
-        Some(AlignmentRange::new(2, 2, 6, 5)),
-        &[],
+/// Computing the additional TSM starts and ends used to panic for ranges outside of the sequences.
+#[test]
+fn additional_tsm_starts_and_ends_reject_invalid_ranges() {
+    use crate::aligner::ts_14_out_of_range::AdditionalExplicitTSMStartsAndEndsError;
+
+    for range in [
+        AlignmentRange::new(10, 0, 12, 7),
+        AlignmentRange::new(0, 8, 8, 9),
+        AlignmentRange::new(0, 0, 9, 7),
+    ] {
+        let error =
+            AdditionalExplicitTSMStartsAndEnds::new("AC-GTACGT", "ACGACGT", &range, &['-'], false)
+                .err()
+                .unwrap();
+        assert!(
+            matches!(
+                error,
+                AdditionalExplicitTSMStartsAndEndsError::InvalidRange(
+                    InvalidAlignmentRange::OutOfBounds { .. }
+                )
+            ),
+            "{range}: {error:?}"
+        );
+    }
+
+    // An empty range at the end is valid.
+    AdditionalExplicitTSMStartsAndEnds::new(
+        "AC-GTACGT",
+        "ACGACGT",
+        &AlignmentRange::new(8, 7, 8, 7),
+        &['-'],
+        false,
     )
     .unwrap();
+
+    let error = AdditionalExplicitTSMStartsAndEnds::new(
+        "AC|GTA|CGT",
+        "ACG|ACGT",
+        &AlignmentRange::new(2, 3, 5, 7),
+        &[],
+        true,
+    )
+    .err()
+    .unwrap();
+    assert_eq!(
+        error,
+        AdditionalExplicitTSMStartsAndEndsError::MissingEmbeddedRangeDelimiter(SequenceRole::Query)
+    );
 }
 
 #[test]
@@ -229,15 +283,8 @@ fn align_sequences_rejects_ignored_additional_tsm_starts_and_ends() {
     };
 
     let error = align_sequences(&aligner).unwrap_err();
-    assert!(
-        matches!(
-            error,
-            AlignerInputError::IgnoredAdditionalExplicitTSMStartsAndEnds
-        ),
-        "{error:?}"
+    assert_eq!(
+        error,
+        AlignerInputError::IgnoredAdditionalExplicitTSMStartsAndEnds
     );
-
-    let mut aligner = aligner;
-    aligner.set_ts_14_out_of_range_strategy(Ts14OutOfRangeStrategy::Allow);
-    align_sequences(&aligner).unwrap();
 }

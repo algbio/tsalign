@@ -294,6 +294,7 @@ fn chain_costs(
             "query",
             lower_bounds,
         )
+        .unwrap()
         .statistics()
         .chain_cost
         .unwrap()

@@ -64,6 +64,32 @@ impl AlignmentRange {
         self.offset.query..self.limit.query
     }
 
+    /// Checks that this range is a valid alignment range for sequences of the given lengths.
+    ///
+    /// The offsets must not be after the limits, and the limits must not exceed the sequence lengths.
+    /// Empty ranges are valid.
+    pub fn validate(
+        &self,
+        reference_length: usize,
+        query_length: usize,
+    ) -> Result<(), InvalidAlignmentRange> {
+        if self.offset.reference > self.limit.reference || self.offset.query > self.limit.query {
+            return Err(InvalidAlignmentRange::OffsetAfterLimit {
+                range: self.clone(),
+            });
+        }
+
+        if self.limit.reference > reference_length || self.limit.query > query_length {
+            return Err(InvalidAlignmentRange::OutOfBounds {
+                range: self.clone(),
+                reference_length,
+                query_length,
+            });
+        }
+
+        Ok(())
+    }
+
     #[must_use]
     pub fn move_offsets_left(&self) -> Option<Self> {
         Some(Self::new_offset_limit(
@@ -142,6 +168,21 @@ impl AlignmentCoordinates {
     pub fn query(&self) -> usize {
         self.query
     }
+}
+
+/// A reason why an [`AlignmentRange`] is not valid for a pair of sequences, see [`AlignmentRange::validate`].
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum InvalidAlignmentRange {
+    #[error("the alignment range ({range}) has an offset after its limit")]
+    OffsetAfterLimit { range: AlignmentRange },
+    #[error(
+        "the alignment range ({range}) exceeds the sequences (reference length: {reference_length}, query length: {query_length})"
+    )]
+    OutOfBounds {
+        range: AlignmentRange,
+        reference_length: usize,
+        query_length: usize,
+    },
 }
 
 impl Display for AlignmentRange {
