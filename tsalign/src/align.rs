@@ -1,6 +1,11 @@
 use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::{Result, anyhow, ensure};
+use astar::{
+    TemplateSwitchChainingStrategySelector, TemplateSwitchMinLengthStrategySelector,
+    TemplateSwitchNodeOrdStrategySelector, TemplateSwitchTotalLengthStrategySelector,
+    align_a_star_template_switch_distance,
+};
 use clap::{
     ArgAction, Args, Parser, ValueEnum,
     builder::{BoolishValueParser, TypedValueParser},
@@ -23,37 +28,22 @@ use lib_tsalign::{
 };
 use log::{LevelFilter, debug, info};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
-use template_switch_distance_type_selectors::{
-    TemplateSwitchChainingStrategySelector, TemplateSwitchMinLengthStrategySelector,
-    TemplateSwitchNodeOrdStrategySelector, TemplateSwitchTotalLengthStrategySelector,
-    align_a_star_template_switch_distance,
-};
 
-#[cfg(feature = "alphabet_dna")]
-use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
-#[cfg(feature = "alphabet_dna_n")]
-use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
-#[cfg(feature = "alphabet_dna_iupac")]
-use compact_genome::implementation::alphabets::dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet;
-#[cfg(feature = "alphabet_rna")]
-use compact_genome::implementation::alphabets::rna_alphabet::RnaAlphabet;
-#[cfg(feature = "alphabet_rna_n")]
-use compact_genome::implementation::alphabets::rna_alphabet_or_n::RnaAlphabetOrN;
-#[cfg(feature = "alphabet_rna_iupac")]
-use compact_genome::implementation::alphabets::rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet;
-
-use crate::align::{
-    a_star_chain_ts::align_a_star_chain_ts,
-    fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
-    template_switch_distance_type_selectors::{
-        TemplateSwitchDescendantStrategySelector,
-        TemplateSwitchUncertaintyRangeExtensionModeSelector,
+use crate::{
+    align::{
+        astar::{
+            TemplateSwitchDescendantStrategySelector,
+            TemplateSwitchUncertaintyRangeExtensionModeSelector,
+        },
+        chain::align_a_star_chain_ts,
+        fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
     },
+    alphabet::{InputAlphabet, WithAlphabet},
 };
 
-mod a_star_chain_ts;
+mod astar;
+mod chain;
 mod fasta_parser;
-mod template_switch_distance_type_selectors;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -67,14 +57,23 @@ pub struct Cli {
     #[clap(long, short = 'o')]
     output: Option<PathBuf>,
 
-    /// The directory in which preprocessed data is stored.
-    #[clap(long)]
-    cache_directory: Option<PathBuf>,
+    #[command(flatten)]
+    common: CommonArgs,
 
-    /// If set, then the aligner performs no preprocessing, but instead crashes if the cached file is missing.
-    #[clap(long)]
-    force_no_preprocessing: bool,
+    #[command(
+        flatten,
+        next_help_heading = "Classic aligner options (a-star-template-switch)"
+    )]
+    a_star: AStarArgs,
 
+    #[command(flatten, next_help_heading = "tschainalign options (a-star-chain-ts)")]
+    chain: ChainArgs,
+}
+
+// Options that apply to all alignment methods.
+// The argument groups have no doc comments, because clap would use them as the description of the command.
+#[derive(Args)]
+struct CommonArgs {
     /// The alphabet present in the input files.
     ///
     /// This must also match the alphabet used in the config.
@@ -95,126 +94,6 @@ pub struct Cli {
 
     #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
-
-    /// k-mer size for tschainalign.
-    ///
-    /// If it is not specified, it is inferred from the sequence lengths.
-    #[clap(short)]
-    k: Option<u32>,
-
-    /// The maximum number of mutations allowed in an anchor.
-    ///
-    /// Higher values produce a more accurate alignment at the cost of increased runtime.
-    #[clap(long, default_value = "0")]
-    max_anchor_mutations: u8,
-
-    /// The lower bound to use for inexact chaining.
-    #[clap(long, default_value = "max-match-run")]
-    inexact_chaining_lower_bound: InexactLowerBound,
-
-    #[clap(long, default_value = "anti-diagonal")]
-    ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
-
-    #[clap(long, default_value = "lookahead")]
-    ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
-
-    /// The chaining strategy of the classic aligner.
-    ///
-    /// The `lower-bound` strategy is currently disabled (issue #248).
-    #[clap(long, default_value = "none")]
-    ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
-
-    /// If set to maximise, the total length of template switches becomes a secondary search criterion.
-    ///
-    /// As a result, instead of reporting an arbitrary alignment with optimal cost,
-    /// tsalign selects an alignment with maximal total TS length out of all the alignments with optimal cost.
-    #[clap(long, default_value = "maximise")]
-    ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
-
-    /// If set to allow-only-all-equal, then only solutions are considered where all descendants of all TSMs are equal.
-    #[clap(long, default_value = "allow-any")]
-    ts_descendant_strategy: TemplateSwitchDescendantStrategySelector,
-
-    /// If set, then TSMs can start or end outside of the specified alignment ranges.
-    /// In this case the alignment would start or end outside of the specified alignment ranges,
-    /// but no other alignment operations outside of the ranges are allowed.
-    ///
-    /// The TSMs that start or end outside of the specified alignment ranges can only start or end at coordinates that correspond to an indel-free alignment of the sequences outside of the specified ranges.
-    /// **Every skip character is treated as an indel.**
-    /// This feature is intended for sequences that stem from an existing alignment, where gaps are marked as skip characters.
-    ///
-    /// In case the alignment ranges are not set or set to the whole sequences, this option has no effect.
-    #[clap(
-        long,
-        action = ArgAction::SetTrue,
-        value_parser = BoolishValueParser::new().map(Ts14OutOfRangeStrategy::from),
-    )]
-    allow_ts_14_out_of_range: Ts14OutOfRangeStrategy,
-
-    /// Determines how the TSM uncertainty ranges are extended.
-    #[clap(long, default_value = "equal-cost-ignore-geometry")]
-    ts_uncertainty_range_extension_mode: TemplateSwitchUncertaintyRangeExtensionModeSelector,
-
-    /// The maximum amount of successors to generate while processing a node during chaining.
-    /// Can be tuned to optimise performance.
-    ///
-    /// This applies only to tschainalign.
-    #[clap(long, default_value = "10")]
-    max_chaining_successors: usize,
-
-    /// The maximum cost until which the cost function is initialised exactly.
-    ///
-    /// Setting this to a higher value will increase the time required to initialise the cost function, but decrease the amount of chains computed.
-    ///
-    /// This applies only to tschainalign.
-    #[clap(long, default_value = "0")]
-    max_exact_cost_function_cost: u32,
-
-    /// The closed list type to use for chaining.
-    ///
-    /// This applies only to tschainalign.
-    #[clap(long, default_value = "special")]
-    chaining_closed_list: ChainingClosedList,
-
-    /// The open list type to use for chaining.
-    ///
-    /// This applies only to tschainalign.
-    #[clap(long, default_value = "linear-heap")]
-    chaining_open_list: ChainingOpenList,
-
-    /// Do not remove dominated inexact anchors before chaining.
-    ///
-    /// By default, inexact primary anchors that are dominated by a shorter anchor are removed before chaining,
-    /// if this provably does not change the cost of the optimal chain.
-    /// This flag is for comparing against the chaining with all anchors.
-    ///
-    /// This applies only to tschainalign.
-    #[clap(long)]
-    no_anchor_domination_pruning: bool,
-
-    /// If set, template switches are not allowed.
-    ///
-    /// Use this to compare a template switch alignment against an alignment with out template switches.
-    #[clap(long)]
-    no_ts: bool,
-
-    /// A cost limit for the alignment.
-    ///
-    /// If there is no alignment with at most that cost, the aligner will abort without result.
-    #[clap(long)]
-    cost_limit: Option<U64Cost>,
-
-    /// An approximate memory limit in bytes for the aligner.
-    ///
-    /// If it is exceeded, then the aligner will abort without result.
-    #[clap(long)]
-    memory_limit: Option<usize>,
-
-    /// Force the search to run in label-correcting mode.
-    ///
-    /// This is for debug purposes only.
-    #[clap(long)]
-    force_label_correcting: bool,
 
     /// First character in the reference to start the alignment from.
     ///
@@ -259,11 +138,137 @@ pub struct Cli {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     use_embedded_rq_ranges: bool,
+}
+
+// Options of the classic aligner (`a-star-template-switch`).
+#[derive(Args)]
+struct AStarArgs {
+    #[clap(long, default_value = "anti-diagonal")]
+    ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
+
+    #[clap(long, default_value = "lookahead")]
+    ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
+
+    /// The chaining strategy of the classic aligner.
+    ///
+    /// The `lower-bound` strategy is currently disabled (issue #248).
+    #[clap(long, default_value = "none")]
+    ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
+
+    /// If set to maximise, the total length of template switches becomes a secondary search criterion.
+    ///
+    /// As a result, instead of reporting an arbitrary alignment with optimal cost,
+    /// tsalign selects an alignment with maximal total TS length out of all the alignments with optimal cost.
+    #[clap(long, default_value = "maximise")]
+    ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
+
+    /// If set to allow-only-all-equal, then only solutions are considered where all descendants of all TSMs are equal.
+    #[clap(long, default_value = "allow-any")]
+    ts_descendant_strategy: TemplateSwitchDescendantStrategySelector,
+
+    /// If set, then TSMs can start or end outside of the specified alignment ranges.
+    /// In this case the alignment would start or end outside of the specified alignment ranges,
+    /// but no other alignment operations outside of the ranges are allowed.
+    ///
+    /// The TSMs that start or end outside of the specified alignment ranges can only start or end at coordinates that correspond to an indel-free alignment of the sequences outside of the specified ranges.
+    /// **Every skip character is treated as an indel.**
+    /// This feature is intended for sequences that stem from an existing alignment, where gaps are marked as skip characters.
+    ///
+    /// In case the alignment ranges are not set or set to the whole sequences, this option has no effect.
+    #[clap(
+        long,
+        action = ArgAction::SetTrue,
+        value_parser = BoolishValueParser::new().map(Ts14OutOfRangeStrategy::from),
+    )]
+    allow_ts_14_out_of_range: Ts14OutOfRangeStrategy,
+
+    /// Determines how the TSM uncertainty ranges are extended.
+    #[clap(long, default_value = "equal-cost-ignore-geometry")]
+    ts_uncertainty_range_extension_mode: TemplateSwitchUncertaintyRangeExtensionModeSelector,
+
+    /// If set, template switches are not allowed.
+    ///
+    /// Use this to compare a template switch alignment against an alignment with out template switches.
+    #[clap(long)]
+    no_ts: bool,
+
+    /// A cost limit for the alignment.
+    ///
+    /// If there is no alignment with at most that cost, the aligner will abort without result.
+    #[clap(long)]
+    cost_limit: Option<U64Cost>,
+
+    /// An approximate memory limit in bytes for the aligner.
+    ///
+    /// If it is exceeded, then the aligner will abort without result.
+    #[clap(long)]
+    memory_limit: Option<usize>,
+
+    /// Force the search to run in label-correcting mode.
+    ///
+    /// This is for debug purposes only.
+    #[clap(long)]
+    force_label_correcting: bool,
 
     /// If set, the aligner will not attempt to extend the alignment beyond the specified range
     /// without increasing cost.
     #[clap(long)]
     dont_extend_beyond_range: bool,
+}
+
+// Options of tschainalign (`a-star-chain-ts`).
+#[derive(Args)]
+struct ChainArgs {
+    /// The directory in which preprocessed data is stored.
+    #[clap(long)]
+    cache_directory: Option<PathBuf>,
+
+    /// If set, then the aligner performs no preprocessing, but instead crashes if the cached file is missing.
+    #[clap(long)]
+    force_no_preprocessing: bool,
+
+    /// k-mer size for tschainalign.
+    ///
+    /// If it is not specified, it is inferred from the sequence lengths.
+    #[clap(short)]
+    k: Option<u32>,
+
+    /// The maximum number of mutations allowed in an anchor.
+    ///
+    /// Higher values produce a more accurate alignment at the cost of increased runtime.
+    #[clap(long, default_value = "0")]
+    max_anchor_mutations: u8,
+
+    /// The lower bound to use for inexact chaining.
+    #[clap(long, default_value = "max-match-run")]
+    inexact_chaining_lower_bound: InexactLowerBound,
+
+    /// The maximum amount of successors to generate while processing a node during chaining.
+    /// Can be tuned to optimise performance.
+    #[clap(long, default_value = "10")]
+    max_chaining_successors: usize,
+
+    /// The maximum cost until which the cost function is initialised exactly.
+    ///
+    /// Setting this to a higher value will increase the time required to initialise the cost function, but decrease the amount of chains computed.
+    #[clap(long, default_value = "0")]
+    max_exact_cost_function_cost: u32,
+
+    /// The closed list type to use for chaining.
+    #[clap(long, default_value = "special")]
+    chaining_closed_list: ChainingClosedList,
+
+    /// The open list type to use for chaining.
+    #[clap(long, default_value = "linear-heap")]
+    chaining_open_list: ChainingOpenList,
+
+    /// Do not remove dominated inexact anchors before chaining.
+    ///
+    /// By default, inexact primary anchors that are dominated by a shorter anchor are removed before chaining,
+    /// if this provably does not change the cost of the optimal chain.
+    /// This flag is for comparing against the chaining with all anchors.
+    #[clap(long)]
+    no_anchor_domination_pruning: bool,
 }
 
 #[derive(Args)]
@@ -300,22 +305,6 @@ enum AlignmentMethod {
     AStarChainTS,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
-enum InputAlphabet {
-    #[cfg(feature = "alphabet_dna")]
-    Dna,
-    #[cfg(feature = "alphabet_dna_n")]
-    DnaN,
-    #[cfg(feature = "alphabet_rna")]
-    Rna,
-    #[cfg(feature = "alphabet_rna_n")]
-    RnaN,
-    #[cfg(feature = "alphabet_dna_iupac")]
-    DnaIupac,
-    #[cfg(feature = "alphabet_rna_iupac")]
-    RnaIupac,
-}
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, ValueEnum)]
 pub enum InexactLowerBound {
     /// Compute a lower bound assuming that in every window of size `anchor_k` there have to be at least `max_anchor_mutations + 1` mutations.
@@ -337,22 +326,17 @@ pub fn cli(cli: Cli) -> Result<()> {
     )
     .unwrap();
 
-    match cli.alphabet {
-        #[cfg(feature = "alphabet_dna")]
-        InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli)?,
-        #[cfg(feature = "alphabet_dna_n")]
-        InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli)?,
-        #[cfg(feature = "alphabet_rna")]
-        InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli)?,
-        #[cfg(feature = "alphabet_rna_n")]
-        InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli)?,
-        #[cfg(feature = "alphabet_dna_iupac")]
-        InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli)?,
-        #[cfg(feature = "alphabet_rna_iupac")]
-        InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli)?,
-    }
+    cli.common.alphabet.dispatch(Execute(cli))
+}
 
-    Ok(())
+struct Execute(Cli);
+
+impl WithAlphabet for Execute {
+    type Output = Result<()>;
+
+    fn run<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(self) -> Result<()> {
+        execute_with_alphabet::<AlphabetType>(self.0)
+    }
 }
 
 fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
@@ -380,9 +364,9 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     let original_query = query_record.sequence_handle.clone();
 
     // Remove skip characters.
-    let skip_characters = cli.skip_characters.chars().collect::<Vec<_>>();
+    let skip_characters = cli.common.skip_characters.chars().collect::<Vec<_>>();
     ensure!(
-        !cli.use_embedded_rq_ranges || !skip_characters.contains(&'|'),
+        !cli.common.use_embedded_rq_ranges || !skip_characters.contains(&'|'),
         "Using embedded RQ ranges, but '|' is part of the skip characters"
     );
     reference_record
@@ -397,13 +381,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     query_record.sequence_handle.make_ascii_uppercase();
 
     // Parse RQ ranges.
-    let range = if cli.use_embedded_rq_ranges {
+    let range = if cli.common.use_embedded_rq_ranges {
         ensure!(
-            cli.rq_ranges.is_none()
-                && cli.reference_offset.is_none()
-                && cli.reference_limit.is_none()
-                && cli.query_offset.is_none()
-                && cli.query_limit.is_none(),
+            cli.common.rq_ranges.is_none()
+                && cli.common.reference_offset.is_none()
+                && cli.common.reference_limit.is_none()
+                && cli.common.query_offset.is_none()
+                && cli.common.query_limit.is_none(),
             "Redundant specification of RQ ranges"
         );
 
@@ -449,13 +433,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
 
     // If requested, compute the additional starts and ends of TSMs outside of the given ranges.
     let additional_tsm_starts_and_ends =
-        if cli.allow_ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+        if cli.a_star.allow_ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
             AdditionalExplicitTSMStartsAndEnds::new(
                 &original_reference,
                 &original_query,
                 &range,
                 &skip_characters,
-                cli.use_embedded_rq_ranges,
+                cli.common.use_embedded_rq_ranges,
             )?
         } else {
             AdditionalExplicitTSMStartsAndEnds::default()
@@ -481,7 +465,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     let query_sequence = sequence_store.get(&query_record.sequence_handle);
 
     debug!("Choosing alignment method...");
-    match cli.alignment_method {
+    match cli.common.alignment_method {
         AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
             cli,
             reference_sequence,
@@ -508,7 +492,7 @@ fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Align
     let complete_reference_range = 0..reference_length;
     let complete_query_range = 0..query_length;
 
-    let (reference_range, query_range) = if let Some(rq_ranges) = cli.rq_ranges.as_ref() {
+    let (reference_range, query_range) = if let Some(rq_ranges) = cli.common.rq_ranges.as_ref() {
         let mut rq_ranges = rq_ranges.chars().peekable();
 
         let mut reference_range = None;
@@ -565,9 +549,12 @@ fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Align
 
         assert!(
             reference_range.is_none()
-                || (cli.reference_offset.is_none() && cli.reference_limit.is_none())
+                || (cli.common.reference_offset.is_none() && cli.common.reference_limit.is_none())
         );
-        assert!(query_range.is_none() || (cli.query_offset.is_none() && cli.query_limit.is_none()));
+        assert!(
+            query_range.is_none()
+                || (cli.common.query_offset.is_none() && cli.common.query_limit.is_none())
+        );
 
         (
             reference_range.unwrap_or(complete_reference_range),
@@ -579,12 +566,12 @@ fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Align
 
     AlignmentRange::new_offset_limit(
         AlignmentCoordinates::new(
-            cli.reference_offset.unwrap_or(reference_range.start),
-            cli.query_offset.unwrap_or(query_range.start),
+            cli.common.reference_offset.unwrap_or(reference_range.start),
+            cli.common.query_offset.unwrap_or(query_range.start),
         ),
         AlignmentCoordinates::new(
-            cli.reference_limit.unwrap_or(reference_range.end),
-            cli.query_limit.unwrap_or(query_range.end),
+            cli.common.reference_limit.unwrap_or(reference_range.end),
+            cli.common.query_limit.unwrap_or(query_range.end),
         ),
     )
 }

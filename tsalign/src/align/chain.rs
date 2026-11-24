@@ -33,34 +33,34 @@ pub fn align_a_star_chain_ts<
     reference_name: &str,
     query_name: &str,
 ) -> Result<()> {
-    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory)?;
+    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.common.configuration_directory)?;
     let alignment_costs = AlignmentCosts::try_from(alignment_costs)?;
 
-    let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {
+    let cache_directory = cli.chain.cache_directory.clone().unwrap_or_else(|| {
         warn!("No cache directory specified, dropping files into current working directory.");
         PathBuf::new()
     });
     let max_n = infer_tschain_max_n(reference.len(), query.len());
-    let k = if let Some(k) = cli.k {
+    let k = if let Some(k) = cli.chain.k {
         k
     } else {
-        infer_tschain_k(reference.len(), query.len(), cli.max_anchor_mutations).unwrap()
+        infer_tschain_k(reference.len(), query.len(), cli.chain.max_anchor_mutations).unwrap()
     };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
     let config = ChainingLowerBoundConfig {
         anchor_k: k,
-        max_anchor_mutations: cli.max_anchor_mutations,
-        inexact_lower_bound: InexactLowerBoundKind::from(cli.inexact_chaining_lower_bound),
+        max_anchor_mutations: cli.chain.max_anchor_mutations,
+        inexact_lower_bound: InexactLowerBoundKind::from(cli.chain.inexact_chaining_lower_bound),
     };
-    validate_tschain_config(&config, cli.k.is_some())?;
+    validate_tschain_config(&config, cli.chain.k.is_some())?;
 
     let cache_file = tschain_preprocess_cache_file(
         &alignment_costs,
         &cache_directory,
         k,
-        cli.max_anchor_mutations,
-        cli.inexact_chaining_lower_bound.into(),
+        cli.chain.max_anchor_mutations,
+        cli.chain.inexact_chaining_lower_bound.into(),
         max_n,
     )
     .unwrap();
@@ -72,12 +72,12 @@ pub fn align_a_star_chain_ts<
         assert_eq!(chaining_lower_bounds.anchor_k(), k);
         assert_eq!(
             chaining_lower_bounds.max_anchor_mutations(),
-            cli.max_anchor_mutations
+            cli.chain.max_anchor_mutations
         );
         chaining_lower_bounds
     } else {
         assert!(
-            !cli.force_no_preprocessing,
+            !cli.chain.force_no_preprocessing,
             "Forcing no preprocessing, but no cache file found at {cache_file:?}."
         );
 
@@ -92,11 +92,11 @@ pub fn align_a_star_chain_ts<
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
     let performance_parameters = AlignmentPerformanceParameters {
-        max_successors: cli.max_chaining_successors,
-        max_exact_cost_function_cost: cli.max_exact_cost_function_cost.into(),
-        closed_list: cli.chaining_closed_list,
-        open_list: cli.chaining_open_list,
-        prune_dominated_anchors: !cli.no_anchor_domination_pruning,
+        max_successors: cli.chain.max_chaining_successors,
+        max_exact_cost_function_cost: cli.chain.max_exact_cost_function_cost.into(),
+        closed_list: cli.chain.chaining_closed_list,
+        open_list: cli.chain.chaining_open_list,
+        prune_dominated_anchors: !cli.chain.no_anchor_domination_pruning,
     };
 
     let alignment = lib_ts_chainalign::align(
