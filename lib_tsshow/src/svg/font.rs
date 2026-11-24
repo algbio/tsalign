@@ -412,4 +412,50 @@ mod tests {
         // The copyright notices must not terminate the comment they are contained in.
         assert_eq!(style.matches("/*").count(), style.matches("*/").count());
     }
+
+    /// The characters of a string are placed one character width apart, whitespace is skipped,
+    /// and the fill opacity is only set for translucent colours.
+    #[test]
+    fn svg_string_places_characters_in_a_grid() {
+        use super::{CharacterData, Color, SvgLocation, svg_string, typewriter};
+        use crate::plain_text::mutlipair_alignment_renderer::Character;
+
+        let characters = [
+            Character::new_char('A', CharacterData::default()),
+            Character::new_char(' ', CharacterData::default()),
+            Character::new_char('c', CharacterData::new_colored(Color::new("#0000FF", 0.4))),
+        ];
+        let group = svg_string(
+            characters.iter(),
+            &SvgLocation { x: 1.0, y: 2.0 },
+            &typewriter::FONT,
+        )
+        .to_string();
+
+        assert!(group.contains("translate(1 2)"), "{group}");
+        assert_eq!(group.matches("<text").count(), 2, "{group}");
+        assert!(group.contains("x=\"0\""), "{group}");
+        let second_x = format!("x=\"{}\"", 2.0 * typewriter::FONT.character_width);
+        assert!(group.contains(&second_x), "{group}");
+        assert_eq!(group.matches("fill-opacity=\"0.4\"").count(), 1, "{group}");
+    }
+
+    /// Phrases of monospaced fonts have a letter spacing that places the characters one character width apart.
+    #[test]
+    fn svg_phrase_letter_spacing() {
+        use super::{DEFAULT_COLOR, SvgLocation, sans_serif, sans_serif_mono, svg_phrase};
+
+        let location = SvgLocation { x: 0.0, y: 0.0 };
+        let mono =
+            svg_phrase("Query:", DEFAULT_COLOR, &location, &sans_serif_mono::FONT).to_string();
+        let proportional =
+            svg_phrase("Query", DEFAULT_COLOR, &location, &sans_serif::FONT).to_string();
+        assert!(mono.contains("letter-spacing"), "{mono}");
+        assert!(!proportional.contains("letter-spacing"), "{proportional}");
+        assert!(mono.contains("Query:"), "{mono}");
+
+        for font in super::fonts() {
+            assert!(font.character_width > 0.0 && font.character_height > 0.0);
+        }
+    }
 }

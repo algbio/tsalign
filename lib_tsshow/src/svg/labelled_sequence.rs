@@ -109,3 +109,52 @@ fn char_substring(string: &str, offset: usize, limit: usize) -> &str {
         &string[byte_offset..byte_limit]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LabelledSequence;
+
+    #[test]
+    fn increment_label() {
+        let mut sequence = LabelledSequence::new("F", "ACGT");
+        assert_eq!(sequence.label(), "F");
+        assert_eq!(
+            sequence.increment_label(),
+            Some(("F".to_owned(), "F 1".to_owned()))
+        );
+        assert_eq!(sequence.label(), "F 2");
+        assert_eq!(sequence.increment_label(), None);
+        assert_eq!(sequence.label_cloned(), "F 3");
+        assert_eq!(sequence.all_labels(), ["F 1", "F 2", "F 3"]);
+    }
+
+    #[test]
+    fn substring() {
+        let sequence = LabelledSequence::new("F", "AéCGT");
+        let substring = sequence.substring(1, 3);
+        assert_eq!(substring.sequence(), "éC");
+        assert!(!substring.is_negative_substring());
+        assert_eq!(substring.label(), "F");
+
+        let empty = sequence.substring(2, 2);
+        assert_eq!(empty.sequence(), "");
+        assert!(!empty.is_negative_substring());
+
+        let whole = sequence.substring(0, 5);
+        assert_eq!(whole.sequence(), "AéCGT");
+    }
+
+    #[test]
+    fn negative_substring() {
+        let sequence = LabelledSequence::new("F", "ACGT");
+        let substring = sequence.substring(3, 1);
+        assert_eq!(substring.sequence(), "CG");
+        assert!(substring.is_negative_substring());
+    }
+
+    #[test]
+    #[should_panic]
+    fn substring_out_of_bounds() {
+        LabelledSequence::new("F", "ACGT").substring(2, 5);
+    }
+}

@@ -272,3 +272,112 @@ impl Display for ArrowEndpointDirection {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use svg::Document;
+
+    use super::{Arrow, ArrowEndpointDirection, add_arrow_defs};
+    use crate::{svg::font::typewriter, ts_arrangement::index_types::ArrangementColumn};
+
+    fn path(arrow: &Arrow<&str>) -> Vec<f32> {
+        let rendered = arrow
+            .render(|row| if *row == "top" { 10.0 } else { 20.0 })
+            .to_string();
+        let start = rendered.find(" d=\"").unwrap() + 4;
+        let end = start + rendered[start..].find('"').unwrap();
+        rendered[start..end]
+            .split([' ', ','])
+            .filter_map(|n| n.parse().ok())
+            .collect()
+    }
+
+    #[test]
+    fn sign() {
+        assert_eq!(ArrowEndpointDirection::Forward.sign(), 1.0);
+        assert_eq!(ArrowEndpointDirection::Backward.sign(), -1.0);
+    }
+
+    /// A curved arrow starts and ends at its columns, moved by the column offsets in the endpoint directions.
+    #[test]
+    fn curved_arrow_endpoints() {
+        let arrow = Arrow::new_curved(
+            ArrangementColumn::new(2usize),
+            1.0,
+            "top",
+            ArrowEndpointDirection::Forward,
+            ArrangementColumn::new(6usize),
+            0.5,
+            "bottom",
+            ArrowEndpointDirection::Backward,
+        );
+        let width = typewriter::FONT.character_width;
+        let height = typewriter::FONT.character_height;
+        let numbers = path(&arrow);
+        // M from C control1 control2 to
+        assert_eq!(numbers.len(), 8);
+        assert!((numbers[0] - (2.0 * width + 1.0)).abs() < 1e-4);
+        assert!((numbers[1] - (10.0 - 0.3 * height)).abs() < 1e-4);
+        assert!((numbers[6] - (6.0 * width - 0.5)).abs() < 1e-4);
+        assert!((numbers[7] - (20.0 - 0.3 * height)).abs() < 1e-4);
+        // Forward from, backward to: the curve leaves to the right and arrives from the left.
+        assert!(numbers[2] > numbers[0]);
+        assert!(numbers[4] < numbers[6]);
+        assert_eq!(
+            arrow.to_string(),
+            "C(ArrangementColumn(2)/top/+ -> ArrangementColumn(6)/bottom/-)"
+        );
+    }
+
+    /// Arrows with both endpoints in the same direction bend around the outermost endpoint.
+    #[test]
+    fn curved_arrow_same_directions() {
+        for (direction, outer) in [
+            (
+                ArrowEndpointDirection::Forward,
+                f32::max as fn(f32, f32) -> f32,
+            ),
+            (ArrowEndpointDirection::Backward, f32::min),
+        ] {
+            let arrow = Arrow::new_curved(
+                ArrangementColumn::new(2usize),
+                0.0,
+                "top",
+                direction,
+                ArrangementColumn::new(6usize),
+                0.0,
+                "bottom",
+                direction,
+            );
+            let numbers = path(&arrow);
+            let control = outer(numbers[0], numbers[6])
+                + direction.sign() * 2.0 * typewriter::FONT.character_width;
+            assert!((numbers[2] - control).abs() < 1e-4);
+            assert!((numbers[4] - control).abs() < 1e-4);
+        }
+    }
+
+    #[test]
+    fn arrow_heads_are_defined() {
+        let document = add_arrow_defs(Document::new()).to_string();
+        assert!(document.contains("id=\"arrow_head\""));
+        assert!(document.contains("id=\"arrow_head_red\""));
+
+        let arrow = Arrow::new_curved(
+            ArrangementColumn::new(0usize),
+            0.0,
+            "top",
+            ArrowEndpointDirection::Forward,
+            ArrangementColumn::new(1usize),
+            0.0,
+            "top",
+            ArrowEndpointDirection::Backward,
+        );
+        assert!(
+            arrow
+                .render(|_| 0.0)
+                .to_string()
+                .contains("url(#arrow_head_red)")
+        );
+    }
+}
