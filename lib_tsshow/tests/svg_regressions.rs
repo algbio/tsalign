@@ -1,6 +1,6 @@
 //! Regression tests of the SVG output for bugs found by the property tests (`fuzz.rs`).
 
-use common::{build_result, default_svg_config, render_svg};
+use common::{build_result, default_svg_config, render_svg, svg_config};
 use lib_tsalign::{
     aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
     alignment_geometry::AlignmentRange,
@@ -319,4 +319,69 @@ fn overlapping_reverse_template_switches_with_uncertainty() {
         AlignmentRange::new(1, 3, 21, 4),
     );
     render_with_all_uncertainty_modes(&result);
+}
+
+/// Consecutive reverse TSs that jump back in the anti-descendant, rendered with the options of the property tests
+/// (found by the property tests). Before the fix of #286 the copies of the second jump back had wrong source columns,
+/// and rendering the inner of the last TS panicked with an index out of bounds in `svg/indexed_str.rs`.
+#[test]
+fn consecutive_jumps_back_with_options() {
+    use TemplateSwitchAncestor as A;
+    use TemplateSwitchDescendant as D;
+    let reverse = TemplateSwitchDirection::Reverse;
+    let without_uncertainty = |first_offset, descendant, ancestor| {
+        let mut entrance = entrance(first_offset, descendant, ancestor, reverse);
+        if let AlignmentType::TemplateSwitchEntrance {
+            uncertainty_range, ..
+        } = &mut entrance
+        {
+            *uncertainty_range = None;
+        }
+        entrance
+    };
+    let result = build_result(
+        "AAGTGTCAATATTAGCGG",
+        "CTGAGAGTTCTCAAAG",
+        vec![
+            (3, AlignmentType::PrimaryDeletion),
+            (1, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance_with_uncertainty(13, D::Query, A::Reference, [1, 0, 1, 0]),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryInsertion),
+            (2, AlignmentType::SecondarySubstitution),
+            (1, AlignmentType::SecondaryMatch),
+            (1, exit(13)),
+            (
+                1,
+                entrance_with_uncertainty(0, D::Query, A::Reference, [0, 1, 0, 0]),
+            ),
+            (5, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryInsertion),
+            (1, exit(-4)),
+            (1, without_uncertainty(-2, D::Query, A::Reference)),
+            (1, AlignmentType::SecondaryMatch),
+            (1, exit(-3)),
+            (
+                1,
+                entrance_with_uncertainty(3, D::Reference, A::Reference, [0, 1, 0, 2]),
+            ),
+            (3, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryDeletion),
+            (1, exit(-3)),
+            (4, AlignmentType::PrimaryMatch),
+            (1, AlignmentType::PrimarySubstitution),
+            (1, AlignmentType::PrimaryInsertion),
+        ],
+        AlignmentRange::new_complete(18, 16),
+    );
+    for config in [
+        svg_config(true, true, Some(2), UncertaintyRangeMode::Full),
+        svg_config(false, false, None, UncertaintyRangeMode::InnerOnly),
+        svg_config(false, false, Some(0), UncertaintyRangeMode::None),
+    ] {
+        render_svg(&result, &None, &config).unwrap();
+    }
 }
