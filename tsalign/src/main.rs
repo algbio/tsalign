@@ -1,7 +1,7 @@
 #![deny(clippy::mod_module_files)]
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
 
 mod align;
 mod alphabet;
@@ -24,11 +24,17 @@ enum Subcommand {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    // The argument matches are kept to tell explicitly given arguments from default values.
+    let matches = Cli::command().get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
+    let subcommand_matches = matches
+        .subcommand()
+        .map(|(_, matches)| matches)
+        .expect("a subcommand is required");
 
     match cli.subcommand {
-        Subcommand::Align(cli) => align::cli(*cli),
-        Subcommand::Preprocess(cli) => preprocess::cli(cli),
+        Subcommand::Align(cli) => align::cli(*cli, subcommand_matches),
+        Subcommand::Preprocess(cli) => preprocess::cli(cli, subcommand_matches),
         Subcommand::Show(cli) => show::cli(cli),
     }
 }

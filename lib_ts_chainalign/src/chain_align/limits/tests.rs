@@ -64,6 +64,7 @@ fn align(
         "query",
         &lower_bounds,
     )
+    .unwrap()
 }
 
 fn cost_limit(cost_limit: u32) -> AlignmentLimits<U32Cost> {

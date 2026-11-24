@@ -152,6 +152,7 @@ fn chain_align_full(
         "query",
         &lower_bounds,
     )
+    .unwrap()
 }
 
 fn reverse_complement(sequence: &[u8]) -> Vec<u8> {
@@ -375,7 +376,9 @@ fn chain_align_result(
         "reference",
         "query",
         &lower_bounds,
-    ) {
+    )
+    .unwrap()
+    {
         AlignmentResult::WithTarget { alignment, .. } => alignment,
         AlignmentResult::WithoutTarget { .. } => panic!("No alignment found"),
     }
@@ -707,7 +710,8 @@ fn anchor_mutations_are_taken_from_the_lower_bounds() {
         "reference",
         "query",
         &lower_bounds,
-    );
+    )
+    .unwrap();
     assert_eq!(result.statistics().cost.raw() as u32, expected);
 }
 
@@ -758,7 +762,8 @@ fn chain_align_on_range_with_config(
         "reference",
         "query",
         &lower_bounds,
-    );
+    )
+    .unwrap();
     (result.statistics().result.cost(), result.cigar())
 }
 

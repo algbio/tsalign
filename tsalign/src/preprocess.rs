@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, fmt::Debug, fs::create_dir_all, path::PathBuf};
 
-use anyhow::{Context, Result, bail};
-use clap::Parser;
+use anyhow::{Context, Result, bail, ensure};
+use clap::{ArgMatches, Parser};
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::U32Cost;
 use lib_ts_chainalign::{
@@ -16,7 +16,8 @@ use crate::{
     align::InexactLowerBound,
     alphabet::{InputAlphabet, WithAlphabet},
     util::{
-        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        infer_tschain_k, infer_tschain_max_n, load_tsa_config,
+        reject_inexact_anchor_arguments_for_exact_anchors, tschain_preprocess_cache_file,
         validate_tschain_config, write_cache_file_atomically,
     },
 };
@@ -62,7 +63,7 @@ pub struct Cli {
     max_length: usize,
 }
 
-pub fn cli(cli: Cli) -> Result<()> {
+pub fn cli(cli: Cli, matches: &ArgMatches) -> Result<()> {
     TermLogger::init(
         cli.log_level,
         Default::default(),
@@ -70,6 +71,16 @@ pub fn cli(cli: Cli) -> Result<()> {
         ColorChoice::Auto,
     )
     .unwrap();
+
+    reject_inexact_anchor_arguments_for_exact_anchors(
+        matches,
+        cli.max_anchor_mutations,
+        &[(
+            "inexact_chaining_lower_bound",
+            "--inexact-chaining-lower-bound",
+        )],
+    )?;
+    ensure!(cli.max_length > 0, "max_length must be at least 1");
 
     match cli.alphabet {
         #[cfg(feature = "alphabet_dna")]
@@ -124,7 +135,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         // Also preprocess for max_n < k, since the aligner needs lower bounds for sequences shorter than k as well.
         while current_max_n >= 1 {
             info!("Preprocessing for max_n = {current_max_n}...");
-            let lower_bounds = preprocess(current_max_n, config(k), costs.clone());
+            let lower_bounds = preprocess(current_max_n, config(k), costs.clone())?;
             let cache_file = tschain_preprocess_cache_file(
                 &costs,
                 &cache_directory,
@@ -163,7 +174,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         for (current_max_n, ks) in ks_per_max_n {
             for k in ks {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
-                let lower_bounds = preprocess(current_max_n, config(k), costs.clone());
+                let lower_bounds = preprocess(current_max_n, config(k), costs.clone())?;
                 let cache_file = tschain_preprocess_cache_file(
                     &costs,
                     &cache_directory,

@@ -47,3 +47,84 @@ pub enum Error {
     )]
     LengthDifferenceCostsNotVShaped,
 }
+
+/// One of the two input sequences of an alignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SequenceRole {
+    Reference,
+    Query,
+}
+
+impl SequenceRole {
+    /// The name of the sequence with a capital first letter, for the start of a sentence.
+    pub fn capitalised(&self) -> &'static str {
+        match self {
+            Self::Reference => "Reference",
+            Self::Query => "Query",
+        }
+    }
+}
+
+impl std::fmt::Display for SequenceRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Reference => write!(f, "reference"),
+            Self::Query => write!(f, "query"),
+        }
+    }
+}
+
+/// A reason why the inputs of [`Aligner::align`](crate::Aligner::align) or
+/// [`Aligner::align_sequences`](crate::Aligner::align_sequences) are invalid.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum AlignerInputError {
+    /// A sequence contains a character that is not part of the alphabet of the aligner.
+    #[error("{} contains non-alphabet character: {error}", .sequence.capitalised())]
+    NonAlphabetCharacter {
+        sequence: SequenceRole,
+        error: compact_genome::interface::alphabet::AlphabetError,
+    },
+
+    /// The alignment range does not fit the sequences.
+    #[error("Invalid alignment range: {0}")]
+    InvalidRange(#[from] crate::alignment_geometry::InvalidAlignmentRange),
+
+    /// The additional TSM starts and ends cannot be computed.
+    #[error("{0}")]
+    AdditionalExplicitTSMStartsAndEnds(
+        #[from] crate::aligner::ts_14_out_of_range::AdditionalExplicitTSMStartsAndEndsError,
+    ),
+
+    /// TSMs that start or end outside of the alignment range
+    /// ([`Ts14OutOfRangeStrategy::Allow`](crate::aligner::ts_14_out_of_range::Ts14OutOfRangeStrategy::Allow))
+    /// are not supported by the aligner yet.
+    #[error(
+        "Allowing template switches to start or end outside of the alignment range is not supported yet"
+    )]
+    Ts14OutOfRangeNotSupported,
+
+    /// Additional TSM starts and ends were given,
+    /// but the [`Ts14OutOfRangeStrategy`](crate::aligner::ts_14_out_of_range::Ts14OutOfRangeStrategy)
+    /// does not allow TSMs to start or end outside of the alignment range, so they would be ignored.
+    #[error(
+        "Additional explicit TSM starts and ends were given, but they are ignored, \
+         because TSMs are not allowed to start or end outside of the alignment range"
+    )]
+    IgnoredAdditionalExplicitTSMStartsAndEnds,
+}
+
+/// Convert an ASCII sequence into a sequence of the given alphabet.
+///
+/// Returns [`AlignerInputError::NonAlphabetCharacter`] if the sequence contains a character that is not part of the alphabet.
+pub fn sequence_from_ascii<AlphabetType: compact_genome::interface::alphabet::Alphabet>(
+    sequence: SequenceRole,
+    ascii: &[u8],
+) -> std::result::Result<
+    compact_genome::implementation::vec_sequence::VectorGenome<AlphabetType>,
+    AlignerInputError,
+> {
+    use compact_genome::interface::sequence::OwnedGenomeSequence;
+
+    compact_genome::implementation::vec_sequence::VectorGenome::from_slice_u8(ascii)
+        .map_err(|error| AlignerInputError::NonAlphabetCharacter { sequence, error })
+}

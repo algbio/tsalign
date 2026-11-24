@@ -367,6 +367,13 @@ impl<Cost: Copy> GapAffineLowerBounds<Cost> {
     }
 }
 
+impl<Cost> GapAffineLowerBounds<Cost> {
+    /// The maximum gap length supported by these lower bounds.
+    pub fn max_n(&self) -> usize {
+        self.lower_bounds.dim()[0].saturating_sub(1)
+    }
+}
+
 impl BoundaryCondition {
     fn allow_direct_chaining(&self) -> bool {
         match self {

@@ -7,7 +7,7 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     chaining_lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
-    config::ChainingLowerBoundConfig,
+    config::{ChainingLowerBoundConfig, InvalidChainingLowerBoundConfig},
     costs::AlignmentCosts,
 };
 
@@ -36,16 +36,31 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
     /// # Panics
     ///
     /// Panics if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
+    /// Use [`Self::try_new`] to get an error instead.
     pub fn new(
         max_n: usize,
         config: ChainingLowerBoundConfig,
         alignment_costs: AlignmentCosts<Cost>,
     ) -> Self {
-        if let Err(error) = config.validate() {
-            panic!("Unsupported chaining lower bound config: {error}");
-        }
+        Self::try_new(max_n, config, alignment_costs)
+            .unwrap_or_else(|error| panic!("Unsupported chaining lower bound config: {error}"))
+    }
 
-        if config.max_anchor_mutations == 0 {
+    /// Compute chaining lower bounds.
+    ///
+    /// The parameters are as in [`Self::new`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
+    pub fn try_new(
+        max_n: usize,
+        config: ChainingLowerBoundConfig,
+        alignment_costs: AlignmentCosts<Cost>,
+    ) -> Result<Self, InvalidChainingLowerBoundConfig> {
+        config.validate()?;
+
+        Ok(if config.max_anchor_mutations == 0 {
             Self {
                 primary: GapAffineLowerBounds::new_exact_anchors(
                     max_n,
@@ -81,7 +96,7 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
                 alignment_costs,
                 config,
             }
-        }
+        })
     }
 
     pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
@@ -124,13 +139,13 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             bincode::serde::decode_from_std_read(&mut read, bincode::config::standard()).map_err(
                 |error| match error {
                     bincode::error::DecodeError::Io { inner, .. } => inner,
-                    error => panic!("I/O error: {error}"),
+                    error => std::io::Error::new(std::io::ErrorKind::InvalidData, error),
                 },
             )?;
         let config = bincode::serde::decode_from_std_read(&mut read, bincode::config::standard())
             .map_err(|error| match error {
             bincode::error::DecodeError::Io { inner, .. } => inner,
-            error => panic!("I/O error: {error}"),
+            error => std::io::Error::new(std::io::ErrorKind::InvalidData, error),
         })?;
 
         Ok(Self {
@@ -298,6 +313,11 @@ impl<Cost> ChainingLowerBounds<Cost> {
 
     pub fn alignment_costs(&self) -> &AlignmentCosts<Cost> {
         &self.alignment_costs
+    }
+
+    /// The maximum sequence length supported by these lower bounds.
+    pub fn max_n(&self) -> usize {
+        self.primary.max_n().min(self.secondary.max_n())
     }
 
     pub fn config(&self) -> &ChainingLowerBoundConfig {

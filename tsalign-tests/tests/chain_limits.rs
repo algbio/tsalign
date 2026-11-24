@@ -259,7 +259,7 @@ fn iteration_limit() {
 fn memory_limit_is_rejected() {
     run_chain(TS_PAIR, &["--memory-limit", "1000000000"]).assert_rejected(
         "tschainalign with memory limit",
-        "--memory-limit is not supported",
+        "--memory-limit is only used by --alignment-method a-star-template-switch",
     );
 }
 
@@ -272,6 +272,6 @@ fn iteration_limit_is_rejected_by_the_classic_aligner() {
     )
     .assert_rejected(
         "classic aligner with iteration limit",
-        "--iteration-limit is not supported",
+        "--iteration-limit is only used by --alignment-method a-star-chain-ts",
     );
 }

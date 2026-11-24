@@ -1,8 +1,8 @@
 use std::{fmt::Debug, str::FromStr};
 
 use compact_genome::{
-    implementation::{alphabets::dna_alphabet_or_n::DnaAlphabetOrN, vec_sequence::VectorGenome},
-    interface::sequence::{GenomeSequence, OwnedGenomeSequence},
+    implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN,
+    interface::sequence::GenomeSequence,
 };
 use generic_a_star::cost::U64Cost;
 use traitsequence::interface::Sequence;
@@ -31,6 +31,7 @@ use crate::{
     },
     alignment_result::TSMUncertaintyRangeExtensionMode,
     config::TemplateSwitchConfig,
+    error::{AlignerInputError, SequenceRole, sequence_from_ascii},
 };
 
 use crate::{
@@ -63,6 +64,8 @@ use crate::aligner::strategies::chaining::LowerBoundChainingStrategy;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod validation_tests;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -271,6 +274,22 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         self
     }
 
+    /// Checks that the settings of this aligner are supported.
+    ///
+    /// [`Self::align`] and [`Self::align_sequences`] call this as well,
+    /// so this is only needed for reporting unsupported settings before preparing the inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AlignerInputError::Ts14OutOfRangeNotSupported`] if the [`Ts14OutOfRangeStrategy`] is
+    /// [`Allow`](Ts14OutOfRangeStrategy::Allow), which the aligner does not support yet.
+    pub fn validate_settings(&self) -> Result<(), AlignerInputError> {
+        if self.ts_14_out_of_range_strategy == Ts14OutOfRangeStrategy::Allow {
+            return Err(AlignerInputError::Ts14OutOfRangeNotSupported);
+        }
+        Ok(())
+    }
+
     /// Perform the actual alignment.
     ///
     /// Special gap characters can be specified in order to interpret the given sequences as an alignment with gaps instead of raw sequences.
@@ -281,11 +300,17 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     ///
     /// Depending on the inputs, this takes quite long.
     /// Consider spawning tasks to not block the user application.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the settings are not supported (see [`Self::validate_settings`]),
+    /// or if the inputs are invalid, see [`AlignerInputError`]:
+    /// if a sequence contains a character that is not part of the alphabet (after removing the gap characters),
+    /// or if the range does not fit the sequences without gap characters.
     #[allow(
         clippy::too_many_arguments,
         reason = "For now, this is the intended API"
     )]
-    #[must_use]
     pub fn align(
         &self,
         reference_name: &str,
@@ -298,26 +323,24 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
         tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
-    ) -> AlignmentResult<U64Cost> {
-        // TODO error handling
-        let reference_genome = VectorGenome::<AlphabetType>::from_iter_u8(
-            reference
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
+        self.validate_settings()?;
+        let without_gaps = |sequence: &[u8]| {
+            sequence
                 .iter()
                 .copied()
-                .filter(|c| !gap_characters.contains(c)),
-        )
-        .unwrap();
-        let query_genome = VectorGenome::from_iter_u8(
-            query
-                .iter()
-                .copied()
-                .filter(|c| !gap_characters.contains(c)),
-        )
-        .unwrap();
+                .filter(|c| !gap_characters.contains(c))
+                .collect::<Vec<_>>()
+        };
+        let reference_genome =
+            sequence_from_ascii::<AlphabetType>(SequenceRole::Reference, &without_gaps(reference))?;
+        let query_genome =
+            sequence_from_ascii::<AlphabetType>(SequenceRole::Query, &without_gaps(query))?;
 
         let range = ranges.unwrap_or_else(|| {
             AlignmentRange::new_complete(reference_genome.len(), query_genome.len())
         });
+        range.validate(reference_genome.len(), query_genome.len())?;
         let additional_tsm_starts_and_ends =
             if self.ts_14_out_of_range_strategy == Ts14OutOfRangeStrategy::Allow {
                 AdditionalExplicitTSMStartsAndEnds::new(
@@ -329,8 +352,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
                         .map(|c| *c as char)
                         .collect::<Vec<_>>(),
                     false,
-                )
-                .unwrap()
+                )?
             } else {
                 AdditionalExplicitTSMStartsAndEnds::default()
             };
@@ -359,11 +381,17 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     ///   Pass [`AdditionalExplicitTSMStartsAndEnds::default()`] otherwise.
     ///
     /// The other parameters are as in [`Self::align`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the settings are not supported (see [`Self::validate_settings`]),
+    /// if the range does not fit the sequences,
+    /// or if `additional_tsm_starts_and_ends` is not empty although the [`Ts14OutOfRangeStrategy`] is
+    /// [`Disallow`](Ts14OutOfRangeStrategy::Disallow), such that it would be ignored.
     #[allow(
         clippy::too_many_arguments,
         reason = "For now, this is the intended API"
     )]
-    #[must_use]
     pub fn align_sequences<
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
@@ -378,7 +406,18 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         memory_limit: Option<usize>,
         extend_beyond_range: bool,
         tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
+        self.validate_settings()?;
+        range.validate(reference.len(), query.len())?;
+        if self.ts_14_out_of_range_strategy == Ts14OutOfRangeStrategy::Disallow
+            && (!additional_tsm_starts_and_ends
+                .explicit_tsm_starts
+                .is_empty()
+                || !additional_tsm_starts_and_ends.explicit_tsm_ends.is_empty())
+        {
+            return Err(AlignerInputError::IgnoredAdditionalExplicitTSMStartsAndEnds);
+        }
+
         let data = QueryData {
             reference_name,
             reference,
@@ -391,7 +430,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             extend_beyond_range,
             tsm_uncertainty_range_extension_mode,
         };
-        self.align_select_min_length_strategy(data)
+        Ok(self.align_select_min_length_strategy(data))
     }
 
     fn align_select_min_length_strategy<

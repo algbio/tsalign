@@ -139,3 +139,31 @@ def test_none_chaining_strategy_is_accepted():
     result = Aligner(chaining_strategy="none").align(REFERENCE, QUERY)
     assert result is not None
     assert result.cigar() == EXPECTED_CIGAR
+
+
+# Issue #249: invalid inputs raise ValueError instead of a Rust panic (pyo3_runtime.PanicException).
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"reference_limit": len(REFERENCE) + 1},
+        {"query_start": len(QUERY) + 1},
+        {"reference_start": 5, "reference_limit": 4},
+        {"range": AlignmentRange(0, len(REFERENCE), 0, len(QUERY) + 1)},
+        # The range refers to the sequences without gap characters.
+        {"gap_characters": "T", "reference_limit": len(REFERENCE)},
+    ],
+)
+@pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
+def test_invalid_range_raises_value_error(align, kwargs):
+    with pytest.raises(ValueError, match="range"):
+        align(REFERENCE, QUERY, **kwargs)
+
+
+@pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
+def test_non_alphabet_character_raises_value_error(align):
+    with pytest.raises(ValueError, match="Reference contains non-alphabet character"):
+        align("ACGTXCGT", QUERY)
+    with pytest.raises(ValueError, match="Query contains non-alphabet character"):
+        align(REFERENCE, "ACG-ACGT")
+    # Gap characters are removed before checking the alphabet.
+    assert align(REFERENCE, "ACG-ACGT", gap_characters="-") is not None
