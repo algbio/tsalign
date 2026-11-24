@@ -776,6 +776,7 @@ dependencies = [
  "log",
  "multicriteria-dijkstra",
  "ndarray",
+ "noisy_float",
  "num-traits",
  "rustc-hash",
  "serde",

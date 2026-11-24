@@ -10,7 +10,7 @@ use clap::{
 };
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_ts_chainalign::chain_align::performance_parameters::{
-    ChainingClosedList, ChainingOpenList,
+    AnchorPruning, ChainingClosedList, ChainingOpenList, InexactPruningRules,
 };
 use lib_tsalign::{
     aligner::{
@@ -267,13 +267,35 @@ struct ChainArgs {
     #[clap(long, default_value = "linear-heap")]
     chaining_open_list: ChainingOpenList,
 
-    /// Do not remove dominated inexact anchors before chaining.
+    /// Which inexact anchors to remove before chaining (only for --max-anchor-mutations >= 1).
     ///
-    /// By default, inexact primary anchors that are dominated by a shorter anchor are removed before chaining,
-    /// if this provably does not change the cost of the optimal chain.
-    /// This flag is for comparing against the chaining with all anchors.
-    #[clap(long)]
+    /// `exact` removes dominated primary anchors only where this provably does not change the cost of the optimal chain
+    /// (one anchor mutation). `inexact` removes primary and secondary anchors with heuristic rules for any number of
+    /// anchor mutations, which may increase the cost and lose template switches (see --inexact-pruning-rules).
+    /// `none` keeps all anchors, which is useful to compare against the chaining with all anchors.
+    #[clap(long, default_value = "exact")]
+    anchor_pruning: AnchorPruning,
+
+    /// Deprecated alias of `--anchor-pruning none`.
+    #[clap(long, conflicts_with = "anchor_pruning")]
     no_anchor_domination_pruning: bool,
+
+    /// The rules of `--anchor-pruning inexact`, as a comma-separated list [default: all].
+    ///
+    /// Rules: primary-drop-guards, primary-prefix-domination, primary-suffix-domination, primary-edge-substitution,
+    /// primary-exact-overlap, and the same with the prefix `secondary-`.
+    /// Keywords: `all`, `none`, `primary` (all primary rules), `secondary` (all secondary rules).
+    /// An item prefixed with `-` removes rules again, e.g. `all,-secondary-exact-overlap`.
+    /// Requires `--anchor-pruning inexact`.
+    #[clap(long, allow_hyphen_values = true)]
+    inexact_pruning_rules: Option<InexactPruningRules>,
+
+    /// The maximum distance between the diagonal of an exact anchor and the diagonal range of an inexact anchor
+    /// for the `*-exact-overlap` rules of `--anchor-pruning inexact` [default: 1].
+    ///
+    /// Requires `--anchor-pruning inexact`.
+    #[clap(long)]
+    exact_overlap_diagonal_distance: Option<usize>,
 
     /// The maximum number of chaining rounds.
     ///
@@ -373,6 +395,12 @@ const CHAIN_ONLY_ARGUMENTS: &[(&str, &str)] = &[
         "no_anchor_domination_pruning",
         "--no-anchor-domination-pruning",
     ),
+    ("anchor_pruning", "--anchor-pruning"),
+    ("inexact_pruning_rules", "--inexact-pruning-rules"),
+    (
+        "exact_overlap_diagonal_distance",
+        "--exact-overlap-diagonal-distance",
+    ),
 ];
 
 /// Arguments of the classic aligner that have no effect if template switches are disabled with `--no-ts`.
@@ -397,6 +425,12 @@ const INEXACT_ANCHOR_ONLY_ARGUMENTS: &[(&str, &str)] = &[
     (
         "no_anchor_domination_pruning",
         "--no-anchor-domination-pruning",
+    ),
+    ("anchor_pruning", "--anchor-pruning"),
+    ("inexact_pruning_rules", "--inexact-pruning-rules"),
+    (
+        "exact_overlap_diagonal_distance",
+        "--exact-overlap-diagonal-distance",
     ),
 ];
 

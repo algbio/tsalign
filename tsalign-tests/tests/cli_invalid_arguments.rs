@@ -53,6 +53,9 @@ fn a_star_rejects_chain_options() -> Result<()> {
         "--chaining-closed-list special",
         "--chaining-open-list linear-heap",
         "--no-anchor-domination-pruning",
+        "--anchor-pruning inexact",
+        "--inexact-pruning-rules all",
+        "--exact-overlap-diagonal-distance 1",
     ] {
         let name = option.split_whitespace().next().unwrap();
         assert_rejected(&format!("{A_STAR} {option}"), &[name, "a-star-chain-ts"])?;
@@ -117,6 +120,10 @@ fn chain_rejects_inexact_options_with_exact_anchors() -> Result<()> {
     for option in [
         "--inexact-chaining-lower-bound max-match-run",
         "--no-anchor-domination-pruning",
+        "--anchor-pruning none",
+        "--anchor-pruning inexact",
+        "--inexact-pruning-rules all",
+        "--exact-overlap-diagonal-distance 1",
     ] {
         let name = option.split_whitespace().next().unwrap();
         assert_rejected(
@@ -127,6 +134,40 @@ fn chain_rejects_inexact_options_with_exact_anchors() -> Result<()> {
             &format!("{CHAIN} --max-anchor-mutations 0 {option}"),
             &[name, "--max-anchor-mutations"],
         )?;
+    }
+    Ok(())
+}
+
+/// The rules of the inexact anchor pruning mode are rejected for the other modes (issue #236).
+#[test]
+fn chain_rejects_inexact_pruning_options_without_inexact_pruning() -> Result<()> {
+    for mode in ["", "--anchor-pruning exact", "--anchor-pruning none"] {
+        for option in [
+            "--inexact-pruning-rules all",
+            "--exact-overlap-diagonal-distance 1",
+        ] {
+            assert_rejected(
+                &format!("{CHAIN} -k 9 --max-anchor-mutations 1 {mode} {option}"),
+                &["--anchor-pruning inexact"],
+            )?;
+        }
+    }
+    // Unknown rules and the conflicting deprecated flag are rejected by the argument parser (exit code 2).
+    for (args, expected) in [
+        (
+            "--anchor-pruning inexact --inexact-pruning-rules primary-foo",
+            "primary-foo",
+        ),
+        (
+            "--anchor-pruning inexact --no-anchor-domination-pruning",
+            "--no-anchor-domination-pruning",
+        ),
+    ] {
+        let args = format!("{CHAIN} -k 9 --max-anchor-mutations 1 {args}");
+        let output = run_in_repo_root_output(&args)?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "`{args}`\nstderr:\n{stderr}");
+        assert!(stderr.contains(expected), "`{args}`\nstderr:\n{stderr}");
     }
     Ok(())
 }

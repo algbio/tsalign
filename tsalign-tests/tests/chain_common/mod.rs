@@ -17,8 +17,11 @@
 //!   every template switch supported (see [`anchors_dominate`]);
 //! * swapping reference and query does not change the chain cost;
 //! * for inexact anchors, the chain cost equals the chain cost of a run with all anchors,
-//!   i.e. without pruning dominated anchors (`--no-anchor-domination-pruning`).
+//!   i.e. without pruning dominated anchors (`--anchor-pruning none`).
 //!   Pruning must not change the cost of the optimal chain.
+//! * for inexact anchors, a run with the inexact anchor pruning mode (`--anchor-pruning inexact`, all rules)
+//!   succeeds with a valid alignment, and its chain cost is at least the chain cost without pruning.
+//!   It may be larger, since the inexact pruning may remove anchors that the optimal chain needs.
 //!   This is the only check that detects too expensive results for inexact anchors:
 //!   when a pruned anchor was required for a template switch, the result is typically the optimal alignment without
 //!   template switches, which passes all other checks that are applied to inexact anchors.
@@ -312,17 +315,20 @@ pub fn check_case(case: &Case) -> Result<(), String> {
         // Pruning dominated anchors must not change the cost of the optimal chain.
         // The chaining with all anchors is the oracle for the chain cost of the default (pruned) run.
         // Exact anchors are never pruned.
+        // The inexact anchor pruning mode must not fail, and must not decrease the chain cost.
         if !is_exact {
+            let unpruned = run_chain_unpruned(reference, query, k, max_anchor_mutations);
             violations.extend(
-                check_chain_cost_against_unpruned(
-                    reference,
-                    query,
-                    k,
-                    max_anchor_mutations,
-                    &result,
-                )
-                .into_iter()
-                .map(|violation| format!("{params}: {violation}")),
+                check_chain_cost_against_unpruned_outcome(&unpruned, &result)
+                    .into_iter()
+                    .chain(check_inexact_pruning(
+                        reference,
+                        query,
+                        k,
+                        max_anchor_mutations,
+                        &unpruned,
+                    ))
+                    .map(|violation| format!("{params}: {violation}")),
             );
         }
 
@@ -420,7 +426,17 @@ pub fn check_chain_cost_against_unpruned(
     max_anchor_mutations: u8,
     result: &ChainResult,
 ) -> Option<String> {
-    match run_chain_unpruned(reference, query, k, max_anchor_mutations) {
+    check_chain_cost_against_unpruned_outcome(
+        &run_chain_unpruned(reference, query, k, max_anchor_mutations),
+        result,
+    )
+}
+
+fn check_chain_cost_against_unpruned_outcome(
+    unpruned: &RunOutcome,
+    result: &ChainResult,
+) -> Option<String> {
+    match unpruned {
         RunOutcome::Success(unpruned) => (result.chain_cost != unpruned.chain_cost).then(|| {
             format!(
                 "chain cost {} differs from the chain cost {} without pruning dominated anchors \
@@ -436,6 +452,43 @@ pub fn check_chain_cost_against_unpruned(
         // Without the oracle, the chain cost is not verified, which must not pass silently.
         other => Some(format!("without pruning dominated anchors: {other}")),
     }
+}
+
+/// Check a run with the inexact anchor pruning mode (`--anchor-pruning inexact`).
+///
+/// The inexact pruning may increase the chain cost and lose template switches, so the costs are not compared for
+/// equality. The run must succeed with a valid alignment, and its chain cost must be at least the chain cost without
+/// pruning, since removing anchors only removes chains.
+/// The reported cost is not compared (it may be lower than the chain cost, see
+/// [issue #221](https://github.com/algbio/tsalign/issues/221)).
+fn check_inexact_pruning(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+    unpruned: &RunOutcome,
+) -> Vec<String> {
+    let result = match run_chain_inexact_pruning(reference, query, k, max_anchor_mutations) {
+        RunOutcome::Success(result) => result,
+        other => return vec![format!("with inexact anchor pruning: {other}")],
+    };
+    let mut violations: Vec<_> = check_alignment(reference, query, &result)
+        .into_iter()
+        .map(|violation| format!("with inexact anchor pruning: {violation}"))
+        .collect();
+    if let RunOutcome::Success(unpruned) = unpruned
+        && let (Some(chain_cost), Some(unpruned_chain_cost)) =
+            (result.chain_cost, unpruned.chain_cost)
+        && chain_cost < unpruned_chain_cost
+    {
+        violations.push(format!(
+            "chain cost {chain_cost} with inexact anchor pruning is smaller than the chain cost {unpruned_chain_cost} without pruning"
+        ));
+    }
+    if result.chain_cost.is_none() {
+        violations.push("with inexact anchor pruning: no chain cost reported".to_string());
+    }
+    violations
 }
 
 fn display_optional(value: Option<u32>) -> String {
@@ -613,10 +666,10 @@ impl std::fmt::Display for RunOutcome {
 
 /// Align with tschainalign.
 pub fn run_chain(reference: &[u8], query: &[u8], k: u32, max_anchor_mutations: u8) -> RunOutcome {
-    run_chain_with_pruning(reference, query, k, max_anchor_mutations, true)
+    run_chain_with_pruning(reference, query, k, max_anchor_mutations, "exact")
 }
 
-/// Align with tschainalign without pruning dominated anchors.
+/// Align with tschainalign without pruning dominated anchors (`--anchor-pruning none`).
 ///
 /// This is the oracle for the chain cost of [`run_chain`].
 pub fn run_chain_unpruned(
@@ -625,15 +678,26 @@ pub fn run_chain_unpruned(
     k: u32,
     max_anchor_mutations: u8,
 ) -> RunOutcome {
-    run_chain_with_pruning(reference, query, k, max_anchor_mutations, false)
+    run_chain_with_pruning(reference, query, k, max_anchor_mutations, "none")
 }
 
+/// Align with tschainalign with the inexact anchor pruning mode and all its rules (`--anchor-pruning inexact`).
+pub fn run_chain_inexact_pruning(
+    reference: &[u8],
+    query: &[u8],
+    k: u32,
+    max_anchor_mutations: u8,
+) -> RunOutcome {
+    run_chain_with_pruning(reference, query, k, max_anchor_mutations, "inexact")
+}
+
+/// Align with tschainalign with the given `--anchor-pruning` mode.
 fn run_chain_with_pruning(
     reference: &[u8],
     query: &[u8],
     k: u32,
     max_anchor_mutations: u8,
-    prune_dominated_anchors: bool,
+    anchor_pruning: &str,
 ) -> RunOutcome {
     let mut args: Vec<String> = [
         "align",
@@ -659,15 +723,16 @@ fn run_chain_with_pruning(
         cache.display().to_string(),
         "--force-no-preprocessing".to_string(),
     ]);
-    if !prune_dominated_anchors {
-        args.push("--no-anchor-domination-pruning".to_string());
+    // Anchor pruning only applies to inexact anchors, and tsalign rejects the option for exact anchors.
+    if max_anchor_mutations > 0 {
+        args.extend(["--anchor-pruning".to_string(), anchor_pruning.to_string()]);
     }
 
     // The chaining with all anchors is slower, and its result is only used as an oracle.
-    let timeout = if prune_dominated_anchors {
-        timeout()
-    } else {
+    let timeout = if anchor_pruning == "none" {
         timeout() * UNPRUNED_TIMEOUT_FACTOR
+    } else {
+        timeout()
     };
     run_align(reference, query, args, timeout)
 }
