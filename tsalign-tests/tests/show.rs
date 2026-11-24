@@ -12,6 +12,8 @@ use std::{
 use anyhow::Result;
 use util::run_in_repo_root_output;
 
+// Not every helper of util is used here.
+#[allow(dead_code)]
 mod util;
 
 const FIXTURES: &str = "lib_tsshow/tests/fixtures";
