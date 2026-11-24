@@ -21,6 +21,8 @@ pub struct Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost> {
     pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
     pub ts_limits: &'ts_limits TsLimits,
     pub max_successors: usize,
+    /// An inclusive limit on the chain cost, see [`AlignmentLimits::cost_limit`](crate::chain_align::limits::AlignmentLimits::cost_limit).
+    pub cost_limit: Option<Cost>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -79,12 +81,14 @@ impl<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
         chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
         ts_limits: &'ts_limits TsLimits,
         max_successors: usize,
+        cost_limit: Option<Cost>,
     ) -> Self {
         Self {
             anchors,
             chaining_cost_function,
             ts_limits,
             max_successors,
+            cost_limit,
         }
     }
 }
@@ -485,7 +489,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
-        None
+        self.cost_limit
     }
 
     fn memory_limit(&self) -> Option<usize> {

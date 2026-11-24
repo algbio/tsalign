@@ -246,8 +246,8 @@ fn iteration_limit() {
             "{description}"
         );
         assert!(
-            output["cost"].as_float().unwrap() < f64::from(optimum),
-            "{description}: the lower bound is not below the optimum"
+            output["cost"].as_float().unwrap() <= f64::from(optimum),
+            "{description}: the lower bound exceeds the optimum"
         );
         rounds += 1;
         assert!(rounds < 1000, "the chaining does not terminate");

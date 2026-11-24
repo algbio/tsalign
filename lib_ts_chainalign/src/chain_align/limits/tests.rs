@@ -249,7 +249,7 @@ fn iteration_limit_counts_chaining_rounds() {
         assert_eq!(statistics.result, AStarResult::NoTarget);
         let lower_bound = statistics.cost.raw();
         assert!(
-            previous_lower_bound <= lower_bound && lower_bound < f64::from(optimum),
+            previous_lower_bound <= lower_bound && lower_bound <= f64::from(optimum),
             "limit {limit}: lower bound {lower_bound}, previous {previous_lower_bound}, optimum {optimum}"
         );
         previous_lower_bound = lower_bound;
