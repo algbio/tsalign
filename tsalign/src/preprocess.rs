@@ -16,7 +16,7 @@ use crate::{
     align::InexactLowerBound,
     alphabet::{InputAlphabet, WithAlphabet},
     util::{
-        infer_tschain_k, infer_tschain_max_n, load_tsa_config,
+        infer_tschain_k, infer_tschain_max_n, load_tschain_config,
         reject_inexact_anchor_arguments_for_exact_anchors, tschain_preprocess_cache_file,
         validate_tschain_config, write_cache_file_atomically,
     },
@@ -40,8 +40,9 @@ pub struct Cli {
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
-    #[clap(long, short = 'c', default_value = "sample_tsa_config")]
-    configuration_directory: PathBuf,
+    /// Default: the built-in default config of tschainalign (equal to `test_files/config/chainalign`).
+    #[clap(long, short = 'c')]
+    configuration_directory: Option<PathBuf>,
 
     /// k-mer size for tschainalign.
     ///
@@ -109,7 +110,8 @@ impl WithAlphabet for Execute {
 }
 
 fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
-    let costs = load_tsa_config::<AlphabetType, U32Cost>(&cli.configuration_directory)?;
+    let costs =
+        load_tschain_config::<AlphabetType, U32Cost>(cli.configuration_directory.as_deref())?;
     let costs = AlignmentCosts::try_from(costs)?;
 
     let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {

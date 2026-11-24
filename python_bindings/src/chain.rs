@@ -22,7 +22,7 @@ use lib_ts_chainalign::{
     },
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
-    costs::AlignmentCosts,
+    costs::{AlignmentCosts, DEFAULT_CONFIG_TSA},
     dna_rc_fn,
 };
 use lib_tsalign::{
@@ -275,7 +275,7 @@ impl TSChainAligner {
 impl TSChainAligner {
     #[new]
     #[pyo3(signature = (
-        costs,
+        costs=None,
         k=None,
         max_anchor_mutations=0,
         inexact_chaining_lower_bound=None,
@@ -291,7 +291,7 @@ impl TSChainAligner {
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
-        costs: &str,
+        costs: Option<&str>,
         k: Option<i64>,
         max_anchor_mutations: i64,
         inexact_chaining_lower_bound: Option<&str>,
@@ -386,7 +386,7 @@ impl TSChainAligner {
                 .unwrap_or(default_inexact_pruning.exact_overlap_diagonal_distance),
         };
 
-        let alignment_costs = parse_costs(costs)?;
+        let alignment_costs = parse_costs(costs.unwrap_or(DEFAULT_CONFIG_TSA))?;
 
         let aligner = Self {
             alignment_costs,

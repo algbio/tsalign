@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::Path};
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
@@ -11,7 +11,7 @@ use lib_tsalign::{
 use log::info;
 
 use super::Cli;
-use crate::util::load_tsa_config;
+use crate::util::{DEFAULT_CONFIGURATION_DIRECTORY, load_tsa_config};
 
 /// The node ordering of the classic aligner.
 ///
@@ -51,7 +51,12 @@ pub fn align_a_star_template_switch_distance<
     reference_name: &str,
     query_name: &str,
 ) -> Result<()> {
-    let costs = load_tsa_config(&cli.common.configuration_directory)?;
+    let costs = load_tsa_config(
+        cli.common
+            .configuration_directory
+            .as_deref()
+            .unwrap_or(Path::new(DEFAULT_CONFIGURATION_DIRECTORY)),
+    )?;
     aligner.set_costs(costs);
 
     let alignment = aligner.align_sequences(
