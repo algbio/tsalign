@@ -212,3 +212,112 @@ fn uncertainty_range_beyond_the_left_end() {
     );
     render_with_all_uncertainty_modes(&result);
 }
+
+/// Known bug: overlapping forward TSs (found by the property tests).
+#[test]
+#[ignore = "known bug, not fixed yet (found in #279)"]
+fn overlapping_forward_template_switches() {
+    let forward = TemplateSwitchDirection::Forward;
+    let result = build_result(
+        "TACGAACATGAACGCT",
+        "CAAGTCAGGGAACTCCCAGATATGGGTC",
+        vec![
+            (4, AlignmentType::PrimaryInsertion),
+            (
+                1,
+                entrance(
+                    1,
+                    TemplateSwitchDescendant::Reference,
+                    TemplateSwitchAncestor::Reference,
+                    forward,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryDeletion),
+            (2, AlignmentType::SecondarySubstitution),
+            (1, AlignmentType::SecondaryInsertion),
+            (1, AlignmentType::SecondaryMatch),
+            (1, exit(20)),
+            (
+                1,
+                entrance(
+                    -1,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Reference,
+                    TemplateSwitchDirection::Reverse,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (1, exit(0)),
+            (
+                1,
+                entrance(
+                    -10,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Query,
+                    forward,
+                ),
+            ),
+            (3, AlignmentType::SecondaryMatch),
+            (1, exit(2)),
+            (9, AlignmentType::PrimaryDeletion),
+        ],
+        AlignmentRange::new_complete(16, 28),
+    );
+    render_svg(&result, &None, &default_svg_config()).unwrap();
+}
+
+/// Known bug: overlapping reverse TSs with uncertainty ranges (found by the property tests).
+#[test]
+#[ignore = "known bug, not fixed yet (found in #279)"]
+fn overlapping_reverse_template_switches_with_uncertainty() {
+    use TemplateSwitchAncestor as A;
+    use TemplateSwitchDescendant as D;
+    let reverse = TemplateSwitchDirection::Reverse;
+    let mut alignment = vec![
+        (4, AlignmentType::PrimaryDeletion),
+        (
+            1,
+            entrance_with_uncertainty(18, D::Query, A::Query, [0, 0, 1, 0]),
+        ),
+        (1, AlignmentType::SecondaryMatch),
+        (1, AlignmentType::SecondaryInsertion),
+        (2, AlignmentType::SecondaryMatch),
+        (1, exit(1)),
+    ];
+    let without_uncertainty = |first_offset, descendant, ancestor| {
+        let mut entrance = entrance(first_offset, descendant, ancestor, reverse);
+        if let AlignmentType::TemplateSwitchEntrance {
+            uncertainty_range, ..
+        } = &mut entrance
+        {
+            *uncertainty_range = None;
+        }
+        entrance
+    };
+    alignment.extend([
+        (1, without_uncertainty(9, D::Query, A::Reference)),
+        (1, AlignmentType::SecondaryMatch),
+        (1, exit(18)),
+        (1, without_uncertainty(-12, D::Query, A::Reference)),
+        (1, AlignmentType::SecondaryMatch),
+        (1, AlignmentType::SecondaryDeletion),
+        (1, exit(-6)),
+        (1, without_uncertainty(-7, D::Query, A::Reference)),
+        (1, AlignmentType::SecondaryMatch),
+        (1, exit(-2)),
+        (1, without_uncertainty(7, D::Reference, A::Reference)),
+        (1, AlignmentType::SecondaryMatch),
+        (1, AlignmentType::SecondaryDeletion),
+        (2, AlignmentType::SecondaryInsertion),
+        (2, AlignmentType::SecondaryMatch),
+        (1, exit(-6)),
+    ]);
+    let result = build_result(
+        "CAGTCAAGTCGTGGATAGAGACAGAAT",
+        "AACCGCCCTTGAGCTGCCAGAAAGTTC",
+        alignment,
+        AlignmentRange::new(1, 3, 21, 4),
+    );
+    render_with_all_uncertainty_modes(&result);
+}

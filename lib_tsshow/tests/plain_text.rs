@@ -197,3 +197,68 @@ fn gaps_at_both_ends_of_the_anti_descendant() {
     let output = render_plain_text(&result, &None);
     assert!(output.contains("ChildF:  -ATCCG-"), "{output}");
 }
+
+/// Known bug: several TSs with negative anti-descendant gaps (found by the property tests).
+#[test]
+#[ignore = "known bug, not fixed yet (found in #279)"]
+fn multiple_negative_gaps() {
+    let reverse = TemplateSwitchDirection::Reverse;
+    let entrance = |first_offset, descendant, ancestor| AlignmentType::TemplateSwitchEntrance {
+        first_offset,
+        uncertainty_range: Some(TSMUncertaintyRange::new()),
+        descendant,
+        ancestor,
+        direction: reverse,
+    };
+    let result = build_result(
+        "TGACTATGTACCCGAACTAAATCATCTAT",
+        "TATTATTACGACCCGCCCGTGCGA",
+        vec![
+            (2, AlignmentType::PrimaryMatch),
+            (2, AlignmentType::PrimaryDeletion),
+            (4, AlignmentType::PrimaryMatch),
+            (1, AlignmentType::PrimaryInsertion),
+            (3, AlignmentType::PrimaryMatch),
+            (4, AlignmentType::PrimaryInsertion),
+            (4, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance(
+                    -12,
+                    TemplateSwitchDescendant::Reference,
+                    TemplateSwitchAncestor::Query,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryDeletion),
+            (
+                1,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap: -4,
+                },
+            ),
+            (
+                1,
+                entrance(
+                    -10,
+                    TemplateSwitchDescendant::Reference,
+                    TemplateSwitchAncestor::Reference,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (2, AlignmentType::SecondarySubstitution),
+            (2, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryDeletion),
+            (
+                1,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap: -4,
+                },
+            ),
+            (8, AlignmentType::PrimaryMatch),
+            (6, AlignmentType::PrimaryInsertion),
+        ],
+        AlignmentRange::new_complete(29, 24),
+    );
+    render_plain_text(&result, &None);
+}

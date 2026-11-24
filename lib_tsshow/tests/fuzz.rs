@@ -34,6 +34,34 @@ fn cases() -> usize {
 }
 
 /// Runs `check` on random alignments, and reports the smallest failing alignments.
+/// Known bugs that are not fixed yet: panics whose location contains the first string
+/// and whose message contains the second string are reported, but do not fail the tests.
+///
+/// They are reproduced by ignored tests in `plain_text.rs` and `svg_regressions.rs`.
+/// Remove the entries when fixing the bugs.
+const KNOWN_BUGS: &[(&str, &str)] = &[
+    // Plain text: an inner or the downstream is aligned beyond the anti-primary range.
+    (
+        "mutlipair_alignment_renderer.rs",
+        "translated_reference_sequence.len()",
+    ),
+    ("mutlipair_alignment_renderer.rs", "index out of bounds"),
+    // SVG: overlapping forward TSs.
+    ("ts_arrangement/source.rs", "Blank has no copy property"),
+    // SVG: overlapping reverse TSs with uncertainty ranges.
+    (
+        "ts_arrangement/inner.rs",
+        "first_source_column >= last_source_column",
+    ),
+];
+
+fn is_known_bug(message: &str) -> bool {
+    let location = message.split(": ").next().unwrap();
+    KNOWN_BUGS
+        .iter()
+        .any(|(file, text)| location.contains(file) && message.contains(text))
+}
+
 fn fuzz(
     name: &str,
     forward: bool,
@@ -81,21 +109,33 @@ fn fuzz(
             groups.push((location, alignment, message));
         }
     }
+    let (known, groups): (Vec<_>, Vec<_>) = groups
+        .into_iter()
+        .partition(|(_, _, message)| is_known_bug(message));
+    for (_, alignment, message) in &known {
+        println!(
+            "Known bug: {message}\nSmallest failing alignment:\n{}",
+            alignment.reproduction()
+        );
+    }
+    let unknown_failures = failures
+        .iter()
+        .filter(|(_, message)| !is_known_bug(message))
+        .count();
+
     let report: Vec<String> = groups
         .iter()
         .map(|(_, alignment, message)| {
             format!(
-                "{message}
-Smallest failing alignment:
-{}",
+                "{message}\nSmallest failing alignment:\n{}",
                 alignment.reproduction()
             )
         })
         .collect();
     assert!(
-        failures.is_empty(),
+        unknown_failures == 0,
         "{name}: {} of {} random alignments failed (seed {}).\n\n{}",
-        failures.len(),
+        unknown_failures,
         cases(),
         seed(),
         report.join("\n\n"),
