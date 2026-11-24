@@ -552,7 +552,7 @@ fn check_alignment(reference: &[u8], query: &[u8], result: &ChainResult) -> Vec<
 ///
 /// tschainalign checks the length only based on the anchors, and ignores the parts of the inner alignment
 /// that are aligned by the jump aligners, so it may violate this.
-pub fn template_switch_lengths_in_range(alignment: &Alignment<AlignmentType>) -> bool {
+pub fn template_switch_lengths_in_range(alignment: &Alignment) -> bool {
     let length_range = tsa_config().length_costs.zero_range().unwrap();
     // The length of the inner alignment of the current template switch in the descendant.
     let mut length = 0;
@@ -587,7 +587,7 @@ pub struct ChainResult {
     /// It may be larger than `cost` for inexact anchors, see [issue #221](https://github.com/algbio/tsalign/issues/221).
     pub chain_cost: Option<u32>,
     pub template_switch_amount: u32,
-    pub alignment: Alignment<AlignmentType>,
+    pub alignment: Alignment,
 }
 
 #[derive(Debug, Clone)]
@@ -782,7 +782,7 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
         .get("template_switch_amount")
         .and_then(|v| v.as_float())
         .ok_or("missing template_switch_amount")?;
-    let alignment: Alignment<AlignmentType> = toml::Value::Table(value)
+    let alignment: Alignment = toml::Value::Table(value)
         .try_into()
         .map_err(|error| format!("parsing alignment: {error}"))?;
 

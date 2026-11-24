@@ -1,10 +1,7 @@
 #![allow(rustdoc::redundant_explicit_links)]
 
 use generic_a_star::cost::U32Cost;
-use lib_tsalign::{
-    alignment_geometry::AlignmentRange,
-    alignment_result::{AlignmentResult, AlignmentType},
-};
+use lib_tsalign::{alignment_geometry::AlignmentRange, alignment_result::AlignmentResult};
 use log::{debug, info, trace};
 
 use crate::{
@@ -82,7 +79,7 @@ pub fn align(
     reference_name: &str,
     query_name: &str,
     chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
-) -> AlignmentResult<AlignmentType, U32Cost> {
+) -> AlignmentResult<U32Cost> {
     debug!(
         "Reference sequence: {}",
         String::from_utf8_lossy(&reference)

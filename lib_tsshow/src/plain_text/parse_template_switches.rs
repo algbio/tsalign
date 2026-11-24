@@ -17,7 +17,7 @@ pub const STREAM_DEFAULT_LENGTH: usize = 20;
 pub const STREAM_PADDING: usize = 10;
 
 #[derive(Debug)]
-pub struct TSShow<AlignmentType> {
+pub struct TSShow {
     pub upstream_offset: AlignmentStreamCoordinates,
     pub downstream_limit: AlignmentStreamCoordinates,
     pub sp1_offset: AlignmentStreamCoordinates,
@@ -26,16 +26,16 @@ pub struct TSShow<AlignmentType> {
     pub sp4_offset: AlignmentStreamCoordinates,
     pub descendant: TemplateSwitchDescendant,
     pub ancestor: TemplateSwitchAncestor,
-    pub upstream: Alignment<AlignmentType>,
-    pub template_switch: Alignment<AlignmentType>,
-    pub downstream: Alignment<AlignmentType>,
+    pub upstream: Alignment,
+    pub template_switch: Alignment,
+    pub downstream: Alignment,
 }
 
 pub fn parse(
-    alignment: &Alignment<AlignmentType>,
+    alignment: &Alignment,
     reference_offset: usize,
     query_offset: usize,
-) -> Result<Vec<TSShow<AlignmentType>>> {
+) -> Result<Vec<TSShow>> {
     let mut template_switches = Vec::new();
     let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
     let mut alignment = alignment.iter_compact_cloned();
@@ -55,9 +55,9 @@ pub fn parse(
 }
 
 fn parse_template_switch(
-    alignment: &mut CompactAlignmentIterCloned<AlignmentType>,
+    alignment: &mut CompactAlignmentIterCloned<'_>,
     stream: &mut AlignmentStream,
-) -> Result<TSShow<AlignmentType>> {
+) -> Result<TSShow> {
     let (
         multiplicity,
         alignment_type @ AlignmentType::TemplateSwitchEntrance {
@@ -171,10 +171,10 @@ fn parse_template_switch(
 }
 
 fn parse_downstream(
-    alignment: &mut CompactAlignmentIterCloned<AlignmentType>,
+    alignment: &mut CompactAlignmentIterCloned<'_>,
     stream: &mut AlignmentStream,
     requested_length: usize,
-) -> Alignment<AlignmentType> {
+) -> Alignment {
     debug!("Parsing downstream");
 
     stream.clear();

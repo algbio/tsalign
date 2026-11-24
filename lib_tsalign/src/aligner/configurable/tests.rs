@@ -5,7 +5,7 @@ use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 
 use crate::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection};
 use crate::alignment_geometry::AlignmentCoordinates;
-use crate::alignment_result::alignment::Alignment;
+use crate::alignment_result::{AlignmentType, alignment::Alignment};
 
 use super::*;
 

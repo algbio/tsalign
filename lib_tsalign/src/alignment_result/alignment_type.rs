@@ -1,6 +1,6 @@
 use tsm_uncertainty_range::TSMUncertaintyRange;
 
-use crate::{alignment_geometry::AlignmentCoordinates, alignment_result::IAlignmentType};
+use crate::alignment_geometry::AlignmentCoordinates;
 
 use crate::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection};
 
@@ -82,8 +82,8 @@ pub enum AlignmentType {
     },
 }
 
-impl IAlignmentType for AlignmentType {
-    fn is_repeatable(&self) -> bool {
+impl AlignmentType {
+    pub fn is_repeatable(&self) -> bool {
         match self {
             Self::PrimaryInsertion
             | Self::PrimaryFlankInsertion
@@ -107,7 +107,7 @@ impl IAlignmentType for AlignmentType {
         }
     }
 
-    fn is_repeated(&self, previous: &Self) -> bool {
+    pub fn is_repeated(&self, previous: &Self) -> bool {
         if (matches!(self, Self::PrimaryInsertion | Self::PrimaryFlankInsertion)
             && matches!(
                 previous,
@@ -147,7 +147,7 @@ impl IAlignmentType for AlignmentType {
         }
     }
 
-    fn is_internal(&self) -> bool {
+    pub fn is_internal(&self) -> bool {
         matches!(
             self,
             Self::Root
@@ -157,15 +157,15 @@ impl IAlignmentType for AlignmentType {
         )
     }
 
-    fn is_template_switch_entrance(&self) -> bool {
+    pub fn is_template_switch_entrance(&self) -> bool {
         matches!(self, Self::TemplateSwitchEntrance { .. })
     }
 
-    fn is_template_switch_exit(&self) -> bool {
+    pub fn is_template_switch_exit(&self) -> bool {
         matches!(self, Self::TemplateSwitchExit { .. })
     }
 
-    fn alternative_start(&self) -> Option<AlignmentCoordinates> {
+    pub fn alternative_start(&self) -> Option<AlignmentCoordinates> {
         if let Self::AlternativeStart {
             reference_index,
             query_index,
@@ -177,7 +177,7 @@ impl IAlignmentType for AlignmentType {
         }
     }
 
-    fn alternative_end(&self) -> Option<AlignmentCoordinates> {
+    pub fn alternative_end(&self) -> Option<AlignmentCoordinates> {
         if let Self::PrimaryReentry {
             reference_index,
             query_index,

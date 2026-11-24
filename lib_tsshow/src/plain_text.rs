@@ -20,8 +20,8 @@ mod parse_template_switches;
 
 pub fn show_template_switches(
     mut output: impl Write,
-    result: &AlignmentResult<AlignmentType, U64Cost>,
-    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    result: &AlignmentResult<U64Cost>,
+    no_ts_result: &Option<AlignmentResult<U64Cost>>,
 ) -> Result<()> {
     let AlignmentResult::WithTarget {
         alignment,
@@ -66,9 +66,9 @@ pub fn show_template_switches(
 
 fn show_template_switch(
     mut output: impl Write,
-    template_switch: &TSShow<AlignmentType>,
+    template_switch: &TSShow,
     sequences: &SequencePair,
-    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    no_ts_result: &Option<AlignmentResult<U64Cost>>,
     reference_offset: usize,
     query_offset: usize,
 ) {

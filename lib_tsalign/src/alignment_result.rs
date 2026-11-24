@@ -8,10 +8,7 @@ use log::{debug, trace, warn};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
-use crate::{
-    alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-    config::TemplateSwitchConfig,
-};
+use crate::{alignment_geometry::AlignmentRange, config::TemplateSwitchConfig};
 
 pub mod a_star_sequences;
 pub mod alignment;
@@ -22,29 +19,13 @@ pub use alignment_type::{
     tsm_uncertainty_range::{TSMUncertaintyRange, TSMUncertaintyRangeExtensionMode},
 };
 
-pub trait IAlignmentType: Clone {
-    fn is_repeatable(&self) -> bool;
-
-    fn is_repeated(&self, previous: &Self) -> bool;
-
-    fn is_internal(&self) -> bool;
-
-    fn is_template_switch_entrance(&self) -> bool;
-
-    fn is_template_switch_exit(&self) -> bool;
-
-    fn alternative_start(&self) -> Option<AlignmentCoordinates>;
-
-    fn alternative_end(&self) -> Option<AlignmentCoordinates>;
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
-pub enum AlignmentResult<AlignmentType, Cost> {
+pub enum AlignmentResult<Cost> {
     WithTarget {
         #[cfg_attr(feature = "serde", serde(flatten))]
-        alignment: Alignment<AlignmentType>,
+        alignment: Alignment,
 
         #[cfg_attr(feature = "serde", serde(flatten))]
         statistics: AlignmentStatistics<Cost>,
@@ -117,7 +98,7 @@ macro_rules! each_statistic {
     }};
 }
 
-impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentType, Cost> {
+impl<Cost: AStarCost> AlignmentResult<Cost> {
     #[expect(clippy::too_many_arguments)]
     pub fn new_with_target<
         AlphabetType: Alphabet,
@@ -274,7 +255,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
     }
 }
 
-impl<Cost: AStarCost + From<u64>> AlignmentResult<AlignmentType, Cost> {
+impl<Cost: AStarCost + From<u64>> AlignmentResult<Cost> {
     /// Heuristically extend the alignment beyond the alignment range as long as this does not increase the alignment cost.
     ///
     /// Returns the amount of steps the alignment was extended.
@@ -656,7 +637,7 @@ impl<Cost: AStarCost + From<u64>> AlignmentResult<AlignmentType, Cost> {
     }
 }
 
-impl<AlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
+impl<Cost> AlignmentResult<Cost> {
     pub fn statistics(&self) -> &AlignmentStatistics<Cost> {
         match self {
             AlignmentResult::WithTarget { statistics, .. } => statistics,
@@ -672,20 +653,14 @@ impl<AlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
     }
 }
 
-impl<AlignmentType: IAlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
-    pub fn cigar(&self) -> String
-    where
-        AlignmentType: Display,
-    {
+impl<Cost> AlignmentResult<Cost> {
+    pub fn cigar(&self) -> String {
         let mut result = String::new();
         self.write_cigar(&mut result).unwrap();
         result
     }
 
-    pub fn write_cigar(&self, writer: &mut impl Write) -> Result
-    where
-        AlignmentType: Display,
-    {
+    pub fn write_cigar(&self, writer: &mut impl Write) -> Result {
         let Self::WithTarget { alignment, .. } = self else {
             return Ok(());
         };
@@ -816,9 +791,7 @@ impl<Cost: Clone> AlignmentStatistics<Cost> {
     }
 }
 
-impl<AlignmentType: Display + IAlignmentType, Cost: Display> Display
-    for AlignmentResult<AlignmentType, Cost>
-{
+impl<Cost: Display> Display for AlignmentResult<Cost> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let AlignmentResult::WithTarget { .. } = self {
             write!(f, "CIGAR: ")?;

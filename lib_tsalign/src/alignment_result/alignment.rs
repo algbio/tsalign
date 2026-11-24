@@ -1,37 +1,30 @@
 use std::fmt::Display;
 
+use crate::alignment_result::AlignmentType;
 use iter::{
     CompactAlignmentIter, CompactAlignmentIterCloned, FlatAlignmentIter, FlatAlignmentIterCloned,
 };
-
-use super::IAlignmentType;
 
 pub mod iter;
 pub mod stream;
 pub mod template_switch_specifics;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Alignment<AlignmentType> {
+pub struct Alignment {
     alignment: Vec<(usize, AlignmentType)>,
 }
 
-impl<AlignmentType> Alignment<AlignmentType> {
+impl Alignment {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn push(&mut self, alignment_type: AlignmentType)
-    where
-        AlignmentType: Eq,
-    {
+    pub fn push(&mut self, alignment_type: AlignmentType) {
         self.push_n(1, alignment_type);
     }
 
-    pub fn push_n(&mut self, multiplicity: usize, alignment_type: AlignmentType)
-    where
-        AlignmentType: Eq,
-    {
+    pub fn push_n(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
         if let Some((existing_multiplicity, last_alignment_type)) = self.alignment.last_mut() {
             if *last_alignment_type == alignment_type {
                 *existing_multiplicity += multiplicity;
@@ -52,42 +45,30 @@ impl<AlignmentType> Alignment<AlignmentType> {
     }
 }
 
-impl<AlignmentType: IAlignmentType> Alignment<AlignmentType> {
-    pub fn iter_compact(&self) -> CompactAlignmentIter<'_, AlignmentType> {
+impl Alignment {
+    pub fn iter_compact(&self) -> CompactAlignmentIter<'_> {
         CompactAlignmentIter::new(&self.alignment)
     }
 
-    pub fn iter_compact_cloned(&self) -> CompactAlignmentIterCloned<'_, AlignmentType>
-    where
-        AlignmentType: Clone,
-    {
+    pub fn iter_compact_cloned(&self) -> CompactAlignmentIterCloned<'_> {
         CompactAlignmentIterCloned::new(&self.alignment)
     }
 
-    pub fn iter_flat(&self) -> FlatAlignmentIter<'_, AlignmentType> {
+    pub fn iter_flat(&self) -> FlatAlignmentIter<'_> {
         FlatAlignmentIter::new(&self.alignment)
     }
 
-    pub fn iter_flat_cloned(&self) -> FlatAlignmentIterCloned<'_, AlignmentType>
-    where
-        AlignmentType: Clone,
-    {
+    pub fn iter_flat_cloned(&self) -> FlatAlignmentIterCloned<'_> {
         FlatAlignmentIterCloned::new(&self.alignment)
     }
 
-    pub fn cigar(&self) -> String
-    where
-        AlignmentType: Display,
-    {
+    pub fn cigar(&self) -> String {
         let mut result = String::new();
         self.write_cigar(&mut result).unwrap();
         result
     }
 
-    pub fn write_cigar(&self, writer: &mut impl std::fmt::Write) -> std::fmt::Result
-    where
-        AlignmentType: Display,
-    {
+    pub fn write_cigar(&self, writer: &mut impl std::fmt::Write) -> std::fmt::Result {
         for (amount, alignment_type) in &self.alignment {
             if alignment_type.is_repeatable() {
                 write!(writer, "{amount}{alignment_type}")?;
@@ -99,32 +80,21 @@ impl<AlignmentType: IAlignmentType> Alignment<AlignmentType> {
         Ok(())
     }
 
-    pub fn reverse(&self) -> Self
-    where
-        AlignmentType: Clone,
-    {
+    pub fn reverse(&self) -> Self {
         Self {
             alignment: self.alignment.iter().cloned().rev().collect(),
         }
     }
 }
 
-impl<AlignmentType> From<Vec<(usize, AlignmentType)>> for Alignment<AlignmentType> {
+impl From<Vec<(usize, AlignmentType)>> for Alignment {
     fn from(value: Vec<(usize, AlignmentType)>) -> Self {
         Self { alignment: value }
     }
 }
 
-impl<AlignmentType: IAlignmentType + Display> Display for Alignment<AlignmentType> {
+impl Display for Alignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.write_cigar(f)
-    }
-}
-
-impl<AlignmentType> Default for Alignment<AlignmentType> {
-    fn default() -> Self {
-        Self {
-            alignment: Default::default(),
-        }
     }
 }
