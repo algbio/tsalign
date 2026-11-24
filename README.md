@@ -82,6 +82,9 @@ If you have two sequences in a file `pair.fa`, computing an alignment could look
 tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
 ```
 
+The configuration directory `-c` defaults to `sample_tsa_config`.
+For the chaining aligner (`--alignment-method a-star-chain-ts` and `tsalign preprocess`), which does not support that config, it defaults to a built-in config equal to [`test_files/config/chainalign/config.tsa`](test_files/config/chainalign/config.tsa).
+
 #### Choosing a different alphabet
 
 If you want to align strings with an alphabet other than the default DNA alphabet, consider using the parameter `-a`.
@@ -111,19 +114,6 @@ We designed tsalign to allow for very detailed alignment costs regarding not jus
 Consult [`sample_tsa_config/config.tsa`](sample_tsa_config/config.tsa) for an example.
 The file format is very strict in that the order of options must stay the same.
 We explain the content of the file step-by-step.
-
-#### Using different gap-affine costs for TSM flanks
-
-You can use different gap-affine costs for the upstream and downstream sequences (flanks) of TSMs.
-Increasing the size of these flanks affects performance a lot.
-The flank lengths are set here, and the different costs are set at the end of the file.
-
-```txt
-# Limits
-
-left_flank_length = 0
-right_flank_length = 0
-```
 
 #### TSM base cost
 
@@ -219,18 +209,19 @@ GapExtendCostVector
 Following the primary edit costs, there are analogous sections.
 `Secondary Forward Edit Costs` are the costs for the 2-3-alignment of a repeat.
 `Secondary Reverse Edit Costs` are the costs for the 2-3-alignment of a TSM.
-`Left Flank Edit Costs` are the costs in the upstream flank of a TSM.
-`Right Flank Edit Costs` are the costs in the downstream flank of a TSM.
 
 ```txt
 # Secondary Forward Edit Costs
 
 # Secondary Reverse Edit Costs
-
-# Left Flank Edit Costs
-
-# Right Flank Edit Costs
 ```
+
+Older versions of tsalign also supported different gap-affine costs for the flanks of TSMs,
+configured by a `# Limits` section with `left_flank_length` and `right_flank_length` at the start of the file
+and `Left Flank Edit Costs` and `Right Flank Edit Costs` sections at its end.
+Flanks have been removed.
+Cost files that still contain these sections are accepted if both flank lengths are zero, and the sections are ignored with a warning.
+Cost files with non-zero flank lengths are rejected.
 
 ### SVG/PNG Visualisation
 

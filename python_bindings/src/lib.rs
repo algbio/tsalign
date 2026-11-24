@@ -179,5 +179,9 @@ fn tsalign(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<TSPairwiseAlignment>()?;
     m.add_class::<TSAligner>()?;
     m.add_class::<chain::TSChainAligner>()?;
+    m.add(
+        "CHAIN_ALIGNER_DEFAULT_COSTS",
+        lib_ts_chainalign::costs::DEFAULT_CONFIG_TSA,
+    )?;
     Ok(())
 }

@@ -5,6 +5,7 @@ import pathlib
 from typing import Iterable, List, Optional, Tuple, Union
 
 from tsalign._tsalign import Aligner as _Aligner  # type: ignore[import]
+from tsalign._tsalign import CHAIN_ALIGNER_DEFAULT_COSTS as _CHAIN_ALIGNER_DEFAULT_COSTS  # type: ignore[import]
 from tsalign._tsalign import ChainAligner as _ChainAligner  # type: ignore[import]
 from tsalign._tsalign import TSPairwiseAlignment as _TSPairwiseAlignment  # type: ignore[import]
 from tsalign._types import (
@@ -19,6 +20,11 @@ from tsalign._types import (
 _ALIGNER_KWARG_NAMES = frozenset(
     {"no_ts", "min_length_strategy", "chaining_strategy", "total_length_strategy", "costs", "costs_file"}
 )
+
+#: The default costs of :class:`ChainAligner` as a raw ``.tsa``-format string:
+#: only reverse template switches.  Equal to
+#: ``test_files/config/chainalign/config.tsa`` in the repository.
+CHAIN_ALIGNER_DEFAULT_COSTS: str = _CHAIN_ALIGNER_DEFAULT_COSTS
 
 _CHAIN_ALIGNER_KWARG_NAMES = frozenset(
     {
@@ -46,6 +52,7 @@ _METHOD_A_STAR_CHAIN_TS = "a-star-chain-ts"
 __all__ = [
     "Aligner",
     "ChainAligner",
+    "CHAIN_ALIGNER_DEFAULT_COSTS",
     "Alignment",
     "align",
     "AlignmentRange",
@@ -310,8 +317,9 @@ class ChainAligner:
     cache directory.
 
     tschainalign supports only the characters ``A``, ``C``, ``G`` and ``T``
-    in the sequences, and only cost configurations without flanks, see
-    ``test_files/config/chainalign/config.tsa`` in the repository.
+    in the sequences, and only cost configurations with uniform edit costs and
+    zero-range jump costs, like its default costs :data:`CHAIN_ALIGNER_DEFAULT_COSTS`
+    (``test_files/config/chainalign/config.tsa`` in the repository).
 
     All parameters are keyword-only, named and with the defaults as the
     options of ``tsalign align --alignment-method a-star-chain-ts``.
@@ -323,7 +331,11 @@ class ChainAligner:
     costs_file : str or Path, optional
         Path to a ``.tsa`` cost configuration file, or to a directory
         containing ``config.tsa`` (like the CLI's ``--configuration-directory``).
-        Exactly one of ``costs`` and ``costs_file`` is required.
+        At most one of ``costs`` and ``costs_file`` may be given.  Default:
+        :data:`CHAIN_ALIGNER_DEFAULT_COSTS`, the built-in default costs of
+        tschainalign, which are also the CLI's default for
+        ``--alignment-method a-star-chain-ts``.  The classic default costs of
+        :class:`Aligner` are not supported by tschainalign.
     k : int, optional
         The anchor size.  Default: inferred from the sequence lengths and
         ``max_anchor_mutations`` like in the CLI.  Fixing it saves
@@ -369,7 +381,7 @@ class ChainAligner:
     ------
     ValueError
         If a parameter is invalid or not supported, if the costs cannot be
-        parsed or are not supported by tschainalign (e.g. flanks), or if
+        parsed or are not supported by tschainalign (e.g. its length costs), or if
         options for inexact anchors are given with ``max_anchor_mutations=0``.
 
     Examples
@@ -377,7 +389,6 @@ class ChainAligner:
     ::
 
         aligner = tsalign.ChainAligner(
-            costs_file="test_files/config/chainalign/config.tsa",
             max_anchor_mutations=1,
             cache_directory="tsalign-cache",
         )
@@ -405,11 +416,6 @@ class ChainAligner:
     ) -> None:
         if costs is not None and costs_file is not None:
             raise ValueError("Provide at most one of 'costs' or 'costs_file'.")
-        if costs is None and costs_file is None:
-            raise ValueError(
-                "ChainAligner requires 'costs' or 'costs_file'; tschainalign supports only costs "
-                "without flanks, e.g. test_files/config/chainalign/config.tsa of the repository."
-            )
         if costs_file is not None:
             costs = _read_costs_file(costs_file)
         if inexact_pruning_rules is not None and not isinstance(inexact_pruning_rules, str):

@@ -23,7 +23,7 @@ use std::{fmt::Debug, fs::File, path::PathBuf};
 use crate::{
     align::{Cli, InexactLowerBound},
     util::{
-        infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file,
+        infer_tschain_k, infer_tschain_max_n, load_tschain_config, tschain_preprocess_cache_file,
         validate_tschain_config, write_cache_file_atomically,
     },
 };
@@ -73,7 +73,8 @@ pub fn align_a_star_chain_ts<
             .unwrap_or(default_inexact_pruning.exact_overlap_diagonal_distance),
     };
 
-    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.common.configuration_directory)?;
+    let alignment_costs =
+        load_tschain_config::<AlphabetType, _>(cli.common.configuration_directory.as_deref())?;
     let alignment_costs = AlignmentCosts::try_from(alignment_costs)?;
 
     let cache_directory = cli.chain.cache_directory.clone().unwrap_or_else(|| {

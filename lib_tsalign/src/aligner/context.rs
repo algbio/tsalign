@@ -149,13 +149,12 @@ impl<
             Identifier::Root => {
                 let alignment_type = AlignmentType::Root;
 
-                // Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self))
+                // Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self))
                 opened_nodes_output.extend([
                     node.generate_successor(
                         Identifier::new_primary(
                             self.range.reference_offset(),
                              self.range.query_offset(),
-                             0,
                              GapType::None,
                              <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, alignment_type, self),
                         ),
@@ -198,7 +197,6 @@ impl<
                     Identifier::new_primary(
                         reference_index,
                         query_index,
-                        self.config.left_flank_length,
                         GapType::None,
                         <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::generate_successor_identifier_primary_extra_data(node.node_data.identifier, AlignmentType::AlternativeStart { reference_index, query_index }, self),
                     ),
@@ -225,7 +223,6 @@ impl<
             Identifier::Primary {
                 reference_index,
                 query_index,
-                flank_index,
                 gap_type,
                 ..
             }
@@ -233,7 +230,6 @@ impl<
                 reference_index,
                 query_index,
                 gap_type,
-                flank_index,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX, "{node:?}");
@@ -261,90 +257,49 @@ impl<
                     let q = self.query[query_index].clone();
                     let is_match = r == q;
 
-                    if flank_index == 0 {
-                        let can_do_primary_non_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::can_do_primary_non_flank_match(node.node_data.identifier, self);
+                    let can_do_primary_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::can_do_primary_match(node.node_data.identifier, self);
 
-                        let (is_match, cost_increment) =
-                            if is_match && can_do_primary_non_flank_match {
-                                (
-                                    true,
-                                    config.primary_edit_costs.match_cost(r.clone(), q.clone()),
-                                )
-                            } else if is_match && !can_do_primary_non_flank_match {
-                                (
-                                    false,
-                                    node.strategies.primary_match.fake_substitution_cost(self),
-                                )
-                            } else {
-                                debug_assert!(!is_match);
-                                (
-                                    false,
-                                    config
-                                        .primary_edit_costs
-                                        .substitution_cost(r.clone(), q.clone()),
-                                )
-                            };
+                    let (is_match, cost_increment) = if is_match && can_do_primary_match {
+                        (
+                            true,
+                            config.primary_edit_costs.match_cost(r.clone(), q.clone()),
+                        )
+                    } else if is_match && !can_do_primary_match {
+                        (
+                            false,
+                            node.strategies.primary_match.fake_substitution_cost(self),
+                        )
+                    } else {
+                        debug_assert!(!is_match);
+                        (
+                            false,
+                            config
+                                .primary_edit_costs
+                                .substitution_cost(r.clone(), q.clone()),
+                        )
+                    };
 
-                        if cost_increment != Strategies::Cost::max_value() {
-                            opened_nodes_output.extend(
-                                node.generate_primary_diagonal_successor(
-                                    0,
-                                    cost_increment,
-                                    is_match,
-                                    self,
-                                )
-                                .map(Into::into),
-                            );
-                        }
-
-                        if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::always_generate_substitution() {
-                            let cost_increment = node.strategies.primary_match.fake_substitution_cost(self);
-
-                            if cost_increment != Strategies::Cost::max_value() {
-                                opened_nodes_output.extend(node.generate_primary_diagonal_successor(
-                                    0,
-                                    cost_increment,
-                                    false,
-                                    self,
-                                )
-                                .map(Into::into));
-                            }
-                        }
+                    if cost_increment != Strategies::Cost::max_value() {
+                        opened_nodes_output.extend(
+                            node.generate_primary_diagonal_successor(
+                                cost_increment,
+                                is_match,
+                                self,
+                            )
+                            .map(Into::into),
+                        );
                     }
 
-                    if (flank_index < config.left_flank_length && can_start_another_template_switch)
-                        || flank_index < 0
-                    {
-                        let can_do_primary_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::can_do_primary_flank_match(node.node_data.identifier, self);
-
-                        let edit_costs = if flank_index < 0 {
-                            &config.right_flank_edit_costs
-                        } else {
-                            &config.left_flank_edit_costs
-                        };
-
-                        let (is_match, cost_increment) = if is_match && can_do_primary_flank_match {
-                            (true, edit_costs.match_cost(r.clone(), q.clone()))
-                        } else if is_match && !can_do_primary_flank_match {
-                            (
-                                false,
-                                node.strategies.primary_match.fake_substitution_cost(self),
-                            )
-                        } else {
-                            debug_assert!(!is_match);
-                            (false, edit_costs.substitution_cost(r.clone(), q.clone()))
-                        };
+                    if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::always_generate_substitution() {
+                        let cost_increment = node.strategies.primary_match.fake_substitution_cost(self);
 
                         if cost_increment != Strategies::Cost::max_value() {
-                            opened_nodes_output.extend(
-                                node.generate_primary_diagonal_successor(
-                                    flank_index + 1,
-                                    cost_increment,
-                                    is_match,
-                                    self,
-                                )
-                                .map(Into::into),
-                            );
+                            opened_nodes_output.extend(node.generate_primary_diagonal_successor(
+                                cost_increment,
+                                false,
+                                self,
+                            )
+                            .map(Into::into));
                         }
                     }
                 }
@@ -355,45 +310,15 @@ impl<
                     // Deleted character
                     let r = self.reference[reference_index].clone();
 
-                    if flank_index == 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_deletion_successor(
-                                0,
-                                config
-                                    .primary_edit_costs
-                                    .gap_costs(r.clone(), gap_type != GapType::Deletion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    }
-
-                    if flank_index >= 0
-                        && flank_index < config.left_flank_length
-                        && can_start_another_template_switch
-                    {
-                        opened_nodes_output.extend(
-                            node.generate_primary_deletion_successor(
-                                flank_index + 1,
-                                config
-                                    .left_flank_edit_costs
-                                    .gap_costs(r, gap_type != GapType::Deletion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    } else if flank_index < 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_deletion_successor(
-                                flank_index + 1,
-                                config
-                                    .right_flank_edit_costs
-                                    .gap_costs(r, gap_type != GapType::Deletion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    }
+                    opened_nodes_output.extend(
+                        node.generate_primary_deletion_successor(
+                            config
+                                .primary_edit_costs
+                                .gap_costs(r, gap_type != GapType::Deletion),
+                            self,
+                        )
+                        .map(Into::into),
+                    );
                 }
 
                 if <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
@@ -402,49 +327,19 @@ impl<
                     // Inserted character
                     let q = self.query[query_index].clone();
 
-                    if flank_index == 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_insertion_successor(
-                                0,
-                                config
-                                    .primary_edit_costs
-                                    .gap_costs(q.clone(), gap_type != GapType::Insertion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    }
-
-                    if flank_index >= 0
-                        && flank_index < config.left_flank_length
-                        && can_start_another_template_switch
-                    {
-                        opened_nodes_output.extend(
-                            node.generate_primary_insertion_successor(
-                                flank_index + 1,
-                                config
-                                    .left_flank_edit_costs
-                                    .gap_costs(q, gap_type != GapType::Insertion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    } else if flank_index < 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_insertion_successor(
-                                flank_index + 1,
-                                config
-                                    .right_flank_edit_costs
-                                    .gap_costs(q, gap_type != GapType::Insertion),
-                                self,
-                            )
-                            .map(Into::into),
-                        );
-                    }
+                    opened_nodes_output.extend(
+                        node.generate_primary_insertion_successor(
+                            config
+                                .primary_edit_costs
+                                .gap_costs(q, gap_type != GapType::Insertion),
+                            self,
+                        )
+                        .map(Into::into),
+                    );
                 }
 
-                // Template switches are always allowed, as long as we have a left flank.
-                if flank_index == config.left_flank_length && can_start_another_template_switch {
+                // Template switches are always allowed.
+                if can_start_another_template_switch {
                     opened_nodes_output.extend(
                         node.generate_initial_template_switch_entrance_successors(
                             &config.rq_qr_offset_costs,
@@ -562,11 +457,6 @@ impl<
                 gap_type,
                 ..
             } => {
-                // TODO Some of the nodes generated here are unable to reach the target:
-                // TODO * nodes who get closer than `right_flank_length` to the end of the descendant sequence
-                // TODO * nodes who get closer than `right_flank_length` to the end of the anti-descendant sequence,
-                // TODO   assuming a `length_difference` of zero
-
                 let output = false;
                 let output_detail = false;
                 if output {

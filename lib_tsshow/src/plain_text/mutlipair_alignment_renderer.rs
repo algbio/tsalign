@@ -263,9 +263,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
             }
 
             match alignment_type {
-                AlignmentType::PrimaryInsertion
-                | AlignmentType::PrimaryFlankInsertion
-                | AlignmentType::SecondaryInsertion => {
+                AlignmentType::PrimaryInsertion | AlignmentType::SecondaryInsertion => {
                     query_offset_column = query_offset_column.or(Some(index));
 
                     if matches!(
@@ -282,9 +280,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     translated_query_sequence.push(extension.next().unwrap());
                     query_limit_column = Some(index);
                 }
-                AlignmentType::PrimaryDeletion
-                | AlignmentType::PrimaryFlankDeletion
-                | AlignmentType::SecondaryDeletion => {
+                AlignmentType::PrimaryDeletion | AlignmentType::SecondaryDeletion => {
                     while matches!(
                         translated_reference_sequence
                             .get(index)
@@ -301,9 +297,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     index += 1;
                     query_limit_column = Some(index);
                 }
-                AlignmentType::PrimarySubstitution
-                | AlignmentType::PrimaryFlankSubstitution
-                | AlignmentType::SecondarySubstitution => {
+                AlignmentType::PrimarySubstitution | AlignmentType::SecondarySubstitution => {
                     while matches!(
                         translated_reference_sequence
                             .get(index)
@@ -327,9 +321,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     index += 1;
                     query_limit_column = Some(index);
                 }
-                AlignmentType::PrimaryMatch
-                | AlignmentType::PrimaryFlankMatch
-                | AlignmentType::SecondaryMatch => {
+                AlignmentType::PrimaryMatch | AlignmentType::SecondaryMatch => {
                     while matches!(
                         translated_reference_sequence
                             .get(index)

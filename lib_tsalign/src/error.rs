@@ -43,6 +43,11 @@ pub enum Error {
     RRQQOffsetCostsNotVShaped,
 
     #[error(
+        "The template switch cost file sets non-zero flank lengths (left_flank_length = {left}, right_flank_length = {right}), but flanks are not supported anymore. Remove the '# Limits' section and the flank edit cost tables from the file."
+    )]
+    NonZeroFlankLength { left: isize, right: isize },
+
+    #[error(
         "The length difference costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
     )]
     LengthDifferenceCostsNotVShaped,

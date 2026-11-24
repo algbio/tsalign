@@ -83,10 +83,7 @@ impl<Cost: AStarCost> ShortcutStrategy<Cost> for TemplateSwitchLowerBoundShortcu
         >,
     ) {
         match *node.identifier() {
-            Identifier::Primary { flank_index, .. }
-            | Identifier::PrimaryReentry { flank_index, .. }
-                if flank_index == context.config.left_flank_length =>
-            {
+            Identifier::Primary { .. } | Identifier::PrimaryReentry { .. } => {
                 opened_nodes_output.extend(
                     context
                         .memory

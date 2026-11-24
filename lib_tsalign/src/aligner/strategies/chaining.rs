@@ -217,29 +217,25 @@ impl<Cost: AStarCost> ChainingStrategy<Cost> for LowerBoundChainingStrategy<Cost
             reference_index,
             query_index,
             gap_type,
-            flank_index,
             ..
         }
         | Identifier::PrimaryReentry {
             reference_index,
             query_index,
             gap_type,
-            flank_index,
             ..
         } = node.node_data.identifier
         {
-            if flank_index <= 0 {
-                let mut chain_lower_bound = chaining_memory
-                    .chain
-                    .chain_lower_bound(reference_index, query_index);
-                if gap_type != GapType::None {
-                    chain_lower_bound =
-                        chain_lower_bound.saturating_sub(&chaining_memory.max_gap_open_cost);
-                }
-
-                node.node_data.a_star_lower_bound =
-                    node.node_data.a_star_lower_bound.max(chain_lower_bound);
+            let mut chain_lower_bound = chaining_memory
+                .chain
+                .chain_lower_bound(reference_index, query_index);
+            if gap_type != GapType::None {
+                chain_lower_bound =
+                    chain_lower_bound.saturating_sub(&chaining_memory.max_gap_open_cost);
             }
+
+            node.node_data.a_star_lower_bound =
+                node.node_data.a_star_lower_bound.max(chain_lower_bound);
         }
 
         node

@@ -20,9 +20,6 @@ pub mod io;
     ))
 )]
 pub struct TemplateSwitchConfig<AlphabetType, Cost> {
-    // Limits
-    pub left_flank_length: isize,
-    pub right_flank_length: isize,
     /// The minimum length of a template switch is the first length for which
     /// the length costs are finite.
     pub template_switch_min_length: usize,
@@ -34,8 +31,6 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
     pub secondary_forward_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
     pub secondary_reverse_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
-    pub left_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
-    pub right_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
 
     // Jump costs
     pub rq_qr_offset_costs: CostFunction<isize, Cost>,
@@ -195,15 +190,11 @@ impl<Cost: Clone> BaseCost<Cost> {
 impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<AlphabetType, Cost> {
     fn clone(&self) -> Self {
         Self {
-            left_flank_length: self.left_flank_length,
-            right_flank_length: self.right_flank_length,
             template_switch_min_length: self.template_switch_min_length,
             base_cost: self.base_cost.clone(),
             primary_edit_costs: self.primary_edit_costs.clone(),
             secondary_forward_edit_costs: self.secondary_forward_edit_costs.clone(),
             secondary_reverse_edit_costs: self.secondary_reverse_edit_costs.clone(),
-            left_flank_edit_costs: self.left_flank_edit_costs.clone(),
-            right_flank_edit_costs: self.right_flank_edit_costs.clone(),
             rq_qr_offset_costs: self.rq_qr_offset_costs.clone(),
             rr_qq_offset_costs: self.rr_qq_offset_costs.clone(),
             length_costs: self.length_costs.clone(),
@@ -217,8 +208,6 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
 impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<AlphabetType, Cost> {
     fn default() -> Self {
         Self {
-            left_flank_length: 0,
-            right_flank_length: 0,
             template_switch_min_length: 5,
             base_cost: BaseCost {
                 rrf: 40.into(),
@@ -246,20 +235,6 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<A
             ),
             secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
                 "Secondary Reverse Edit Costs",
-                0.into(),
-                2.into(),
-                3.into(),
-                1.into(),
-            ),
-            left_flank_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
-                "Left Flank Edit Costs",
-                0.into(),
-                2.into(),
-                3.into(),
-                1.into(),
-            ),
-            right_flank_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
-                "Right Flank Edit Costs",
                 0.into(),
                 2.into(),
                 3.into(),

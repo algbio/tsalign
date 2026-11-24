@@ -115,7 +115,7 @@ impl TsSourceArrangement {
             );
 
             match alignment_type {
-                AlignmentType::PrimaryInsertion | AlignmentType::PrimaryFlankInsertion => {
+                AlignmentType::PrimaryInsertion => {
                     result.reference.insert(
                         current_reference_index,
                         SourceChar::Gap {
@@ -125,7 +125,7 @@ impl TsSourceArrangement {
                     current_reference_index += 1;
                     current_query_index += 1;
                 }
-                AlignmentType::PrimaryDeletion | AlignmentType::PrimaryFlankDeletion => {
+                AlignmentType::PrimaryDeletion => {
                     result.query.insert(
                         current_query_index,
                         SourceChar::Gap {
@@ -135,13 +135,13 @@ impl TsSourceArrangement {
                     current_reference_index += 1;
                     current_query_index += 1;
                 }
-                AlignmentType::PrimarySubstitution | AlignmentType::PrimaryFlankSubstitution => {
+                AlignmentType::PrimarySubstitution => {
                     result.reference[current_reference_index].to_lower_case();
                     result.query[current_query_index].to_lower_case();
                     current_reference_index += 1;
                     current_query_index += 1;
                 }
-                AlignmentType::PrimaryMatch | AlignmentType::PrimaryFlankMatch => {
+                AlignmentType::PrimaryMatch => {
                     current_reference_index += 1;
                     current_query_index += 1;
                 }

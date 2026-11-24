@@ -9,16 +9,10 @@ use crate::alignment_result::{AlignmentType, TSMUncertaintyRange};
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Self::PrimaryInsertion | Self::PrimaryFlankInsertion | Self::SecondaryInsertion => {
-                write!(f, "I")
-            }
-            Self::PrimaryDeletion | Self::PrimaryFlankDeletion | Self::SecondaryDeletion => {
-                write!(f, "D")
-            }
-            Self::PrimarySubstitution
-            | Self::PrimaryFlankSubstitution
-            | Self::SecondarySubstitution => write!(f, "X"),
-            Self::PrimaryMatch | Self::PrimaryFlankMatch | Self::SecondaryMatch => write!(f, "="),
+            Self::PrimaryInsertion | Self::SecondaryInsertion => write!(f, "I"),
+            Self::PrimaryDeletion | Self::SecondaryDeletion => write!(f, "D"),
+            Self::PrimarySubstitution | Self::SecondarySubstitution => write!(f, "X"),
+            Self::PrimaryMatch | Self::SecondaryMatch => write!(f, "="),
             Self::TemplateSwitchEntrance {
                 descendant,
                 ancestor,
@@ -114,23 +108,18 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             Self::Primary {
                 reference_index,
                 query_index,
-                flank_index,
                 gap_type,
                 ..
-            } => write!(
-                f,
-                "Primary({reference_index}R, {query_index}Q, {flank_index}F, {gap_type})",
-            ),
+            } => write!(f, "Primary({reference_index}R, {query_index}Q, {gap_type})",),
 
             Self::PrimaryReentry {
                 reference_index,
                 query_index,
-                flank_index,
                 gap_type,
                 ..
             } => write!(
                 f,
-                "PrimaryReentry({reference_index}R, {query_index}Q, {flank_index}F, {gap_type})",
+                "PrimaryReentry({reference_index}R, {query_index}Q, {gap_type})",
             ),
 
             Self::TemplateSwitchEntrance {
