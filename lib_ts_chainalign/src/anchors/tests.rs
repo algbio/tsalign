@@ -1427,4 +1427,80 @@ fn reverse_lookup_without_costs() {
         .collect();
     // Each anchor is reported exactly once, even though its start coordinates are duplicated.
     assert_eq!(actual, [0usize, 1, 2].map(AnchorIndex::from));
+
+    // No coordinates, no anchors.
+    assert_eq!(
+        anchors
+            .primary_anchor_to_index_iter(std::iter::empty::<PrimaryAlignmentCoordinates>())
+            .count(),
+        0,
+    );
+    assert_eq!(
+        anchors
+            .secondary_anchor_to_index_iter(
+                std::iter::empty::<AnySecondaryAlignmentCoordinates>(),
+                TsKind::TS12,
+            )
+            .count(),
+        0,
+    );
+}
+
+#[test]
+fn enumerate_primaries_starting_at_or_after() {
+    let mut primary = [
+        PrimaryAlignmentRange::new_from_ranges(0..2, 5..7),
+        PrimaryAlignmentRange::new_from_ranges(1..3, 1..3),
+        PrimaryAlignmentRange::new_from_ranges(1..2, 1..3),
+        PrimaryAlignmentRange::new_from_ranges(1..3, 4..6),
+        PrimaryAlignmentRange::new_from_ranges(2..4, 0..2),
+        PrimaryAlignmentRange::new_from_ranges(2..4, 2..4),
+        PrimaryAlignmentRange::new_from_ranges(4..6, 4..6),
+    ]
+    .map(|range| PrimaryAnchor::new(range, U16Cost::zero()))
+    .to_vec();
+    primary.sort_unstable();
+    let anchors = Anchors {
+        primary,
+        secondaries: Default::default(),
+    };
+
+    for a in 0..7 {
+        for b in 0..8 {
+            let coordinates = PrimaryAlignmentCoordinates::new(a, b);
+            let expected: Vec<_> = anchors
+                .enumerate_primaries()
+                .filter(|(_, anchor)| anchor.start() >= coordinates)
+                .collect();
+            let actual: Vec<_> = anchors
+                .enumerate_primaries_starting_at_or_after(coordinates)
+                .collect();
+            assert_eq!(actual, expected, "{coordinates}");
+
+            let expected: Vec<_> = anchors
+                .enumerate_primaries()
+                .filter(|(_, anchor)| anchor.start() == coordinates)
+                .collect();
+            let actual: Vec<_> = anchors
+                .enumerate_primaries_starting_at(coordinates)
+                .collect();
+            assert_eq!(actual, expected, "{coordinates}");
+        }
+    }
+
+    // All anchors that can be chained after an anchor are enumerated when starting at its end in the first sequence.
+    for (_, from_anchor) in anchors.enumerate_primaries() {
+        let expected: Vec<_> = anchors
+            .enumerate_primaries()
+            .filter(|(_, to_anchor)| from_anchor.chaining_gaps(to_anchor).is_some())
+            .collect();
+        let actual: Vec<_> = anchors
+            .enumerate_primaries_starting_at_or_after(PrimaryAlignmentCoordinates::new(
+                from_anchor.end().a(),
+                0,
+            ))
+            .filter(|(_, to_anchor)| from_anchor.chaining_gaps(to_anchor).is_some())
+            .collect();
+        assert_eq!(actual, expected, "{from_anchor}");
+    }
 }
