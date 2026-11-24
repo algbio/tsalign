@@ -198,9 +198,8 @@ fn gaps_at_both_ends_of_the_anti_descendant() {
     assert!(output.contains("ChildF:  -ATCCG-"), "{output}");
 }
 
-/// Known bug: several TSs with negative anti-descendant gaps (found by the property tests).
+/// Several TSs with negative anti-descendant gaps (found by the property tests, issue #284).
 #[test]
-#[ignore = "issue #284"]
 fn multiple_negative_gaps() {
     let reverse = TemplateSwitchDirection::Reverse;
     let entrance = |first_offset, descendant, ancestor| AlignmentType::TemplateSwitchEntrance {
