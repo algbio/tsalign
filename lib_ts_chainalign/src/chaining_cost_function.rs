@@ -209,6 +209,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
         let ts_base_cost = &chaining_lower_bounds.alignment_costs().ts_base_cost;
+        // The minimum cost of the entries that are not exact.
+        // Computed once, since the cost arithmetic is checked for overflows and not inlined.
+        let min_inexact_cost = max_exact_cost_function_cost + Cost::from_usize(1);
 
         // Initialise primary with infinity.
         trace!("Initialise primary with infinity");
@@ -258,14 +261,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let gap2 = end.b() - start.b();
         primary[[primary_start_anchor_index, primary_end_anchor_index]] = chaining_lower_bounds
             .primary_lower_bound_start_to_end(gap1, gap2)
-            .max(max_exact_cost_function_cost + Cost::from_usize(1))
+            .max(min_inexact_cost)
             .min(primary[[primary_start_anchor_index, primary_end_anchor_index]]);
         for (from_index, from_anchor) in anchors.enumerate_primaries() {
             let from_index = from_index + 1;
             let (gap1, gap2) = from_anchor.chaining_gaps_from_start(start);
             primary[[primary_start_anchor_index, from_index]] = chaining_lower_bounds
                 .primary_lower_bound_from_start(gap1, gap2)
-                .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                .max(min_inexact_cost)
                 .min(primary[[primary_start_anchor_index, from_index]]);
 
             // Fill primary from from_index with exact values.
@@ -307,18 +310,29 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             } else {
                 primary[[from_index, primary_end_anchor_index]] = chaining_lower_bounds
                     .primary_lower_bound_to_end(gap1, gap2)
-                    .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                    .max(min_inexact_cost)
                     .min(primary[[from_index, primary_end_anchor_index]]);
             }
 
-            for (to_index, to_anchor) in anchors.enumerate_primaries() {
+            // Anchors that start before the end of `from_anchor` in the first sequence cannot be chained after it,
+            // so the iteration starts at the first anchor that starts at or after its end in the first sequence.
+            for (to_index, to_anchor) in anchors.enumerate_primaries_starting_at_or_after(
+                PrimaryAlignmentCoordinates::new(from_anchor.end().a(), 0),
+            ) {
                 let to_index = to_index + 1;
                 if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor) {
                     primary[[from_index, to_index]] = chaining_lower_bounds
                         .primary_lower_bound(gap1, gap2)
-                        .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                        .max(min_inexact_cost)
                         .min(primary[[from_index, to_index]]);
                 }
+            }
+
+            // Direct free successors start one diagonal step after `from_anchor`.
+            for (to_index, to_anchor) in
+                anchors.enumerate_primaries_starting_at(from_anchor.start().increment_both(1))
+            {
+                let to_index = to_index + 1;
                 if from_anchor.is_direct_free_predecessor_of(&to_anchor) {
                     debug_assert!(
                         primary[[from_index, to_index]].is_zero()
@@ -378,7 +392,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor) {
                         secondary[[from_index, to_index]] = chaining_lower_bounds
                             .secondary_lower_bound(gap1, gap2)
-                            .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                            .max(min_inexact_cost)
                             .min(secondary[[from_index, to_index]]);
                     }
                     if from_anchor.is_direct_free_predecessor_of(&to_anchor) {
@@ -420,6 +434,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
         {
             trace!("Filling 12-jumps to S{}", ts_kind.digits());
+            let max_exact_jump_12_cost = max_exact_cost_function_cost + ts_base_cost.get(ts_kind);
+            let min_inexact_jump_12_cost = max_exact_jump_12_cost + Cost::from_usize(1);
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
                 let from_index = from_index + 1;
 
@@ -428,21 +444,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
                     if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind) {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
-                        jump_12[[from_index, to_index]] = lower_bound.max(
-                            max_exact_cost_function_cost
-                                + chaining_lower_bounds
-                                    .alignment_costs()
-                                    .ts_base_cost
-                                    .get(ts_kind)
-                                + Cost::from_usize(1),
-                        );
-                        if lower_bound
-                            <= max_exact_cost_function_cost
-                                + chaining_lower_bounds
-                                    .alignment_costs()
-                                    .ts_base_cost
-                                    .get(ts_kind)
-                        {
+                        jump_12[[from_index, to_index]] = lower_bound.max(min_inexact_jump_12_cost);
+                        if lower_bound <= max_exact_jump_12_cost {
                             eligible_anchors.push(to_anchor);
                         }
                     }
@@ -469,11 +472,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                         .align_until_cost_limit(
                             anchors.primary(from_index - 1).end(),
                             align_end,
-                            max_exact_cost_function_cost
-                                + chaining_lower_bounds
-                                    .alignment_costs()
-                                    .ts_base_cost
-                                    .get(ts_kind),
+                            max_exact_jump_12_cost,
                             &mut additional_secondary_targets_output,
                         );
                     let after_align = Instant::now();
@@ -485,13 +484,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     ) {
                         additional_secondary_anchor_count += 1;
                         jump_12[[from_index, to_index]] = jump_12[[from_index, to_index]].min(cost);
-                        if cost
-                            <= max_exact_cost_function_cost
-                                + chaining_lower_bounds
-                                    .alignment_costs()
-                                    .ts_base_cost
-                                    .get(ts_kind)
-                        {
+                        if cost <= max_exact_jump_12_cost {
                             jump_12.set_exact(from_index, to_index);
                         }
                     }
@@ -577,7 +570,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind) {
                         jump_34[[from_index, to_index]] = chaining_lower_bounds
                             .jump_34_lower_bound(gap)
-                            .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                            .max(min_inexact_cost)
                             .min(jump_34[[from_index, to_index]]);
                     }
                 }
@@ -589,16 +582,15 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .zip(jump_12s.iter_mut().zip(&mut jump_34s))
             .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
         {
+            let max_exact_jump_12_cost = max_exact_cost_function_cost + ts_base_cost.get(ts_kind);
+            let min_inexact_jump_12_cost = max_exact_jump_12_cost + Cost::from_usize(1);
+
             // Fill 12-jumps from start with exact values.
             additional_secondary_targets_output.clear();
             ts_12_jump_aligner.align_until_cost_limit(
                 start,
                 sequences.secondary_end(ts_kind),
-                max_exact_cost_function_cost
-                    + chaining_lower_bounds
-                        .alignment_costs()
-                        .ts_base_cost
-                        .get(ts_kind),
+                max_exact_jump_12_cost,
                 &mut additional_secondary_targets_output,
             );
             additional_secondary_targets_output.sort_unstable();
@@ -607,13 +599,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 ts_kind,
             ) {
                 jump_12[[primary_start_anchor_index, to_index]] = cost;
-                if cost
-                    <= max_exact_cost_function_cost
-                        + chaining_lower_bounds
-                            .alignment_costs()
-                            .ts_base_cost
-                            .get(ts_kind)
-                {
+                if cost <= max_exact_jump_12_cost {
                     jump_12.set_exact(primary_start_anchor_index, to_index);
                 }
             }
@@ -623,21 +609,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 let gap = anchor.chaining_jump_gap_from_start(start, ts_kind);
                 jump_12[[primary_start_anchor_index, index]] = chaining_lower_bounds
                     .jump_12_lower_bound_from_start(gap)
-                    .max(
-                        max_exact_cost_function_cost
-                            + chaining_lower_bounds
-                                .alignment_costs()
-                                .ts_base_cost
-                                .get(ts_kind)
-                            + Cost::from_usize(1),
-                    )
+                    .max(min_inexact_jump_12_cost)
                     .min(jump_12[[primary_start_anchor_index, index]]);
 
                 // Fill remaining 34-jumps to end with lower bound.
                 let gap = anchor.chaining_jump_gap_to_end(end, ts_kind);
                 jump_34[[index, primary_end_anchor_index]] = chaining_lower_bounds
                     .jump_34_lower_bound_to_end(gap)
-                    .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                    .max(min_inexact_cost)
                     .min(jump_34[[index, primary_end_anchor_index]]);
             }
         }
