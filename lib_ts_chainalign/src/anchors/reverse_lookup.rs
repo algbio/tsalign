@@ -119,9 +119,19 @@ impl<Cost> Anchors<Cost> {
     where
         Cost: Ord + Copy,
     {
+        let mut coordinate_iter = iter.into_iter().peekable();
+        // Skip the anchors that start before the first coordinates with a binary search,
+        // instead of iterating over them.
+        let first_anchor_index = coordinate_iter
+            .peek()
+            .map(|coordinates| {
+                self.first_primary_index_starting_at_or_after(*coordinates.source_part())
+            })
+            .unwrap_or(self.primary.len());
+
         PrimaryAnchorToIndexIter {
-            coordinate_iter: iter.into_iter().peekable(),
-            anchor_iter: self.enumerate_primaries().peekable(),
+            coordinate_iter,
+            anchor_iter: self.enumerate_primaries_from(first_anchor_index).peekable(),
         }
     }
 
@@ -138,9 +148,21 @@ impl<Cost> Anchors<Cost> {
     where
         Cost: Ord + Copy,
     {
+        let mut coordinate_iter = iter.into_iter().peekable();
+        // Skip the anchors that start before the first coordinates with a binary search,
+        // instead of iterating over them.
+        let first_anchor_index = coordinate_iter
+            .peek()
+            .map(|coordinates| {
+                self.first_secondary_index_starting_at_or_after(*coordinates.source_part(), ts_kind)
+            })
+            .unwrap_or(self.secondary_anchor_vec(ts_kind).len());
+
         SecondaryAnchorToIndexIter {
-            coordinate_iter: iter.into_iter().peekable(),
-            anchor_iter: self.enumerate_secondaries(ts_kind).peekable(),
+            coordinate_iter,
+            anchor_iter: self
+                .enumerate_secondaries_from(first_anchor_index, ts_kind)
+                .peekable(),
         }
     }
 }

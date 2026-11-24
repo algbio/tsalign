@@ -320,11 +320,59 @@ impl<Cost> Anchors<Cost> {
     where
         Cost: Copy,
     {
-        self.primary
+        self.enumerate_primaries_from(0)
+    }
+
+    /// Enumerates the primary anchors starting from the given index.
+    fn enumerate_primaries_from(
+        &self,
+        first_index: usize,
+    ) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
+        self.primary[first_index..]
             .iter()
             .copied()
             .enumerate()
-            .map(|(index, anchor)| (index.into(), anchor))
+            .map(move |(index, anchor)| ((first_index + index).into(), anchor))
+    }
+
+    /// Returns the index of the first primary anchor whose start is at least the given coordinates.
+    ///
+    /// The primary anchors are sorted by their start.
+    fn first_primary_index_starting_at_or_after(
+        &self,
+        coordinates: PrimaryAlignmentCoordinates,
+    ) -> usize {
+        self.primary
+            .partition_point(|anchor| anchor.start() < coordinates)
+    }
+
+    /// Enumerates the primary anchors whose start is at least the given coordinates
+    /// in the order of [`PrimaryAlignmentCoordinates`], which compares the first ordinate first.
+    ///
+    /// For coordinates `(a, 0)`, these are a superset of the anchors that start at or after `a` in the first sequence.
+    pub fn enumerate_primaries_starting_at_or_after(
+        &self,
+        coordinates: PrimaryAlignmentCoordinates,
+    ) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
+        self.enumerate_primaries_from(self.first_primary_index_starting_at_or_after(coordinates))
+    }
+
+    /// Enumerates the primary anchors that start exactly at the given coordinates.
+    pub fn enumerate_primaries_starting_at(
+        &self,
+        coordinates: PrimaryAlignmentCoordinates,
+    ) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
+        self.enumerate_primaries_starting_at_or_after(coordinates)
+            .take_while(move |(_, anchor)| anchor.start() == coordinates)
     }
 
     #[cfg(test)]
@@ -359,11 +407,35 @@ impl<Cost> Anchors<Cost> {
     where
         Cost: Copy,
     {
-        self.secondary_anchor_vec(ts_kind)
+        self.enumerate_secondaries_from(0, ts_kind)
+    }
+
+    /// Enumerates the secondary anchors of the given kind starting from the given index.
+    fn enumerate_secondaries_from(
+        &self,
+        first_index: usize,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor<Cost>)>
+    where
+        Cost: Copy,
+    {
+        self.secondary_anchor_vec(ts_kind)[first_index..]
             .iter()
             .copied()
             .enumerate()
-            .map(|(index, anchor)| (index.into(), anchor))
+            .map(move |(index, anchor)| ((first_index + index).into(), anchor))
+    }
+
+    /// Returns the index of the first secondary anchor of the given kind whose start is at least the given coordinates.
+    ///
+    /// The secondary anchors are sorted by their start.
+    fn first_secondary_index_starting_at_or_after(
+        &self,
+        coordinates: AnySecondaryAlignmentCoordinates,
+        ts_kind: TsKind,
+    ) -> usize {
+        self.secondary_anchor_vec(ts_kind)
+            .partition_point(|anchor| anchor.start() < coordinates)
     }
 
     #[cfg(test)]
