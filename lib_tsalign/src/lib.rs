@@ -1,4 +1,4 @@
-#![forbid(clippy::mod_module_files)]
+#![deny(clippy::mod_module_files)] // Not `forbid`: the clap derive allows `clippy::restriction`.
 
 pub mod aligner;
 pub mod alignment_geometry;

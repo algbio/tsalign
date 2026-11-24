@@ -16,15 +16,13 @@ alphabet_rna = []
 alphabet_rna_n = []
 alphabet_rna_iupac = []
 
-strategy_total_length_none = []
-strategy_total_length_maximise = []
-
-default = ["strategy_total_length_maximise", "alphabet_dna", "alphabet_dna_n"]
+default = ["alphabet_dna", "alphabet_dna_n"]
 
 [dependencies]
 generic_a_star.workspace = true
 lib_tsalign = { version = "8.0.0", path = "../lib_tsalign", features = [
     "serde",
+    "clap",
 ] }
 lib_ts_chainalign = { version = "8.0.0", path = "../lib_ts_chainalign" }
 lib_tsshow = { version = "8.0.0", path = "../lib_tsshow" }

@@ -1,11 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::{Result, anyhow, ensure};
-use astar::{
-    TemplateSwitchChainingStrategySelector, TemplateSwitchMinLengthStrategySelector,
-    TemplateSwitchNodeOrdStrategySelector, TemplateSwitchTotalLengthStrategySelector,
-    align_a_star_template_switch_distance,
-};
+use astar::{TemplateSwitchNodeOrdStrategySelector, align_a_star_template_switch_distance};
 use clap::{
     ArgAction, Args, Parser, ValueEnum,
     builder::{BoolishValueParser, TypedValueParser},
@@ -18,8 +14,15 @@ use lib_ts_chainalign::chain_align::performance_parameters::{
     ChainingClosedList, ChainingOpenList,
 };
 use lib_tsalign::{
-    aligner::ts_14_out_of_range::{AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy},
+    aligner::{
+        configurable::{
+            ChainingStrategySelector, DescendantStrategySelector, MinLengthStrategySelector,
+            TotalLengthStrategySelector,
+        },
+        ts_14_out_of_range::{AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy},
+    },
     alignment_geometry::{AlignmentCoordinates, AlignmentRange},
+    alignment_result::TSMUncertaintyRangeExtensionMode,
     costs::U64Cost,
 };
 use log::{LevelFilter, debug, info};
@@ -27,10 +30,6 @@ use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 use crate::{
     align::{
-        astar::{
-            TemplateSwitchDescendantStrategySelector,
-            TemplateSwitchUncertaintyRangeExtensionModeSelector,
-        },
         chain::align_a_star_chain_ts,
         fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
     },
@@ -139,28 +138,33 @@ struct CommonArgs {
 // Options of the classic aligner (`a-star-template-switch`).
 #[derive(Args)]
 struct AStarArgs {
-    #[clap(long, default_value = "anti-diagonal")]
+    /// Has no effect, the only implemented node ordering is anti-diagonal.
+    #[clap(long, default_value = "anti-diagonal", hide = true)]
+    #[expect(
+        dead_code,
+        reason = "kept as a no-op so that existing command lines keep working"
+    )]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
 
     #[clap(long, default_value = "lookahead")]
-    ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
+    ts_min_length_strategy: MinLengthStrategySelector,
 
     /// The chaining strategy of the classic aligner.
     ///
     /// The `lower-bound` strategy is currently disabled (issue #248).
     #[clap(long, default_value = "none")]
-    ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
+    ts_chaining_strategy: ChainingStrategySelector,
 
     /// If set to maximise, the total length of template switches becomes a secondary search criterion.
     ///
     /// As a result, instead of reporting an arbitrary alignment with optimal cost,
     /// tsalign selects an alignment with maximal total TS length out of all the alignments with optimal cost.
     #[clap(long, default_value = "maximise")]
-    ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
+    ts_total_length_strategy: TotalLengthStrategySelector,
 
     /// If set to allow-only-all-equal, then only solutions are considered where all descendants of all TSMs are equal.
     #[clap(long, default_value = "allow-any")]
-    ts_descendant_strategy: TemplateSwitchDescendantStrategySelector,
+    ts_descendant_strategy: DescendantStrategySelector,
 
     /// If set, then TSMs can start or end outside of the specified alignment ranges.
     /// In this case the alignment would start or end outside of the specified alignment ranges,
@@ -180,7 +184,7 @@ struct AStarArgs {
 
     /// Determines how the TSM uncertainty ranges are extended.
     #[clap(long, default_value = "equal-cost-ignore-geometry")]
-    ts_uncertainty_range_extension_mode: TemplateSwitchUncertaintyRangeExtensionModeSelector,
+    ts_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
 
     /// If set, template switches are not allowed.
     ///

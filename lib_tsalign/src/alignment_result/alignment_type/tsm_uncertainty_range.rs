@@ -1,6 +1,7 @@
 /// Determines how the TSM uncertainty ranges are extended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum TSMUncertaintyRangeExtensionMode {
     /// Keep the TSM uncertainty range empty.
     None,
