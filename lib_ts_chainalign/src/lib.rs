@@ -26,6 +26,8 @@ pub(crate) mod gap_fill;
 mod panic_on_extend;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod validation_tests;
 
 /// A reverse complement function for DNA alphabets.
 pub fn dna_rc_fn(c: u8) -> u8 {
