@@ -5,11 +5,13 @@ use std::time::Instant;
 
 use clap::ValueEnum;
 use lib_tsalign::{
-    alignment_geometry::AlignmentRange,
+    alignment_geometry::{AlignmentRange, InvalidAlignmentRange},
     alignment_result::{AlignmentResult, ChainStatistics},
+    error::SequenceRole,
 };
 use log::{debug, info, trace};
 use noisy_float::types::R64;
+use thiserror::Error;
 
 use crate::{
     alignment::{coordinates::PrimaryAlignmentCoordinates, sequences::AlignmentSequences},
@@ -20,7 +22,7 @@ use crate::{
     },
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
-    config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
+    config::{ChainingLowerBoundConfig, InexactLowerBoundKind, InvalidChainingLowerBoundConfig},
     costs::AlignmentCosts,
 };
 
@@ -36,6 +38,8 @@ pub(crate) mod gap_fill;
 mod panic_on_extend;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod validation_tests;
 
 /// A reverse complement function for DNA alphabets.
 pub fn dna_rc_fn(c: u8) -> u8 {
@@ -48,26 +52,101 @@ pub fn dna_rc_fn(c: u8) -> u8 {
     }
 }
 
+/// A reason why the inputs of [`align`] are invalid.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ChainAlignError {
+    /// The config of the chaining lower bounds is not supported, see [`ChainingLowerBoundConfig::validate`].
+    ///
+    /// This can only happen if the lower bounds were read from a file.
+    #[error("Unsupported chaining lower bound config: {0}")]
+    InvalidConfig(#[from] InvalidChainingLowerBoundConfig),
+
+    /// The alignment range does not fit the sequences.
+    #[error("Invalid alignment range: {0}")]
+    InvalidRange(#[from] InvalidAlignmentRange),
+
+    /// A sequence is longer than the maximum sequence length of the chaining lower bounds.
+    #[error(
+        "The {sequence} has length {length}, but the chaining lower bounds were preprocessed only up to length {max_n}"
+    )]
+    SequenceTooLong {
+        sequence: SequenceRole,
+        length: usize,
+        max_n: usize,
+    },
+
+    /// A sequence contains a character other than `A`, `C`, `G` and `T`.
+    #[error(
+        "{} contains character {character:?} at position {position}, but tschainalign supports only the characters A, C, G and T",
+        .sequence.capitalised()
+    )]
+    NonDnaCharacter {
+        sequence: SequenceRole,
+        position: usize,
+        character: char,
+    },
+}
+
 /// Perform preprocessing for tschainalign.
 ///
 /// * `max_n` is the maximum sequence length that the lower bounds should support.
-/// * `anchor_k` is the size of the anchors.
-/// * `max_anchor_mutations` is the maximum number of mutations allowed in an anchor.
+/// * `config` contains the size of the anchors `anchor_k`, the maximum number of mutations allowed in an anchor
+///   `max_anchor_mutations` and the kind of lower bound for inexact anchors.
 /// * `alignment_costs` is the cost function for the alignment.
 ///
-/// Panics if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
-/// Validate it beforehand to report unsupported parameters as an error.
+/// # Errors
+///
+/// Returns an error if the `config` is not supported, see [`ChainingLowerBoundConfig::validate`].
 pub fn preprocess(
     max_n: usize,
     config: ChainingLowerBoundConfig,
     alignment_costs: AlignmentCosts<U32Cost>,
-) -> ChainingLowerBounds<U32Cost> {
-    ChainingLowerBounds::new(max_n, config, alignment_costs)
+) -> Result<ChainingLowerBounds<U32Cost>, InvalidChainingLowerBoundConfig> {
+    ChainingLowerBounds::try_new(max_n, config, alignment_costs)
+}
+
+/// Check that tschainalign can align the given sequences on the given range.
+///
+/// The sequences must consist of the characters `A`, `C`, `G` and `T` only,
+/// and the range must fit the sequences, see [`AlignmentRange::validate`].
+///
+/// [`align`] calls this as well, so this is only needed for reporting invalid inputs before preprocessing.
+///
+/// # Errors
+///
+/// Returns [`ChainAlignError::NonDnaCharacter`] or [`ChainAlignError::InvalidRange`].
+pub fn validate_sequences(
+    reference: &[u8],
+    query: &[u8],
+    range: &AlignmentRange,
+) -> Result<(), ChainAlignError> {
+    for (sequence, role) in [
+        (reference, SequenceRole::Reference),
+        (query, SequenceRole::Query),
+    ] {
+        if let Some(position) = sequence
+            .iter()
+            .position(|c| !matches!(c, b'A' | b'C' | b'G' | b'T'))
+        {
+            return Err(ChainAlignError::NonDnaCharacter {
+                sequence: role,
+                position,
+                character: char::from(sequence[position]),
+            });
+        }
+    }
+
+    range.validate(reference.len(), query.len())?;
+    Ok(())
 }
 
 /// Align two sequences without limits.
 ///
 /// See [`align_with_limits`] for the parameters.
+///
+/// # Errors
+///
+/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
 #[expect(clippy::too_many_arguments)]
 pub fn align(
     reference: Vec<u8>,
@@ -78,7 +157,7 @@ pub fn align(
     reference_name: &str,
     query_name: &str,
     chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
-) -> AlignmentResult<U32Cost> {
+) -> Result<AlignmentResult<U32Cost>, ChainAlignError> {
     align_with_limits(
         reference,
         query,
@@ -108,6 +187,11 @@ pub fn align(
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `chaining_lower_bounds` are the lower bounds computed with the function [`preprocess`].
 ///   Their config also determines the anchors, i.e. the anchor size `k` and the maximum number of mutations allowed in an anchor.
+///   They must have been preprocessed for at least the length of the longer sequence.
+///
+/// # Errors
+///
+/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
 #[expect(clippy::too_many_arguments)]
 pub fn align_with_limits(
     reference: Vec<u8>,
@@ -119,7 +203,23 @@ pub fn align_with_limits(
     reference_name: &str,
     query_name: &str,
     chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
-) -> AlignmentResult<U32Cost> {
+) -> Result<AlignmentResult<U32Cost>, ChainAlignError> {
+    validate_sequences(&reference, &query, &range)?;
+    chaining_lower_bounds.config().validate()?;
+    let max_n = chaining_lower_bounds.max_n();
+    for (sequence, role) in [
+        (&reference, SequenceRole::Reference),
+        (&query, SequenceRole::Query),
+    ] {
+        if sequence.len() > max_n {
+            return Err(ChainAlignError::SequenceTooLong {
+                sequence: role,
+                length: sequence.len(),
+                max_n,
+            });
+        }
+    }
+
     debug!(
         "Reference sequence: {}",
         String::from_utf8_lossy(&reference)
@@ -168,7 +268,7 @@ pub fn align_with_limits(
         &mut chaining_cost_function,
     );
     result.statistics_mut().chain_statistics = Some(statistics);
-    result
+    Ok(result)
 }
 
 fn seconds_since(start_time: Instant) -> R64 {

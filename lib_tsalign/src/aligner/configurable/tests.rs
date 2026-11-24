@@ -7,6 +7,10 @@ use crate::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateS
 use crate::alignment_geometry::AlignmentCoordinates;
 use crate::alignment_result::{AlignmentType, alignment::Alignment};
 
+use compact_genome::{
+    implementation::vec_sequence::VectorGenome, interface::sequence::OwnedGenomeSequence,
+};
+
 use super::*;
 
 /// This test case uses real data and used to panic.
@@ -28,7 +32,7 @@ fn panic() {
             None,
             true,
             TSMUncertaintyRangeExtensionMode::None,
-        );
+        ).unwrap();
     println!("{res:#?}");
     assert!(res.statistics().cost.is_sign_positive());
 }
@@ -44,18 +48,20 @@ fn issue_193() {
     let mut costs = TemplateSwitchConfig::default();
     costs.base_cost.qrr = 4u64.into();
     tsa.set_costs(costs.clone());
-    let _tsa_res = tsa.align(
-        "ref",
-        r,
-        "qry",
-        q,
-        None,
-        &[],
-        None,
-        None,
-        false,
-        TSMUncertaintyRangeExtensionMode::None,
-    );
+    let _tsa_res = tsa
+        .align(
+            "ref",
+            r,
+            "qry",
+            q,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            TSMUncertaintyRangeExtensionMode::None,
+        )
+        .unwrap();
 }
 
 /// Align with the `lower_bound` chaining strategy and check that the result is the same as with the `none` chaining strategy.
@@ -69,18 +75,20 @@ fn assert_lower_bound_chaining_equals_no_chaining(
     let align = |chaining_strategy| {
         let mut aligner = Aligner::new();
         aligner.set_chaining_strategy(chaining_strategy);
-        aligner.align(
-            "reference",
-            reference,
-            "query",
-            query,
-            range.clone(),
-            &[],
-            None,
-            None,
-            false,
-            TSMUncertaintyRangeExtensionMode::None,
-        )
+        aligner
+            .align(
+                "reference",
+                reference,
+                "query",
+                query,
+                range.clone(),
+                &[],
+                None,
+                None,
+                false,
+                TSMUncertaintyRangeExtensionMode::None,
+            )
+            .unwrap()
     };
 
     let expected = align(ChainingStrategySelector::None);
@@ -278,18 +286,20 @@ GapExtendCostVector
 fn align_ts_end_test(reference: &[u8], query: &[u8]) -> (f64, f64) {
     let mut aligner = Aligner::<DnaAlphabet>::default();
     aligner.set_costs_parse(TS_END_TEST_COSTS).unwrap();
-    let result = aligner.align(
-        "reference",
-        reference,
-        "query",
-        query,
-        None,
-        &[],
-        None,
-        None,
-        false,
-        TSMUncertaintyRangeExtensionMode::None,
-    );
+    let result = aligner
+        .align(
+            "reference",
+            reference,
+            "query",
+            query,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            TSMUncertaintyRangeExtensionMode::None,
+        )
+        .unwrap();
     println!("{result}");
     let statistics = result.statistics();
     (
@@ -427,18 +437,20 @@ fn align_and_recompute_cost(
     let mut aligner = Aligner::<DnaAlphabet>::default();
     aligner.set_costs_parse(costs).unwrap();
     aligner.set_min_length_strategy(min_length_strategy);
-    let result = aligner.align(
-        "reference",
-        reference,
-        "query",
-        query,
-        None,
-        &[],
-        None,
-        None,
-        false,
-        TSMUncertaintyRangeExtensionMode::None,
-    );
+    let result = aligner
+        .align(
+            "reference",
+            reference,
+            "query",
+            query,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            TSMUncertaintyRangeExtensionMode::None,
+        )
+        .unwrap();
     println!("{result}");
 
     let AlignmentResult::WithTarget {
@@ -1011,18 +1023,20 @@ fn min_length_strategies_with_template_switches_disabled() {
 fn cost_limit_is_inclusive() {
     let aligner = Aligner::<DnaAlphabetOrN>::new();
     let align = |reference: &[u8], query: &[u8], cost_limit| {
-        aligner.align(
-            "reference",
-            reference,
-            "query",
-            query,
-            None,
-            &[],
-            cost_limit,
-            None,
-            true,
-            TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
-        )
+        aligner
+            .align(
+                "reference",
+                reference,
+                "query",
+                query,
+                None,
+                &[],
+                cost_limit,
+                None,
+                true,
+                TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
+            )
+            .unwrap()
     };
 
     for (reference, query) in [

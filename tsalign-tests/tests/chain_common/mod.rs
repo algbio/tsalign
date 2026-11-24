@@ -723,7 +723,10 @@ fn run_chain_with_pruning(
         cache.display().to_string(),
         "--force-no-preprocessing".to_string(),
     ]);
-    args.extend(["--anchor-pruning".to_string(), anchor_pruning.to_string()]);
+    // Anchor pruning only applies to inexact anchors, and tsalign rejects the option for exact anchors.
+    if max_anchor_mutations > 0 {
+        args.extend(["--anchor-pruning".to_string(), anchor_pruning.to_string()]);
+    }
 
     // The chaining with all anchors is slower, and its result is only used as an oracle.
     let timeout = if anchor_pruning == "none" {

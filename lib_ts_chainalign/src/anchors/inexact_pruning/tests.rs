@@ -515,7 +515,8 @@ fn chain_cost(
         "reference",
         "query",
         lower_bounds,
-    );
+    )
+    .unwrap();
     let statistics = result.statistics();
     let chain_statistics = statistics.chain_statistics.as_ref().unwrap();
     assert_eq!(
@@ -533,12 +534,12 @@ fn chain_cost(
 /// Removing anchors only removes chains, so the chain cost with inexact pruning is never smaller than without pruning.
 #[test]
 fn inexact_pruning_never_decreases_the_chain_cost() {
-    // Chaining with small k is slow in debug builds, and two mutations even more so, so only a few cases are run.
-    // The end-to-end tests check this on all their inputs.
+    // Chaining with inexact anchors and small k is slow in debug builds, so only a few cases with one mutation are run.
+    // The end-to-end tests check this on all their inputs, also with two mutations.
     let cases = random_sequences(0xbeef, 8);
-    for (k, max_anchor_mutations, amount) in [(5, 1, 8), (6, 2, 3)] {
+    for (k, max_anchor_mutations) in [(5, 1)] {
         let lower_bounds = lower_bounds(k, max_anchor_mutations, 32);
-        for (reference, query) in cases.iter().take(amount) {
+        for (reference, query) in &cases {
             let unpruned = chain_cost(
                 reference,
                 query,

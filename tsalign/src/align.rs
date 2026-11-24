@@ -1,15 +1,14 @@
-use std::{fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, ops::Range, path::PathBuf};
 
-use anyhow::{Result, anyhow, ensure};
-use astar::{TemplateSwitchNodeOrdStrategySelector, align_a_star_template_switch_distance};
+use anyhow::{Context, Result, anyhow, bail, ensure};
+use astar::{
+    TemplateSwitchNodeOrdStrategySelector, align_a_star_template_switch_distance, configure_aligner,
+};
 use clap::{
-    ArgAction, Args, Parser, ValueEnum,
+    ArgAction, ArgMatches, Args, Parser, ValueEnum,
     builder::{BoolishValueParser, TypedValueParser},
 };
-use compact_genome::{
-    implementation::{vec_sequence::VectorGenome, vec_sequence_store::VectorSequenceStore},
-    interface::{alphabet::Alphabet, sequence::OwnedGenomeSequence, sequence_store::SequenceStore},
-};
+use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_ts_chainalign::chain_align::performance_parameters::{
     AnchorPruning, ChainingClosedList, ChainingOpenList, InexactPruningRules,
 };
@@ -24,6 +23,7 @@ use lib_tsalign::{
     alignment_geometry::{AlignmentCoordinates, AlignmentRange},
     alignment_result::TSMUncertaintyRangeExtensionMode,
     costs::U64Cost,
+    error::{SequenceRole, sequence_from_ascii},
 };
 use log::{LevelFilter, debug, info};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
@@ -34,6 +34,7 @@ use crate::{
         fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
     },
     alphabet::{InputAlphabet, WithAlphabet},
+    util::{is_explicit, reject_inexact_anchor_arguments_for_exact_anchors},
 };
 
 mod astar;
@@ -352,7 +353,154 @@ pub enum InexactLowerBound {
     MaxMatchRun,
 }
 
-pub fn cli(cli: Cli) -> Result<()> {
+/// Arguments that only the classic aligner (`a-star-template-switch`) uses: pairs of argument id and argument.
+///
+/// `--cost-limit` is a common argument, since both methods support it.
+/// `--ts-node-ord-strategy` is not listed, since it is a hidden no-op for compatibility.
+const A_STAR_ONLY_ARGUMENTS: &[(&str, &str)] = &[
+    ("ts_min_length_strategy", "--ts-min-length-strategy"),
+    ("ts_chaining_strategy", "--ts-chaining-strategy"),
+    ("ts_total_length_strategy", "--ts-total-length-strategy"),
+    ("ts_descendant_strategy", "--ts-descendant-strategy"),
+    ("allow_ts_14_out_of_range", "--allow-ts-14-out-of-range"),
+    (
+        "ts_uncertainty_range_extension_mode",
+        "--ts-uncertainty-range-extension-mode",
+    ),
+    ("no_ts", "--no-ts"),
+    ("force_label_correcting", "--force-label-correcting"),
+    ("dont_extend_beyond_range", "--dont-extend-beyond-range"),
+    ("memory_limit", "--memory-limit"),
+];
+
+/// Arguments that only tschainalign (`a-star-chain-ts`) uses: pairs of argument id and argument.
+const CHAIN_ONLY_ARGUMENTS: &[(&str, &str)] = &[
+    ("cache_directory", "--cache-directory"),
+    ("force_no_preprocessing", "--force-no-preprocessing"),
+    ("k", "-k"),
+    ("max_anchor_mutations", "--max-anchor-mutations"),
+    (
+        "inexact_chaining_lower_bound",
+        "--inexact-chaining-lower-bound",
+    ),
+    ("max_chaining_successors", "--max-chaining-successors"),
+    (
+        "max_exact_cost_function_cost",
+        "--max-exact-cost-function-cost",
+    ),
+    ("chaining_closed_list", "--chaining-closed-list"),
+    ("chaining_open_list", "--chaining-open-list"),
+    ("iteration_limit", "--iteration-limit"),
+    (
+        "no_anchor_domination_pruning",
+        "--no-anchor-domination-pruning",
+    ),
+    ("anchor_pruning", "--anchor-pruning"),
+    ("inexact_pruning_rules", "--inexact-pruning-rules"),
+    (
+        "exact_overlap_diagonal_distance",
+        "--exact-overlap-diagonal-distance",
+    ),
+];
+
+/// Arguments of the classic aligner that have no effect if template switches are disabled with `--no-ts`.
+const TS_ONLY_ARGUMENTS: &[(&str, &str)] = &[
+    ("ts_min_length_strategy", "--ts-min-length-strategy"),
+    ("ts_chaining_strategy", "--ts-chaining-strategy"),
+    ("ts_total_length_strategy", "--ts-total-length-strategy"),
+    ("ts_descendant_strategy", "--ts-descendant-strategy"),
+    ("allow_ts_14_out_of_range", "--allow-ts-14-out-of-range"),
+    (
+        "ts_uncertainty_range_extension_mode",
+        "--ts-uncertainty-range-extension-mode",
+    ),
+];
+
+/// Arguments of tschainalign that only affect inexact anchors (`--max-anchor-mutations` > 0).
+const INEXACT_ANCHOR_ONLY_ARGUMENTS: &[(&str, &str)] = &[
+    (
+        "inexact_chaining_lower_bound",
+        "--inexact-chaining-lower-bound",
+    ),
+    (
+        "no_anchor_domination_pruning",
+        "--no-anchor-domination-pruning",
+    ),
+    ("anchor_pruning", "--anchor-pruning"),
+    ("inexact_pruning_rules", "--inexact-pruning-rules"),
+    (
+        "exact_overlap_diagonal_distance",
+        "--exact-overlap-diagonal-distance",
+    ),
+];
+
+/// Arguments that set an alignment range.
+const RANGE_ARGUMENTS: &[&str] = &[
+    "reference_offset",
+    "query_offset",
+    "reference_limit",
+    "query_limit",
+    "rq_ranges",
+    "use_embedded_rq_ranges",
+];
+
+/// Reject arguments that the chosen alignment method ignores, if they were given explicitly.
+///
+/// Arguments that keep their default value are never rejected.
+fn reject_ignored_arguments(cli: &Cli, matches: &ArgMatches) -> Result<()> {
+    let (ignored, method, other_method) = match cli.common.alignment_method {
+        AlignmentMethod::AStarTemplateSwitch => (
+            CHAIN_ONLY_ARGUMENTS,
+            "a-star-template-switch",
+            "a-star-chain-ts",
+        ),
+        AlignmentMethod::AStarChainTS => (
+            A_STAR_ONLY_ARGUMENTS,
+            "a-star-chain-ts",
+            "a-star-template-switch",
+        ),
+    };
+    for (id, flag) in ignored {
+        if is_explicit(matches, id) {
+            bail!(
+                "{flag} is only used by --alignment-method {other_method}, \
+                 but the alignment method is {method}; remove {flag}"
+            );
+        }
+    }
+
+    match cli.common.alignment_method {
+        AlignmentMethod::AStarTemplateSwitch => {
+            if cli.a_star.no_ts {
+                for (id, flag) in TS_ONLY_ARGUMENTS {
+                    if is_explicit(matches, id) {
+                        bail!(
+                            "{flag} has no effect with --no-ts, because template switches are disabled; remove {flag}"
+                        );
+                    }
+                }
+            }
+
+            if cli.a_star.dont_extend_beyond_range
+                && !RANGE_ARGUMENTS.iter().any(|id| is_explicit(matches, id))
+            {
+                bail!(
+                    "--dont-extend-beyond-range has no effect without an alignment range \
+                     (--rq-ranges, --use-embedded-rq-ranges, or --reference-offset etc.); remove it"
+                );
+            }
+        }
+        AlignmentMethod::AStarChainTS => reject_inexact_anchor_arguments_for_exact_anchors(
+            matches,
+            cli.chain.max_anchor_mutations,
+            INEXACT_ANCHOR_ONLY_ARGUMENTS,
+        )?,
+    }
+
+    Ok(())
+}
+
+pub fn cli(cli: Cli, matches: &ArgMatches) -> Result<()> {
     TermLogger::init(
         cli.log_level,
         Default::default(),
@@ -360,6 +508,8 @@ pub fn cli(cli: Cli) -> Result<()> {
         ColorChoice::Auto,
     )
     .unwrap();
+
+    reject_ignored_arguments(&cli, matches)?;
 
     cli.common.alphabet.dispatch(Execute(cli))
 }
@@ -377,6 +527,21 @@ impl WithAlphabet for Execute {
 fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     cli: Cli,
 ) -> Result<()> {
+    // Check the settings of the classic aligner before loading the inputs.
+    let aligner = if cli.common.alignment_method == AlignmentMethod::AStarTemplateSwitch {
+        let aligner = configure_aligner::<AlphabetType>(&cli);
+        aligner.validate_settings().map_err(|error| {
+            if cli.a_star.allow_ts_14_out_of_range == Ts14OutOfRangeStrategy::Allow {
+                anyhow!("--allow-ts-14-out-of-range: {error}")
+            } else {
+                anyhow!(error)
+            }
+        })?;
+        Some(aligner)
+    } else {
+        None
+    };
+
     // Load input sequences.
     let (mut reference_record, mut query_record) =
         if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
@@ -463,8 +628,12 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             &cli,
             reference_record.sequence_handle.len(),
             query_record.sequence_handle.len(),
-        )
+        )?
     };
+    range.validate(
+        reference_record.sequence_handle.len(),
+        query_record.sequence_handle.len(),
+    )?;
 
     // If requested, compute the additional starts and ends of TSMs outside of the given ranges.
     let additional_tsm_starts_and_ends =
@@ -480,121 +649,59 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             AdditionalExplicitTSMStartsAndEnds::default()
         };
 
-    // Move sequences into sequence store.
-    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
-    let reference_record =
-        reference_record.try_transform_handle::<_, anyhow::Error>(|sequence| {
-            Ok(sequence_store.add(
-                &VectorGenome::from_slice_u8(sequence.as_bytes()).map_err(|error| {
-                    anyhow!("Reference contains non-alphabet character: {error}")
-                })?,
-            ))
-        })?;
-    let query_record = query_record.try_transform_handle::<_, anyhow::Error>(|sequence| {
-        Ok(sequence_store.add(
-            &VectorGenome::from_slice_u8(sequence.as_bytes())
-                .map_err(|error| anyhow!("Query contains non-alphabet character: {error}"))?,
-        ))
-    })?;
-    let reference_sequence = sequence_store.get(&reference_record.sequence_handle);
-    let query_sequence = sequence_store.get(&query_record.sequence_handle);
+    // Convert sequences into the alphabet.
+    let reference_sequence = sequence_from_ascii::<AlphabetType>(
+        SequenceRole::Reference,
+        reference_record.sequence_handle.as_bytes(),
+    )?;
+    let query_sequence = sequence_from_ascii::<AlphabetType>(
+        SequenceRole::Query,
+        query_record.sequence_handle.as_bytes(),
+    )?;
+    let reference_name = format!("{} {}", reference_record.id, reference_record.comment);
+    let query_name = format!("{} {}", query_record.id, query_record.comment);
 
     debug!("Choosing alignment method...");
-    match cli.common.alignment_method {
-        AlignmentMethod::AStarTemplateSwitch => {
-            ensure!(
-                cli.chain.iteration_limit.is_none(),
-                "--iteration-limit is not supported by the classic aligner (a-star-template-switch), only by tschainalign (a-star-chain-ts)"
-            );
-            align_a_star_template_switch_distance(
-                cli,
-                reference_sequence,
-                query_sequence,
-                range,
-                additional_tsm_starts_and_ends,
-                &format!("{} {}", reference_record.id, reference_record.comment),
-                &format!("{} {}", query_record.id, query_record.comment),
-            )
-        }
-        AlignmentMethod::AStarChainTS => align_a_star_chain_ts(
+    match aligner {
+        Some(aligner) => align_a_star_template_switch_distance(
             cli,
-            reference_sequence,
-            query_sequence,
+            aligner,
+            reference_sequence.as_genome_subsequence(),
+            query_sequence.as_genome_subsequence(),
             range,
-            &format!("{} {}", reference_record.id, reference_record.comment),
-            &format!("{} {}", query_record.id, query_record.comment),
-        )?,
+            additional_tsm_starts_and_ends,
+            &reference_name,
+            &query_name,
+        ),
+        None => align_a_star_chain_ts(
+            cli,
+            reference_sequence.as_genome_subsequence(),
+            query_sequence.as_genome_subsequence(),
+            range,
+            &reference_name,
+            &query_name,
+        ),
     }
-
-    Ok(())
 }
 
-fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> AlignmentRange {
+fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Result<AlignmentRange> {
     let complete_reference_range = 0..reference_length;
     let complete_query_range = 0..query_length;
 
     let (reference_range, query_range) = if let Some(rq_ranges) = cli.common.rq_ranges.as_ref() {
-        let mut rq_ranges = rq_ranges.chars().peekable();
+        let (reference_range, query_range) = parse_rq_ranges(rq_ranges).map_err(|error| {
+            anyhow!("Invalid --rq-ranges {rq_ranges:?}: {error}; expected e.g. R10..20Q12..25")
+        })?;
 
-        let mut reference_range = None;
-        let mut query_range = None;
-
-        while rq_ranges.peek().is_some() {
-            let rq = rq_ranges.next().unwrap();
-
-            while let Some(c) = rq_ranges.peek() {
-                if c.is_whitespace() {
-                    rq_ranges.next().unwrap();
-                } else {
-                    break;
-                }
-            }
-
-            let mut offset = String::new();
-            while let Some(c) = rq_ranges.peek() {
-                if c.is_numeric() {
-                    offset.push(rq_ranges.next().unwrap());
-                } else {
-                    break;
-                }
-            }
-
-            // Parse ..
-            assert_eq!(rq_ranges.next(), Some('.'));
-            assert_eq!(rq_ranges.next(), Some('.'));
-
-            let mut limit = String::new();
-            while let Some(c) = rq_ranges.peek() {
-                if c.is_numeric() {
-                    limit.push(rq_ranges.next().unwrap());
-                } else {
-                    break;
-                }
-            }
-
-            let offset = offset.parse().unwrap();
-            let limit = limit.parse().unwrap();
-
-            match rq {
-                'R' => {
-                    assert!(reference_range.is_none());
-                    reference_range = Some(offset..limit)
-                }
-                'Q' => {
-                    assert!(query_range.is_none());
-                    query_range = Some(offset..limit)
-                }
-                _ => panic!(),
-            }
-        }
-
-        assert!(
+        ensure!(
             reference_range.is_none()
-                || (cli.common.reference_offset.is_none() && cli.common.reference_limit.is_none())
+                || (cli.common.reference_offset.is_none() && cli.common.reference_limit.is_none()),
+            "--rq-ranges already specifies the reference range, so --reference-offset and --reference-limit must not be given"
         );
-        assert!(
+        ensure!(
             query_range.is_none()
-                || (cli.common.query_offset.is_none() && cli.common.query_limit.is_none())
+                || (cli.common.query_offset.is_none() && cli.common.query_limit.is_none()),
+            "--rq-ranges already specifies the query range, so --query-offset and --query-limit must not be given"
         );
 
         (
@@ -605,7 +712,7 @@ fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Align
         (complete_reference_range, complete_query_range)
     };
 
-    AlignmentRange::new_offset_limit(
+    Ok(AlignmentRange::new_offset_limit(
         AlignmentCoordinates::new(
             cli.common.reference_offset.unwrap_or(reference_range.start),
             cli.common.query_offset.unwrap_or(query_range.start),
@@ -614,5 +721,112 @@ fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> Align
             cli.common.reference_limit.unwrap_or(reference_range.end),
             cli.common.query_limit.unwrap_or(query_range.end),
         ),
-    )
+    ))
+}
+
+/// The optional reference and query ranges given with `--rq-ranges`.
+type RqRanges = (Option<Range<usize>>, Option<Range<usize>>);
+
+/// Parse ranges of the form `R<offset>..<limit>Q<offset>..<limit>`, where each of the two parts is optional.
+/// Whitespace is allowed after `R` and `Q`.
+fn parse_rq_ranges(rq_ranges: &str) -> Result<RqRanges> {
+    let mut rq_ranges = rq_ranges.chars().peekable();
+    let mut reference_range = None;
+    let mut query_range = None;
+
+    let parse_number = |rq_ranges: &mut std::iter::Peekable<std::str::Chars>, what| {
+        let mut number = String::new();
+        while let Some(c) = rq_ranges.next_if(char::is_ascii_digit) {
+            number.push(c);
+        }
+        number
+            .parse::<usize>()
+            .with_context(|| format!("expected a number as {what}"))
+    };
+
+    while let Some(rq) = rq_ranges.next() {
+        while rq_ranges.next_if(|c| c.is_whitespace()).is_some() {}
+
+        let offset = parse_number(&mut rq_ranges, "offset")?;
+        ensure!(
+            rq_ranges.next() == Some('.') && rq_ranges.next() == Some('.'),
+            "expected '..' after the offset"
+        );
+        let limit = parse_number(&mut rq_ranges, "limit")?;
+
+        let range = match rq {
+            'R' => &mut reference_range,
+            'Q' => &mut query_range,
+            other => bail!("expected 'R' or 'Q', but found {other:?}"),
+        };
+        ensure!(range.is_none(), "the range for {rq} is given twice");
+        *range = Some(offset..limit);
+    }
+
+    Ok((reference_range, query_range))
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use super::{
+        A_STAR_ONLY_ARGUMENTS, CHAIN_ONLY_ARGUMENTS, Cli, INEXACT_ANCHOR_ONLY_ARGUMENTS,
+        RANGE_ARGUMENTS, TS_ONLY_ARGUMENTS,
+    };
+
+    /// The argument tables name existing arguments, and the flags match the argument ids.
+    #[test]
+    fn argument_tables_name_existing_arguments() {
+        let command = Cli::command();
+        let find = |id: &str| {
+            command
+                .get_arguments()
+                .find(|argument| argument.get_id() == id)
+                .unwrap_or_else(|| panic!("no argument with id {id}"))
+        };
+
+        for (id, flag) in A_STAR_ONLY_ARGUMENTS
+            .iter()
+            .chain(CHAIN_ONLY_ARGUMENTS)
+            .chain(TS_ONLY_ARGUMENTS)
+            .chain(INEXACT_ANCHOR_ONLY_ARGUMENTS)
+        {
+            let argument = find(id);
+            let actual_flag = match (argument.get_long(), argument.get_short()) {
+                (Some(long), _) => format!("--{long}"),
+                (None, Some(short)) => format!("-{short}"),
+                (None, None) => panic!("argument {id} is positional"),
+            };
+            assert_eq!(&actual_flag, flag, "argument {id}");
+        }
+        for id in RANGE_ARGUMENTS {
+            find(id);
+        }
+
+        // Every argument of a method-specific group is listed for its method.
+        let mut method_specific_arguments = 0;
+        for argument in command.get_arguments() {
+            let id = argument.get_id().as_str();
+            let heading = argument.get_help_heading().unwrap_or_default();
+            if heading.starts_with("Classic aligner options") {
+                method_specific_arguments += 1;
+                assert!(
+                    A_STAR_ONLY_ARGUMENTS.iter().any(|(other, _)| *other == id)
+                        || id == "ts_node_ord_strategy",
+                    "classic aligner argument {id} is not listed"
+                );
+            } else if heading.starts_with("tschainalign options") {
+                method_specific_arguments += 1;
+                assert!(
+                    CHAIN_ONLY_ARGUMENTS.iter().any(|(other, _)| *other == id),
+                    "tschainalign argument {id} is not listed"
+                );
+            }
+        }
+        assert_eq!(
+            method_specific_arguments,
+            A_STAR_ONLY_ARGUMENTS.len() + 1 + CHAIN_ONLY_ARGUMENTS.len()
+        );
+    }
 }
