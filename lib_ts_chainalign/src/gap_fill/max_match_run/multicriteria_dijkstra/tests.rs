@@ -302,11 +302,19 @@ impl Lcg {
 }
 
 /// Insert random nodes into both prune lists and compare the results.
+///
+/// Every other seed reuses a cleared prune list, which must behave like a fresh one.
 #[test]
 fn random_insertions_match_naive() {
+    let mut reused_prune_list = PruneList::<Node>::default();
     for seed in 0..200 {
         let mut random = Lcg(seed);
-        let mut prune_list = PruneList::<Node>::default();
+        let mut fresh_prune_list = PruneList::<Node>::default();
+        let prune_list = if seed % 2 == 0 {
+            &mut fresh_prune_list
+        } else {
+            &mut reused_prune_list
+        };
         let mut naive = NaivePruneList::default();
         let identifier_count = 1 + random.next(7);
         let insertion_count = 1 + random.next(60);
@@ -358,7 +366,28 @@ fn random_insertions_match_naive() {
             );
         }
 
+        // Clearing keeps the memory of the fronts for reuse.
+        let front_count = prune_list.fronts.len();
+        let spare_front_count = prune_list.spare_fronts.len();
         prune_list.clear();
         assert!(prune_list.next().is_none());
+        assert!(prune_list.fronts.is_empty());
+        assert_eq!(
+            prune_list.spare_fronts.len(),
+            front_count + spare_front_count
+        );
+        assert!(
+            prune_list
+                .spare_fronts
+                .iter()
+                .all(|front| front.entries.is_empty())
+        );
+        for position_a in 0..identifier_count {
+            let identifier = Identifier {
+                position_a,
+                position_b: 0,
+            };
+            assert_eq!(prune_list.iter_costs_at_identifier(&identifier).count(), 0);
+        }
     }
 }

@@ -47,12 +47,16 @@ type Index = usize;
 ///   but are later pruned.
 /// * All inserted nodes are kept for backtracking, including pruned ones,
 ///   since they may be predecessors of non-pruned nodes.
+/// * [`clear`](MulticriteriaDijkstraPruneList::clear) keeps the memory of all buffers for reuse,
+///   including the entry vectors of the fronts of all identifiers.
 pub struct PruneList<Node: MulticriteriaDijkstraNode>
 where
     Node::Cost: TwoCriteriaCost,
 {
     nodes: Vec<StoredNode<Node>>,
     fronts: FxHashMap<Node::Identifier, ParetoFront<Node::Cost>>,
+    /// Empty fronts of cleared identifiers, kept to reuse their memory.
+    spare_fronts: Vec<ParetoFront<Node::Cost>>,
     targets: ParetoFront<Node::Cost>,
     open: BinaryHeap<Reverse<OpenEntry<Node::Cost>>>,
 }
@@ -255,10 +259,13 @@ where
 
         // Insert into the front of the identifier, pruning what it dominates.
         let nodes = &mut self.nodes;
+        let spare_fronts = &mut self.spare_fronts;
         self.fronts
             .entry(node.identifier().clone())
-            .or_insert_with(|| ParetoFront {
-                entries: Vec::new(),
+            .or_insert_with(|| {
+                spare_fronts.pop().unwrap_or(ParetoFront {
+                    entries: Vec::new(),
+                })
             })
             .insert(first, second, index, |removed| {
                 nodes[removed].pruned = true;
@@ -335,7 +342,11 @@ where
 
     fn clear(&mut self) {
         self.nodes.clear();
-        self.fronts.clear();
+        self.spare_fronts
+            .extend(self.fronts.drain().map(|(_, mut front)| {
+                front.clear();
+                front
+            }));
         self.targets.clear();
         self.open.clear();
     }
@@ -353,6 +364,7 @@ where
         Self {
             nodes: Vec::new(),
             fronts: FxHashMap::default(),
+            spare_fronts: Vec::new(),
             targets: ParetoFront {
                 entries: Vec::new(),
             },

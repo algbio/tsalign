@@ -292,36 +292,23 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     (template_switch_descendant, template_switch_ancestor),
                     template_switch_direction,
                 )| {
+                    let entrance =
+                        |template_switch_first_offset| Identifier::TemplateSwitchEntrance {
+                            entrance_reference_index,
+                            entrance_query_index,
+                            template_switch_descendant,
+                            template_switch_ancestor,
+                            template_switch_direction,
+                            template_switch_first_offset,
+                        };
+
+                    // An array instead of a vector, to avoid allocating for each successor.
                     match template_switch_direction {
-                        TemplateSwitchDirection::Forward => vec![
-                            Identifier::TemplateSwitchEntrance {
-                                entrance_reference_index,
-                                entrance_query_index,
-                                template_switch_descendant,
-                                template_switch_ancestor,
-                                template_switch_direction,
-                                template_switch_first_offset: -1,
-                            },
-                            Identifier::TemplateSwitchEntrance {
-                                entrance_reference_index,
-                                entrance_query_index,
-                                template_switch_descendant,
-                                template_switch_ancestor,
-                                template_switch_direction,
-                                template_switch_first_offset: 1,
-                            },
-                        ],
-                        TemplateSwitchDirection::Reverse => {
-                            vec![Identifier::TemplateSwitchEntrance {
-                                entrance_reference_index,
-                                entrance_query_index,
-                                template_switch_descendant,
-                                template_switch_ancestor,
-                                template_switch_direction,
-                                template_switch_first_offset: 0,
-                            }]
-                        }
+                        TemplateSwitchDirection::Forward => [Some(entrance(-1)), Some(entrance(1))],
+                        TemplateSwitchDirection::Reverse => [Some(entrance(0)), None],
                     }
+                    .into_iter()
+                    .flatten()
                 },
             ),
 
