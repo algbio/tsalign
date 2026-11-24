@@ -12,7 +12,9 @@ use thiserror::Error;
 use crate::{
     alignment::{coordinates::PrimaryAlignmentCoordinates, sequences::AlignmentSequences},
     anchors::Anchors,
-    chain_align::performance_parameters::AlignmentPerformanceParameters,
+    chain_align::{
+        limits::AlignmentLimits, performance_parameters::AlignmentPerformanceParameters,
+    },
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind, InvalidChainingLowerBoundConfig},
@@ -133,6 +135,37 @@ pub fn validate_sequences(
     Ok(())
 }
 
+/// Align two sequences without limits.
+///
+/// See [`align_with_limits`] for the parameters.
+///
+/// # Errors
+///
+/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
+#[expect(clippy::too_many_arguments)]
+pub fn align(
+    reference: Vec<u8>,
+    query: Vec<u8>,
+    range: AlignmentRange,
+    performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    reference_name: &str,
+    query_name: &str,
+    chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
+) -> Result<AlignmentResult<U32Cost>, ChainAlignError> {
+    align_with_limits(
+        reference,
+        query,
+        range,
+        performance_parameters,
+        &AlignmentLimits::none(),
+        rc_fn,
+        reference_name,
+        query_name,
+        chaining_lower_bounds,
+    )
+}
+
 /// Align two sequences.
 ///
 /// Note that `reference` and `query` are interchangeable, and the order has no meaning.
@@ -142,6 +175,8 @@ pub fn validate_sequences(
 /// * `range` is the range on which the alignment happens. Note that points 2 and 3 of a template switch may fall outside of this range.
 /// * `performance_parameters` is a set of parameters for the aligner that only affect performance.
 ///   They do not affect the cost of the optimal chain.
+/// * `limits` are a cost limit and an iteration limit, see [`AlignmentLimits`].
+///   If a limit is reached, then the result contains no alignment, but reports the limit.
 /// * `rc_fn` is a function that maps a character to its reverse complement.
 /// * `reference_name` is the name of the reference string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
 /// * `query_name` is the name of the query string. It is irrelevant for the alignment, but will appear in e.g. the output of `tsalign show`.
@@ -153,11 +188,12 @@ pub fn validate_sequences(
 ///
 /// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
 #[expect(clippy::too_many_arguments)]
-pub fn align(
+pub fn align_with_limits(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
     performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
+    limits: &AlignmentLimits<U32Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     reference_name: &str,
     query_name: &str,
@@ -237,6 +273,7 @@ pub fn align(
     Ok(chain_align::align(
         &sequences,
         performance_parameters,
+        limits,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
         chaining_lower_bounds.config(),

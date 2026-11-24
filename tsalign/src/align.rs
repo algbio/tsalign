@@ -134,6 +134,15 @@ struct CommonArgs {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     use_embedded_rq_ranges: bool,
+
+    /// An inclusive cost limit for the alignment.
+    ///
+    /// If there is no alignment with at most that cost, the aligner will abort without result.
+    ///
+    /// For tschainalign (a-star-chain-ts), the limit applies to the chain cost, which tschainalign minimises.
+    /// For inexact anchors, the cost of the alignment may be lower than its chain cost.
+    #[clap(long)]
+    cost_limit: Option<U64Cost>,
 }
 
 // Options of the classic aligner (`a-star-template-switch`).
@@ -193,15 +202,10 @@ struct AStarArgs {
     #[clap(long)]
     no_ts: bool,
 
-    /// A cost limit for the alignment.
-    ///
-    /// If there is no alignment with at most that cost, the aligner will abort without result.
-    #[clap(long)]
-    cost_limit: Option<U64Cost>,
-
     /// An approximate memory limit in bytes for the aligner.
     ///
     /// If it is exceeded, then the aligner will abort without result.
+    /// Not supported by tschainalign (a-star-chain-ts).
     #[clap(long)]
     memory_limit: Option<usize>,
 
@@ -270,6 +274,15 @@ struct ChainArgs {
     /// This flag is for comparing against the chaining with all anchors.
     #[clap(long)]
     no_anchor_domination_pruning: bool,
+
+    /// The maximum number of chaining rounds.
+    ///
+    /// Each round searches the cheapest chain with regard to the current lower bounds of the gap costs,
+    /// and then aligns its gaps exactly, which improves the lower bounds.
+    /// If the optimal chain is not found within this many rounds, the aligner will abort without result,
+    /// but reports a lower bound of the chain cost.
+    #[clap(long)]
+    iteration_limit: Option<u64>,
 }
 
 #[derive(Args)]
@@ -320,7 +333,7 @@ pub enum InexactLowerBound {
 
 /// Arguments that only the classic aligner (`a-star-template-switch`) uses: pairs of argument id and argument.
 ///
-/// `--cost-limit` and `--memory-limit` are not listed, since tschainalign is getting support for them (issue #259).
+/// `--cost-limit` is a common argument, since both methods support it.
 /// `--ts-node-ord-strategy` is not listed, since it is a hidden no-op for compatibility.
 const A_STAR_ONLY_ARGUMENTS: &[(&str, &str)] = &[
     ("ts_min_length_strategy", "--ts-min-length-strategy"),
@@ -335,6 +348,7 @@ const A_STAR_ONLY_ARGUMENTS: &[(&str, &str)] = &[
     ("no_ts", "--no-ts"),
     ("force_label_correcting", "--force-label-correcting"),
     ("dont_extend_beyond_range", "--dont-extend-beyond-range"),
+    ("memory_limit", "--memory-limit"),
 ];
 
 /// Arguments that only tschainalign (`a-star-chain-ts`) uses: pairs of argument id and argument.
@@ -354,6 +368,7 @@ const CHAIN_ONLY_ARGUMENTS: &[(&str, &str)] = &[
     ),
     ("chaining_closed_list", "--chaining-closed-list"),
     ("chaining_open_list", "--chaining-open-list"),
+    ("iteration_limit", "--iteration-limit"),
     (
         "no_anchor_domination_pruning",
         "--no-anchor-domination-pruning",
@@ -764,7 +779,7 @@ mod tests {
                 method_specific_arguments += 1;
                 assert!(
                     A_STAR_ONLY_ARGUMENTS.iter().any(|(other, _)| *other == id)
-                        || ["ts_node_ord_strategy", "cost_limit", "memory_limit"].contains(&id),
+                        || id == "ts_node_ord_strategy",
                     "classic aligner argument {id} is not listed"
                 );
             } else if heading.starts_with("tschainalign options") {
@@ -777,7 +792,7 @@ mod tests {
         }
         assert_eq!(
             method_specific_arguments,
-            A_STAR_ONLY_ARGUMENTS.len() + 3 + CHAIN_ONLY_ARGUMENTS.len()
+            A_STAR_ONLY_ARGUMENTS.len() + 1 + CHAIN_ONLY_ARGUMENTS.len()
         );
     }
 }

@@ -798,18 +798,23 @@ fn parse_output(path: &Path) -> Result<ChainResult, String> {
 ///
 /// This is meant for checking how tsalign rejects invalid inputs.
 pub fn run_tsalign_raw(args: &[String]) -> (std::process::ExitStatus, String) {
+    let output = run_tsalign_output(args);
+    (
+        output.status,
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// Run tsalign from the repository root and return its exit status, stdout and stderr, without interpreting them.
+pub fn run_tsalign_output(args: &[String]) -> std::process::Output {
     let _permit = ProcessPermit::acquire();
-    let output = Command::new(tsalign_binary())
+    Command::new(tsalign_binary())
         .args(args)
         .current_dir(repo_root())
         .env("RUST_BACKTRACE", "0")
         .stdin(Stdio::null())
         .output()
-        .unwrap();
-    (
-        output.status,
-        String::from_utf8_lossy(&output.stderr).into_owned(),
-    )
+        .unwrap()
 }
 
 /// A fresh path in the work directory of this test process, ending with `suffix`.
@@ -914,7 +919,7 @@ fn timeout() -> Duration {
 
 /// Preprocess the chaining lower bounds for `(k, max_anchor_mutations)` once per test process.
 /// Returns the cache directory, or the reason why preprocessing failed.
-fn preprocessed_cache(k: u32, max_anchor_mutations: u8) -> Result<PathBuf, String> {
+pub fn preprocessed_cache(k: u32, max_anchor_mutations: u8) -> Result<PathBuf, String> {
     type CacheCell = Arc<OnceLock<Result<PathBuf, String>>>;
     static CACHES: OnceLock<Mutex<HashMap<Params, CacheCell>>> = OnceLock::new();
     let cell = CACHES

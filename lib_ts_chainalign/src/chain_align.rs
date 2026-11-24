@@ -34,6 +34,7 @@ use crate::{
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
         evaluation::build_chain_evaluator,
+        limits::AlignmentLimits,
         performance_parameters::{
             AlignmentPerformanceParameters, ChainingClosedList, ChainingOpenList,
         },
@@ -45,11 +46,14 @@ use crate::{
 
 mod chainer;
 mod evaluation;
+pub mod limits;
 pub mod performance_parameters;
 
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn align<Cost: AStarCost>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -61,6 +65,7 @@ pub(crate) fn align<Cost: AStarCost>(
             choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
                 sequences,
                 performance_parameters,
+                limits,
                 alignment_costs,
                 rc_fn,
                 config,
@@ -71,6 +76,7 @@ pub(crate) fn align<Cost: AStarCost>(
         ChainingOpenList::LinearHeap => choose_closed_list::<_, LinearHeap<_>>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -80,9 +86,11 @@ pub(crate) fn align<Cost: AStarCost>(
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -93,6 +101,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
         ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -102,6 +111,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
         ChainingClosedList::Special => actually_align::<_, ChainerClosedList<_>, OpenList>(
             sequences,
             performance_parameters,
+            limits,
             alignment_costs,
             rc_fn,
             config,
@@ -111,6 +121,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn actually_align<
     Cost: AStarCost,
     ClosedList: AStarClosedList<Node<Cost>>,
@@ -118,6 +129,7 @@ fn actually_align<
 >(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
+    limits: &AlignmentLimits<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     config: &ChainingLowerBoundConfig,
@@ -137,6 +149,7 @@ fn actually_align<
         chaining_cost_function,
         &alignment_costs.ts_limits,
         performance_parameters.max_successors,
+        limits.cost_limit,
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
 
@@ -149,7 +162,41 @@ fn actually_align<
     let mut total_chaining_suboptimal_opened_nodes = 0;
     let mut total_chaining_closed_nodes = 0;
 
+    // Each iteration of this loop is one chaining round: search the cheapest chain with regard to the current
+    // chaining cost function, and evaluate it, which replaces lower bounds in the cost function by exact costs.
+    // The chain is optimal if its evaluated cost equals the cost found by the search.
+    // The limits are applied here, see `AlignmentLimits`:
+    // the cost limit is checked by the chaining search of every round, and the iteration limit counts the rounds.
     let (chain, result) = loop {
+        if let Some(iteration_limit) = limits
+            .iteration_limit
+            .filter(|&iteration_limit| chaining_execution_count as u64 >= iteration_limit)
+        {
+            progress_bar.finish_and_clear();
+            debug!(
+                "Reached the iteration limit of {iteration_limit} chaining rounds with a chain cost lower bound of {current_lower_bound}"
+            );
+            return AlignmentResult::new_exceeded_iteration_limit::<DnaAlphabet, _>(
+                iteration_limit,
+                current_lower_bound,
+                VectorGenome::from_slice_u8(sequences.seq1())
+                    .unwrap()
+                    .as_genome_subsequence(),
+                VectorGenome::from_slice_u8(sequences.seq2())
+                    .unwrap()
+                    .as_genome_subsequence(),
+                sequences.seq1_name(),
+                sequences.seq2_name(),
+                alignment_range(sequences),
+                (Instant::now() - start_time).as_secs_f64(),
+                0,
+                0,
+                0,
+                sequences.seq1().len(),
+                sequences.seq2().len(),
+            );
+        }
+
         progress_bar.inc(1);
         progress_bar.set_message(format!(
             "Computing chain number {} (cost {}->{})",
@@ -242,7 +289,32 @@ fn actually_align<
                 });
                 chain
             }
-            AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
+            AStarResult::ExceededCostLimit { cost_limit } => {
+                // The cost of the optimal chain is at least the cost of the cheapest chain with regard to the
+                // current chaining cost function, which consists of lower bounds of the exact costs.
+                progress_bar.finish_and_clear();
+                debug!(
+                    "Exceeded the cost limit of {cost_limit} in chaining round {chaining_execution_count}"
+                );
+                return AlignmentResult::new_without_target::<DnaAlphabet, _>(
+                    AStarResult::ExceededCostLimit { cost_limit },
+                    VectorGenome::from_slice_u8(sequences.seq1())
+                        .unwrap()
+                        .as_genome_subsequence(),
+                    VectorGenome::from_slice_u8(sequences.seq2())
+                        .unwrap()
+                        .as_genome_subsequence(),
+                    sequences.seq1_name(),
+                    sequences.seq2_name(),
+                    alignment_range(sequences),
+                    (Instant::now() - start_time).as_secs_f64(),
+                    0,
+                    0,
+                    0,
+                    sequences.seq1().len(),
+                    sequences.seq2().len(),
+                );
+            }
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Memory limit is None"),
             AStarResult::NoTarget => panic!("No chain found"),
         };
@@ -483,13 +555,6 @@ fn actually_align<
     let end_time = Instant::now();
     let duration_seconds = (end_time - start_time).as_secs_f64();
 
-    let alignment_range = AlignmentRange::new(
-        sequences.primary_start().a(),
-        sequences.primary_start().b(),
-        sequences.primary_end().a(),
-        sequences.primary_end().b(),
-    );
-
     let mut alignment_result = AlignmentResult::new_with_target::<DnaAlphabet, _>(
         tsalign_alignment.into_inner(),
         VectorGenome::from_slice_u8(sequences.seq1())
@@ -500,7 +565,7 @@ fn actually_align<
             .as_genome_subsequence(),
         sequences.seq1_name(),
         sequences.seq2_name(),
-        alignment_range,
+        alignment_range(sequences),
         AStarResult::FoundTarget {
             identifier: (),
             cost,
@@ -514,6 +579,15 @@ fn actually_align<
     );
     alignment_result.statistics_mut().chain_cost = Some(chain_cost.as_f64().try_into().unwrap());
     alignment_result
+}
+
+fn alignment_range(sequences: &AlignmentSequences) -> AlignmentRange {
+    AlignmentRange::new(
+        sequences.primary_start().a(),
+        sequences.primary_start().b(),
+        sequences.primary_end().a(),
+        sequences.primary_end().b(),
+    )
 }
 
 /// Checks the cost of the final alignment against the cost of the chain it was built from.

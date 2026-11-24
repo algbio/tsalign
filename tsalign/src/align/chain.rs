@@ -3,8 +3,11 @@ use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
 };
+use generic_a_star::cost::AStarCost;
 use lib_ts_chainalign::{
-    chain_align::performance_parameters::AlignmentPerformanceParameters,
+    chain_align::{
+        limits::AlignmentLimits, performance_parameters::AlignmentPerformanceParameters,
+    },
     chaining_lower_bounds::ChainingLowerBounds,
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::AlignmentCosts,
@@ -108,11 +111,22 @@ pub fn align_a_star_chain_ts<
         prune_dominated_anchors: !cli.chain.no_anchor_domination_pruning,
     };
 
-    let alignment = lib_ts_chainalign::align(
+    let limits = AlignmentLimits {
+        // Chain costs are at most `u32::MAX`, so a larger limit is no limit.
+        cost_limit: cli.common.cost_limit.map(|cost_limit| {
+            u32::try_from(cost_limit.as_u64())
+                .unwrap_or(u32::MAX)
+                .into()
+        }),
+        iteration_limit: cli.chain.iteration_limit,
+    };
+
+    let alignment = lib_ts_chainalign::align_with_limits(
         reference,
         query,
         range,
         &performance_parameters,
+        &limits,
         &|c| {
             AlphabetType::character_to_ascii(
                 AlphabetType::ascii_to_character(c).unwrap().complement(),
