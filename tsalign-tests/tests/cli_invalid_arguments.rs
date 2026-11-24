@@ -11,7 +11,7 @@ const A_STAR: &str = "align -p test_files/twin_a.fa --alignment-method a-star-te
 const CHAIN_WITHOUT_CACHE: &str = "align -p test_files/twin_a.fa --alignment-method a-star-chain-ts \
                                    -c test_files/config/chainalign --alphabet dna";
 const CHAIN: &str = "align -p test_files/twin_a.fa --alignment-method a-star-chain-ts \
-                     -c test_files/config/chainalign --alphabet dna --cache-directory tmp/cli_invalid_arguments";
+                     -c test_files/config/chainalign --alphabet dna --cache-directory target/cli_invalid_arguments";
 
 /// Run tsalign and assert that it rejected the arguments with an error that contains all `expected` strings.
 fn assert_rejected(args: &str, expected: &[&str]) -> Result<()> {
@@ -45,7 +45,7 @@ fn a_star_rejects_chain_options() -> Result<()> {
     for option in [
         "-k 9",
         "--max-anchor-mutations 0",
-        "--cache-directory tmp/cli_invalid_arguments",
+        "--cache-directory target/cli_invalid_arguments",
         "--force-no-preprocessing",
         "--inexact-chaining-lower-bound max-match-run",
         "--max-chaining-successors 5",
@@ -134,7 +134,7 @@ fn chain_rejects_inexact_options_with_exact_anchors() -> Result<()> {
 #[test]
 fn preprocess_rejects_inexact_options_with_exact_anchors() -> Result<()> {
     assert_rejected(
-        "preprocess -c test_files/config/chainalign --cache-directory tmp/cli_invalid_arguments \
+        "preprocess -c test_files/config/chainalign --cache-directory target/cli_invalid_arguments \
          -k 4 --inexact-chaining-lower-bound max-match-run 8",
         &["--inexact-chaining-lower-bound", "--max-anchor-mutations"],
     )
@@ -143,7 +143,7 @@ fn preprocess_rejects_inexact_options_with_exact_anchors() -> Result<()> {
 #[test]
 fn preprocess_rejects_zero_max_length() -> Result<()> {
     assert_rejected(
-        "preprocess -c test_files/config/chainalign --cache-directory tmp/cli_invalid_arguments -k 4 0",
+        "preprocess -c test_files/config/chainalign --cache-directory target/cli_invalid_arguments -k 4 0",
         &["max_length"],
     )
 }
@@ -212,9 +212,9 @@ fn a_star_rejects_allow_ts_14_out_of_range() -> Result<()> {
 #[test]
 fn chain_rejects_non_dna_characters() -> Result<()> {
     assert_rejected(
-        "align -p test_files/twin_n.fa --alignment-method a-star-chain-ts -c test_files/config/chainalign \
-         --alphabet dna-n --cache-directory tmp/cli_invalid_arguments",
-        &["N"],
+        "align -p test_files/twin_n.fa --alignment-method a-star-chain-ts -c test_files/config/chainalignn \
+         --alphabet dna-n --cache-directory target/cli_invalid_arguments",
+        &["'N'", "A, C, G and T"],
     )
 }
 
@@ -222,7 +222,7 @@ fn chain_rejects_non_dna_characters() -> Result<()> {
 fn chain_rejects_missing_cache_with_force_no_preprocessing() -> Result<()> {
     assert_rejected(
         &format!(
-            "{CHAIN_WITHOUT_CACHE} --cache-directory tmp/cli_invalid_arguments/empty --force-no-preprocessing"
+            "{CHAIN_WITHOUT_CACHE} --cache-directory target/cli_invalid_arguments/empty --force-no-preprocessing"
         ),
         &["--force-no-preprocessing"],
     )
