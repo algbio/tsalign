@@ -84,8 +84,8 @@ cargo fmt --check
   On a mismatch, the actual output is written to `<target>/tmp/tsshow-snapshots/`.
   The end-to-end tests of `tsalign show` are in `tsalign-tests/tests/show.rs`, the Python smoke tests of
   `viz_template_switches()` in `python_bindings/tests/test_viz.py`.
-- `lib_ts_chainalign` has two known failing tests in `gap_fill::windowed_min_mutations` (tie-breaking); the windowed
-  min mutations lower bound is disabled in the CLI.
+- The windowed min mutations lower bound is disabled in the CLI (#224). Its search nodes store the alignment history as a
+  `HistoryProfile` (`lib_ts_chainalign/src/alignment_history/profile.rs`).
 - The classic aligner's `lower_bound` chaining strategy (`LowerBoundChainingStrategy`) is disabled in the CLI, the
   Python bindings and the public `Aligner` API (#248: too expensive, chain lower bound 0 in practice). Its code and its
   lib-internal tests (`lib_tsalign/src/aligner/configurable/tests.rs`, via a `#[cfg(test)]` selector variant) are kept.

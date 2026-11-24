@@ -11,25 +11,7 @@ pub enum AlignmentHistoryOperation {
 }
 
 impl AlignmentHistoryOperation {
-    pub fn to_bits(self) -> usize {
-        match self {
-            Self::Match => 0b00,
-            Self::Substitution => 0b01,
-            Self::GapInA => 0b10,
-            Self::GapInB => 0b11,
-        }
-    }
-
-    pub fn from_bits(bits: usize) -> Option<Self> {
-        match bits {
-            0b00 => Some(Self::Match),
-            0b01 => Some(Self::Substitution),
-            0b10 => Some(Self::GapInA),
-            0b11 => Some(Self::GapInB),
-            _ => None,
-        }
-    }
-
+    #[cfg(test)]
     pub fn len_a(&self) -> usize {
         match self {
             Self::Match | Self::Substitution | Self::GapInB => 1,
@@ -37,6 +19,7 @@ impl AlignmentHistoryOperation {
         }
     }
 
+    #[cfg(test)]
     pub fn len_b(&self) -> usize {
         match self {
             Self::Match | Self::Substitution | Self::GapInA => 1,
@@ -47,6 +30,7 @@ impl AlignmentHistoryOperation {
     /// The number of mutations that this alignment history operation represents.
     ///
     /// A match is not a mutation, while a substitution or a gap is a mutation.
+    #[cfg(test)]
     pub fn mutations(&self) -> usize {
         match self {
             Self::Match => 0,

@@ -10,7 +10,6 @@ use crate::{
         sequences::AlignmentSequences,
         ts_kind::TsKind,
     },
-    alignment_history::{extension_graph::HistoryExtensionGraph, history_vec::AlignmentHistory},
     costs::AlignmentCosts,
     gap_fill::windowed_min_mutations::ts_34_jump::algo::{Context, Node},
 };
@@ -19,15 +18,8 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct Ts34JumpAligner<
-    'sequences,
-    'alignment_costs,
-    'rc_fn,
-    Cost: AStarCost,
-    AlignmentHistoryVec,
-> {
+pub struct Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
     a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
-    history_graph: HistoryExtensionGraph<AlignmentHistoryVec>,
     sequences: &'sequences AlignmentSequences,
     alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
@@ -35,8 +27,8 @@ pub struct Ts34JumpAligner<
     max_anchor_mutations: u8,
 }
 
-impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec: AlignmentHistory>
-    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost, AlignmentHistoryVec>
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
+    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>
 {
     pub fn new(
         sequences: &'sequences AlignmentSequences,
@@ -47,7 +39,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     ) -> Self {
         Self {
             a_star_buffers: Some(Default::default()),
-            history_graph: HistoryExtensionGraph::new(),
             sequences,
             alignment_costs,
             rc_fn,
@@ -72,7 +63,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
             self.alignment_costs,
             self.sequences,
             self.rc_fn,
-            &mut self.history_graph,
             start,
             end,
             self.anchor_k,
@@ -115,7 +105,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
             self.alignment_costs,
             self.sequences,
             self.rc_fn,
-            &mut self.history_graph,
             start,
             end,
             self.anchor_k,
@@ -131,7 +120,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost, AlignmentHistoryVec:
     }
 
     fn fill_additional_targets(
-        a_star: &AStar<Context<Cost, AlignmentHistoryVec>>,
+        a_star: &AStar<Context<Cost>>,
         ts_kind: TsKind,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAlignmentCoordinates, Cost)>,
     ) {
