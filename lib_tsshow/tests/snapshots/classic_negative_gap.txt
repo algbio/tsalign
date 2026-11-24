@@ -1,0 +1,14 @@
+Child1:  AAAAAA               
+Child3:     AAA               
+ParentF: AAAAAACCTTCTTCCCCCCCC
+ParentR: TTTTTTGGAAGAAGGGGGGGG
+Child2:             AAGG      
+Parent: AAAAAA
+Child:  AAAAAA
+Child1:  AAA               
+Child3:                CCCC
+ParentF: AAACCTTCTTCCCCCCCC
+ChildR: TTTCCTTTTTCCGGGGGG
+Child2:           CCGG    
+Parent: AAAccttcttccCCCCCC
+Child:  AAAggaaaaaggCCCCCC

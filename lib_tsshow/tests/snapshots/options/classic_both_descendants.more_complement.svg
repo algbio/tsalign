@@ -1,0 +1,2791 @@
+<svg viewBox="0 0 373 59.46525" xmlns="http://www.w3.org/2000/svg">
+<style type="text/css">[embedded fonts: Liberation Mono, DejaVu Sans Mono, DejaVu Sans]</style>
+<defs>
+<marker id="arrow_head" markerHeight="10" markerWidth="10" orient="auto-start-reverse" refX="10" refY="5" viewBox="0 0 10 10">
+<path d="M 1 1 L 10 5 L 1 9" fill="none" stroke="black"/>
+</marker>
+<marker id="arrow_head_red" markerHeight="10" markerWidth="10" orient="auto-start-reverse" refX="10" refY="5" viewBox="0 0 10 10">
+<path d="M 1 1 L 10 5 L 1 9" fill="none" stroke="#CE2029"/>
+</marker>
+</defs>
+<circle fill="white" r="100000"/>
+<g transform="translate(10 10)">
+<g transform="translate(0 0)">
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="0">
+TS-B inner:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="3.175">
+Reference complement:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="6.35">
+Reference:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="9.525">
+Query:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="12.7">
+Query complement:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="15.875">
+TS-A inner:
+</text>
+</g>
+<g transform="translate(0 22.224998)">
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="0">
+Reference:
+</text>
+<text fill="#555555" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="3.175">
+Query:
+</text>
+</g>
+<g transform="translate(33 22.224998)">
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 0)">
+<text fill="black" x="0">
+A
+</text>
+<text fill="black" x="2">
+A
+</text>
+<text fill="black" x="4">
+A
+</text>
+<text fill="black" x="6">
+A
+</text>
+<text fill="black" x="8">
+A
+</text>
+<text fill="black" x="10">
+A
+</text>
+<text fill="black" x="12">
+A
+</text>
+<text fill="black" x="14">
+A
+</text>
+<text fill="black" x="16">
+A
+</text>
+<text fill="black" x="18">
+A
+</text>
+<text fill="black" x="20">
+A
+</text>
+<text fill="black" x="22">
+A
+</text>
+<text fill="black" x="24">
+A
+</text>
+<text fill="black" x="26">
+A
+</text>
+<text fill="black" x="28">
+A
+</text>
+<text fill="black" x="30">
+A
+</text>
+<text fill="black" x="32">
+A
+</text>
+<text fill="black" x="34">
+A
+</text>
+<text fill="black" x="36">
+A
+</text>
+<text fill="black" x="38">
+A
+</text>
+<text fill="black" x="40">
+G
+</text>
+<text fill="black" x="42">
+G
+</text>
+<text fill="black" x="44">
+G
+</text>
+<text fill="black" x="46">
+G
+</text>
+<text fill="black" x="48">
+G
+</text>
+<text fill="black" x="50">
+G
+</text>
+<text fill="black" x="52">
+G
+</text>
+<text fill="black" x="54">
+G
+</text>
+<text fill="black" x="56">
+G
+</text>
+<text fill="black" x="58">
+G
+</text>
+<text fill="black" x="60">
+G
+</text>
+<text fill="black" x="62">
+G
+</text>
+<text fill="black" x="64">
+G
+</text>
+<text fill="black" x="66">
+G
+</text>
+<text fill="black" x="68">
+G
+</text>
+<text fill="black" x="70">
+G
+</text>
+<text fill="black" x="72">
+G
+</text>
+<text fill="black" x="74">
+G
+</text>
+<text fill="black" x="76">
+G
+</text>
+<text fill="black" x="78">
+G
+</text>
+<text fill="black" x="80">
+A
+</text>
+<text fill="black" x="82">
+A
+</text>
+<text fill="black" x="84">
+A
+</text>
+<text fill="black" x="86">
+A
+</text>
+<text fill="black" x="88">
+A
+</text>
+<text fill="black" x="90">
+A
+</text>
+<text fill="black" x="92">
+A
+</text>
+<text fill="black" x="94">
+A
+</text>
+<text fill="black" x="96">
+A
+</text>
+<text fill="black" x="98">
+A
+</text>
+<text fill="black" x="100">
+A
+</text>
+<text fill="black" x="102">
+A
+</text>
+<text fill="black" x="104">
+A
+</text>
+<text fill="black" x="106">
+A
+</text>
+<text fill="black" x="108">
+A
+</text>
+<text fill="black" x="110">
+A
+</text>
+<text fill="black" x="112">
+A
+</text>
+<text fill="black" x="114">
+A
+</text>
+<text fill="black" x="116">
+A
+</text>
+<text fill="black" x="118">
+A
+</text>
+<text fill="black" x="120">
+C
+</text>
+<text fill="black" x="122">
+C
+</text>
+<text fill="black" x="124">
+C
+</text>
+<text fill="black" x="126">
+C
+</text>
+<text fill="black" x="128">
+C
+</text>
+<text fill="black" x="130">
+C
+</text>
+<text fill="black" x="132">
+C
+</text>
+<text fill="black" x="134">
+C
+</text>
+<text fill="black" x="136">
+C
+</text>
+<text fill="black" x="138">
+C
+</text>
+<text fill="black" x="140">
+C
+</text>
+<text fill="black" x="142">
+C
+</text>
+<text fill="black" x="144">
+C
+</text>
+<text fill="black" x="146">
+C
+</text>
+<text fill="black" x="148">
+C
+</text>
+<text fill="black" x="150">
+C
+</text>
+<text fill="black" x="152">
+C
+</text>
+<text fill="black" x="154">
+C
+</text>
+<text fill="black" x="156">
+C
+</text>
+<text fill="black" x="158">
+C
+</text>
+<text fill="black" x="160">
+A
+</text>
+<text fill="black" x="162">
+A
+</text>
+<text fill="black" x="164">
+A
+</text>
+<text fill="black" x="166">
+A
+</text>
+<text fill="black" x="168">
+A
+</text>
+<text fill="black" x="170">
+A
+</text>
+<text fill="black" x="172">
+A
+</text>
+<text fill="black" x="174">
+A
+</text>
+<text fill="black" x="176">
+A
+</text>
+<text fill="black" x="178">
+A
+</text>
+<text fill="black" x="180">
+A
+</text>
+<text fill="black" x="182">
+A
+</text>
+<text fill="black" x="184">
+A
+</text>
+<text fill="black" x="186">
+A
+</text>
+<text fill="black" x="188">
+A
+</text>
+<text fill="black" x="190">
+A
+</text>
+<text fill="black" x="192">
+A
+</text>
+<text fill="black" x="194">
+A
+</text>
+<text fill="black" x="196">
+A
+</text>
+<text fill="black" x="198">
+A
+</text>
+<text fill="black" x="200">
+A
+</text>
+<text fill="black" x="202">
+A
+</text>
+<text fill="black" x="204">
+A
+</text>
+<text fill="black" x="206">
+A
+</text>
+<text fill="black" x="208">
+A
+</text>
+<text fill="black" x="210">
+A
+</text>
+<text fill="black" x="212">
+A
+</text>
+<text fill="black" x="214">
+A
+</text>
+<text fill="black" x="216">
+A
+</text>
+<text fill="black" x="218">
+A
+</text>
+<text fill="black" x="220">
+A
+</text>
+<text fill="black" x="222">
+A
+</text>
+<text fill="black" x="224">
+A
+</text>
+<text fill="black" x="226">
+A
+</text>
+<text fill="black" x="228">
+A
+</text>
+<text fill="black" x="230">
+A
+</text>
+<text fill="black" x="232">
+A
+</text>
+<text fill="black" x="234">
+A
+</text>
+<text fill="black" x="236">
+A
+</text>
+<text fill="black" x="238">
+A
+</text>
+<text fill="black" x="240">
+-
+</text>
+<text fill="black" x="242">
+-
+</text>
+<text fill="black" x="244">
+-
+</text>
+<text fill="black" x="246">
+-
+</text>
+<text fill="black" x="248">
+-
+</text>
+<text fill="black" x="250">
+-
+</text>
+<text fill="black" x="252">
+-
+</text>
+<text fill="black" x="254">
+-
+</text>
+<text fill="black" x="256">
+-
+</text>
+<text fill="black" x="258">
+-
+</text>
+<text fill="black" x="260">
+-
+</text>
+<text fill="black" x="262">
+-
+</text>
+<text fill="black" x="264">
+-
+</text>
+<text fill="black" x="266">
+-
+</text>
+<text fill="black" x="268">
+-
+</text>
+<text fill="black" x="270">
+-
+</text>
+<text fill="black" x="272">
+-
+</text>
+<text fill="black" x="274">
+-
+</text>
+<text fill="black" x="276">
+-
+</text>
+<text fill="black" x="278">
+-
+</text>
+<text fill="black" x="280">
+A
+</text>
+<text fill="black" x="282">
+A
+</text>
+<text fill="black" x="284">
+A
+</text>
+<text fill="black" x="286">
+A
+</text>
+<text fill="black" x="288">
+A
+</text>
+<text fill="black" x="290">
+A
+</text>
+<text fill="black" x="292">
+A
+</text>
+<text fill="black" x="294">
+A
+</text>
+<text fill="black" x="296">
+A
+</text>
+<text fill="black" x="298">
+A
+</text>
+<text fill="black" x="300">
+A
+</text>
+<text fill="black" x="302">
+A
+</text>
+<text fill="black" x="304">
+A
+</text>
+<text fill="black" x="306">
+A
+</text>
+<text fill="black" x="308">
+A
+</text>
+<text fill="black" x="310">
+A
+</text>
+<text fill="black" x="312">
+A
+</text>
+<text fill="black" x="314">
+A
+</text>
+<text fill="black" x="316">
+A
+</text>
+<text fill="black" x="318">
+A
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 3.175)">
+<text fill="black" x="0">
+A
+</text>
+<text fill="black" x="2">
+A
+</text>
+<text fill="black" x="4">
+A
+</text>
+<text fill="black" x="6">
+A
+</text>
+<text fill="black" x="8">
+A
+</text>
+<text fill="black" x="10">
+A
+</text>
+<text fill="black" x="12">
+A
+</text>
+<text fill="black" x="14">
+A
+</text>
+<text fill="black" x="16">
+A
+</text>
+<text fill="black" x="18">
+A
+</text>
+<text fill="black" x="20">
+A
+</text>
+<text fill="black" x="22">
+A
+</text>
+<text fill="black" x="24">
+A
+</text>
+<text fill="black" x="26">
+A
+</text>
+<text fill="black" x="28">
+A
+</text>
+<text fill="black" x="30">
+A
+</text>
+<text fill="black" x="32">
+A
+</text>
+<text fill="black" x="34">
+A
+</text>
+<text fill="black" x="36">
+A
+</text>
+<text fill="black" x="38">
+A
+</text>
+<text fill="black" x="40">
+G
+</text>
+<text fill="black" x="42">
+G
+</text>
+<text fill="black" x="44">
+G
+</text>
+<text fill="black" x="46">
+G
+</text>
+<text fill="black" x="48">
+G
+</text>
+<text fill="black" x="50">
+G
+</text>
+<text fill="black" x="52">
+G
+</text>
+<text fill="black" x="54">
+G
+</text>
+<text fill="black" x="56">
+G
+</text>
+<text fill="black" x="58">
+G
+</text>
+<text fill="black" x="60">
+G
+</text>
+<text fill="black" x="62">
+G
+</text>
+<text fill="black" x="64">
+G
+</text>
+<text fill="black" x="66">
+G
+</text>
+<text fill="black" x="68">
+G
+</text>
+<text fill="black" x="70">
+G
+</text>
+<text fill="black" x="72">
+G
+</text>
+<text fill="black" x="74">
+G
+</text>
+<text fill="black" x="76">
+G
+</text>
+<text fill="black" x="78">
+G
+</text>
+<text fill="black" x="80">
+A
+</text>
+<text fill="black" x="82">
+A
+</text>
+<text fill="black" x="84">
+A
+</text>
+<text fill="black" x="86">
+A
+</text>
+<text fill="black" x="88">
+A
+</text>
+<text fill="black" x="90">
+A
+</text>
+<text fill="black" x="92">
+A
+</text>
+<text fill="black" x="94">
+A
+</text>
+<text fill="black" x="96">
+A
+</text>
+<text fill="black" x="98">
+A
+</text>
+<text fill="black" x="100">
+A
+</text>
+<text fill="black" x="102">
+A
+</text>
+<text fill="black" x="104">
+A
+</text>
+<text fill="black" x="106">
+A
+</text>
+<text fill="black" x="108">
+A
+</text>
+<text fill="black" x="110">
+A
+</text>
+<text fill="black" x="112">
+A
+</text>
+<text fill="black" x="114">
+A
+</text>
+<text fill="black" x="116">
+A
+</text>
+<text fill="black" x="118">
+A
+</text>
+<text fill="black" x="120">
+-
+</text>
+<text fill="black" x="122">
+-
+</text>
+<text fill="black" x="124">
+-
+</text>
+<text fill="black" x="126">
+-
+</text>
+<text fill="black" x="128">
+-
+</text>
+<text fill="black" x="130">
+-
+</text>
+<text fill="black" x="132">
+-
+</text>
+<text fill="black" x="134">
+-
+</text>
+<text fill="black" x="136">
+-
+</text>
+<text fill="black" x="138">
+-
+</text>
+<text fill="black" x="140">
+-
+</text>
+<text fill="black" x="142">
+-
+</text>
+<text fill="black" x="144">
+-
+</text>
+<text fill="black" x="146">
+-
+</text>
+<text fill="black" x="148">
+-
+</text>
+<text fill="black" x="150">
+-
+</text>
+<text fill="black" x="152">
+-
+</text>
+<text fill="black" x="154">
+-
+</text>
+<text fill="black" x="156">
+-
+</text>
+<text fill="black" x="158">
+-
+</text>
+<text fill="black" x="160">
+A
+</text>
+<text fill="black" x="162">
+A
+</text>
+<text fill="black" x="164">
+A
+</text>
+<text fill="black" x="166">
+A
+</text>
+<text fill="black" x="168">
+A
+</text>
+<text fill="black" x="170">
+A
+</text>
+<text fill="black" x="172">
+A
+</text>
+<text fill="black" x="174">
+A
+</text>
+<text fill="black" x="176">
+A
+</text>
+<text fill="black" x="178">
+A
+</text>
+<text fill="black" x="180">
+A
+</text>
+<text fill="black" x="182">
+A
+</text>
+<text fill="black" x="184">
+A
+</text>
+<text fill="black" x="186">
+A
+</text>
+<text fill="black" x="188">
+A
+</text>
+<text fill="black" x="190">
+A
+</text>
+<text fill="black" x="192">
+A
+</text>
+<text fill="black" x="194">
+A
+</text>
+<text fill="black" x="196">
+A
+</text>
+<text fill="black" x="198">
+A
+</text>
+<text fill="black" x="200">
+A
+</text>
+<text fill="black" x="202">
+A
+</text>
+<text fill="black" x="204">
+A
+</text>
+<text fill="black" x="206">
+A
+</text>
+<text fill="black" x="208">
+A
+</text>
+<text fill="black" x="210">
+A
+</text>
+<text fill="black" x="212">
+A
+</text>
+<text fill="black" x="214">
+A
+</text>
+<text fill="black" x="216">
+A
+</text>
+<text fill="black" x="218">
+A
+</text>
+<text fill="black" x="220">
+A
+</text>
+<text fill="black" x="222">
+A
+</text>
+<text fill="black" x="224">
+A
+</text>
+<text fill="black" x="226">
+A
+</text>
+<text fill="black" x="228">
+A
+</text>
+<text fill="black" x="230">
+A
+</text>
+<text fill="black" x="232">
+A
+</text>
+<text fill="black" x="234">
+A
+</text>
+<text fill="black" x="236">
+A
+</text>
+<text fill="black" x="238">
+A
+</text>
+<text fill="black" x="240">
+C
+</text>
+<text fill="black" x="242">
+C
+</text>
+<text fill="black" x="244">
+C
+</text>
+<text fill="black" x="246">
+C
+</text>
+<text fill="black" x="248">
+C
+</text>
+<text fill="black" x="250">
+C
+</text>
+<text fill="black" x="252">
+C
+</text>
+<text fill="black" x="254">
+C
+</text>
+<text fill="black" x="256">
+C
+</text>
+<text fill="black" x="258">
+C
+</text>
+<text fill="black" x="260">
+C
+</text>
+<text fill="black" x="262">
+C
+</text>
+<text fill="black" x="264">
+C
+</text>
+<text fill="black" x="266">
+C
+</text>
+<text fill="black" x="268">
+C
+</text>
+<text fill="black" x="270">
+C
+</text>
+<text fill="black" x="272">
+C
+</text>
+<text fill="black" x="274">
+C
+</text>
+<text fill="black" x="276">
+C
+</text>
+<text fill="black" x="278">
+C
+</text>
+<text fill="black" x="280">
+A
+</text>
+<text fill="black" x="282">
+A
+</text>
+<text fill="black" x="284">
+A
+</text>
+<text fill="black" x="286">
+A
+</text>
+<text fill="black" x="288">
+A
+</text>
+<text fill="black" x="290">
+A
+</text>
+<text fill="black" x="292">
+A
+</text>
+<text fill="black" x="294">
+A
+</text>
+<text fill="black" x="296">
+A
+</text>
+<text fill="black" x="298">
+A
+</text>
+<text fill="black" x="300">
+A
+</text>
+<text fill="black" x="302">
+A
+</text>
+<text fill="black" x="304">
+A
+</text>
+<text fill="black" x="306">
+A
+</text>
+<text fill="black" x="308">
+A
+</text>
+<text fill="black" x="310">
+A
+</text>
+<text fill="black" x="312">
+A
+</text>
+<text fill="black" x="314">
+A
+</text>
+<text fill="black" x="316">
+A
+</text>
+<text fill="black" x="318">
+A
+</text>
+</g>
+</g>
+<g transform="translate(33 0)">
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 0)">
+<text fill="black" x="40">
+C
+</text>
+<text fill="black" x="42">
+C
+</text>
+<text fill="black" x="44">
+C
+</text>
+<text fill="black" x="46">
+C
+</text>
+<text fill="black" x="48">
+C
+</text>
+<text fill="black" x="50">
+C
+</text>
+<text fill="black" x="52">
+C
+</text>
+<text fill="black" x="54">
+C
+</text>
+<text fill="black" x="56">
+C
+</text>
+<text fill="black" x="58">
+C
+</text>
+<text fill="black" x="60">
+C
+</text>
+<text fill="black" x="62">
+C
+</text>
+<text fill="black" x="64">
+C
+</text>
+<text fill="black" x="66">
+C
+</text>
+<text fill="black" x="68">
+C
+</text>
+<text fill="black" x="70">
+C
+</text>
+<text fill="black" x="72">
+C
+</text>
+<text fill="black" x="74">
+C
+</text>
+<text fill="black" x="76">
+C
+</text>
+<text fill="black" x="78">
+C
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 3.175)">
+<text fill="black" x="0">
+T
+</text>
+<text fill="black" x="2">
+T
+</text>
+<text fill="black" x="4">
+T
+</text>
+<text fill="black" x="6">
+T
+</text>
+<text fill="black" x="8">
+T
+</text>
+<text fill="black" x="10">
+T
+</text>
+<text fill="black" x="12">
+T
+</text>
+<text fill="black" x="14">
+T
+</text>
+<text fill="black" x="16">
+T
+</text>
+<text fill="black" x="18">
+T
+</text>
+<text fill="black" x="20">
+T
+</text>
+<text fill="black" x="22">
+T
+</text>
+<text fill="black" x="24">
+T
+</text>
+<text fill="black" x="26">
+T
+</text>
+<text fill="black" x="28">
+T
+</text>
+<text fill="black" x="30">
+T
+</text>
+<text fill="black" x="32">
+T
+</text>
+<text fill="black" x="34">
+T
+</text>
+<text fill="black" x="36">
+T
+</text>
+<text fill="black" x="38">
+T
+</text>
+<text fill="black" x="40">
+C
+</text>
+<text fill="black" x="42">
+C
+</text>
+<text fill="black" x="44">
+C
+</text>
+<text fill="black" x="46">
+C
+</text>
+<text fill="black" x="48">
+C
+</text>
+<text fill="black" x="50">
+C
+</text>
+<text fill="black" x="52">
+C
+</text>
+<text fill="black" x="54">
+C
+</text>
+<text fill="black" x="56">
+C
+</text>
+<text fill="black" x="58">
+C
+</text>
+<text fill="black" x="60">
+C
+</text>
+<text fill="black" x="62">
+C
+</text>
+<text fill="black" x="64">
+C
+</text>
+<text fill="black" x="66">
+C
+</text>
+<text fill="black" x="68">
+C
+</text>
+<text fill="black" x="70">
+C
+</text>
+<text fill="black" x="72">
+C
+</text>
+<text fill="black" x="74">
+C
+</text>
+<text fill="black" x="76">
+C
+</text>
+<text fill="black" x="78">
+C
+</text>
+<text fill="black" x="80">
+T
+</text>
+<text fill="black" x="82">
+T
+</text>
+<text fill="black" x="84">
+T
+</text>
+<text fill="black" x="86">
+T
+</text>
+<text fill="black" x="88">
+T
+</text>
+<text fill="black" x="90">
+T
+</text>
+<text fill="black" x="92">
+T
+</text>
+<text fill="black" x="94">
+T
+</text>
+<text fill="black" x="96">
+T
+</text>
+<text fill="black" x="98">
+T
+</text>
+<text fill="black" x="100">
+T
+</text>
+<text fill="black" x="102">
+T
+</text>
+<text fill="black" x="104">
+T
+</text>
+<text fill="black" x="106">
+T
+</text>
+<text fill="black" x="108">
+T
+</text>
+<text fill="black" x="110">
+T
+</text>
+<text fill="black" x="112">
+T
+</text>
+<text fill="black" x="114">
+T
+</text>
+<text fill="black" x="116">
+T
+</text>
+<text fill="black" x="118">
+T
+</text>
+<text fill="grey" x="120">
+G
+</text>
+<text fill="grey" x="122">
+G
+</text>
+<text fill="grey" x="124">
+G
+</text>
+<text fill="grey" x="126">
+G
+</text>
+<text fill="grey" x="128">
+G
+</text>
+<text fill="grey" x="130">
+G
+</text>
+<text fill="grey" x="132">
+G
+</text>
+<text fill="grey" x="134">
+G
+</text>
+<text fill="grey" x="136">
+G
+</text>
+<text fill="grey" x="138">
+G
+</text>
+<text fill="grey" x="140">
+G
+</text>
+<text fill="grey" x="142">
+G
+</text>
+<text fill="grey" x="144">
+G
+</text>
+<text fill="grey" x="146">
+G
+</text>
+<text fill="grey" x="148">
+G
+</text>
+<text fill="grey" x="150">
+G
+</text>
+<text fill="grey" x="152">
+G
+</text>
+<text fill="grey" x="154">
+G
+</text>
+<text fill="grey" x="156">
+G
+</text>
+<text fill="grey" x="158">
+G
+</text>
+<text fill="black" x="160">
+T
+</text>
+<text fill="black" x="162">
+T
+</text>
+<text fill="black" x="164">
+T
+</text>
+<text fill="black" x="166">
+T
+</text>
+<text fill="black" x="168">
+T
+</text>
+<text fill="black" x="170">
+T
+</text>
+<text fill="black" x="172">
+T
+</text>
+<text fill="black" x="174">
+T
+</text>
+<text fill="black" x="176">
+T
+</text>
+<text fill="black" x="178">
+T
+</text>
+<text fill="black" x="180">
+T
+</text>
+<text fill="black" x="182">
+T
+</text>
+<text fill="black" x="184">
+T
+</text>
+<text fill="black" x="186">
+T
+</text>
+<text fill="black" x="188">
+T
+</text>
+<text fill="black" x="190">
+T
+</text>
+<text fill="black" x="192">
+T
+</text>
+<text fill="black" x="194">
+T
+</text>
+<text fill="black" x="196">
+T
+</text>
+<text fill="black" x="198">
+T
+</text>
+<text fill="black" x="200">
+T
+</text>
+<text fill="black" x="202">
+T
+</text>
+<text fill="black" x="204">
+T
+</text>
+<text fill="black" x="206">
+T
+</text>
+<text fill="black" x="208">
+T
+</text>
+<text fill="black" x="210">
+T
+</text>
+<text fill="black" x="212">
+T
+</text>
+<text fill="black" x="214">
+T
+</text>
+<text fill="black" x="216">
+T
+</text>
+<text fill="black" x="218">
+T
+</text>
+<text fill="black" x="220">
+T
+</text>
+<text fill="black" x="222">
+T
+</text>
+<text fill="black" x="224">
+T
+</text>
+<text fill="black" x="226">
+T
+</text>
+<text fill="black" x="228">
+T
+</text>
+<text fill="black" x="230">
+T
+</text>
+<text fill="black" x="232">
+T
+</text>
+<text fill="black" x="234">
+T
+</text>
+<text fill="black" x="236">
+T
+</text>
+<text fill="black" x="238">
+T
+</text>
+<text fill="black" x="242">
+T
+</text>
+<text fill="black" x="244">
+T
+</text>
+<text fill="black" x="246">
+T
+</text>
+<text fill="black" x="248">
+T
+</text>
+<text fill="black" x="250">
+T
+</text>
+<text fill="black" x="252">
+T
+</text>
+<text fill="black" x="254">
+T
+</text>
+<text fill="black" x="256">
+T
+</text>
+<text fill="black" x="258">
+T
+</text>
+<text fill="black" x="260">
+T
+</text>
+<text fill="black" x="262">
+T
+</text>
+<text fill="black" x="264">
+T
+</text>
+<text fill="black" x="266">
+T
+</text>
+<text fill="black" x="268">
+T
+</text>
+<text fill="black" x="270">
+T
+</text>
+<text fill="black" x="272">
+T
+</text>
+<text fill="black" x="274">
+T
+</text>
+<text fill="black" x="276">
+T
+</text>
+<text fill="black" x="278">
+T
+</text>
+<text fill="black" x="280">
+T
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 6.35)">
+<text fill="black" x="0">
+A
+</text>
+<text fill="black" x="2">
+A
+</text>
+<text fill="black" x="4">
+A
+</text>
+<text fill="black" x="6">
+A
+</text>
+<text fill="black" x="8">
+A
+</text>
+<text fill="black" x="10">
+A
+</text>
+<text fill="black" x="12">
+A
+</text>
+<text fill="black" x="14">
+A
+</text>
+<text fill="black" x="16">
+A
+</text>
+<text fill="black" x="18">
+A
+</text>
+<text fill="black" x="20">
+A
+</text>
+<text fill="black" x="22">
+A
+</text>
+<text fill="black" x="24">
+A
+</text>
+<text fill="black" x="26">
+A
+</text>
+<text fill="black" x="28">
+A
+</text>
+<text fill="black" x="30">
+A
+</text>
+<text fill="black" x="32">
+A
+</text>
+<text fill="black" x="34">
+A
+</text>
+<text fill="black" x="36">
+A
+</text>
+<text fill="black" x="38">
+A
+</text>
+<text fill="black" x="40">
+G
+</text>
+<text fill="black" x="42">
+G
+</text>
+<text fill="black" x="44">
+G
+</text>
+<text fill="black" x="46">
+G
+</text>
+<text fill="black" x="48">
+G
+</text>
+<text fill="black" x="50">
+G
+</text>
+<text fill="black" x="52">
+G
+</text>
+<text fill="black" x="54">
+G
+</text>
+<text fill="black" x="56">
+G
+</text>
+<text fill="black" x="58">
+G
+</text>
+<text fill="black" x="60">
+G
+</text>
+<text fill="black" x="62">
+G
+</text>
+<text fill="black" x="64">
+G
+</text>
+<text fill="black" x="66">
+G
+</text>
+<text fill="black" x="68">
+G
+</text>
+<text fill="black" x="70">
+G
+</text>
+<text fill="black" x="72">
+G
+</text>
+<text fill="black" x="74">
+G
+</text>
+<text fill="black" x="76">
+G
+</text>
+<text fill="black" x="78">
+G
+</text>
+<text fill="black" x="80">
+A
+</text>
+<text fill="black" x="82">
+A
+</text>
+<text fill="black" x="84">
+A
+</text>
+<text fill="black" x="86">
+A
+</text>
+<text fill="black" x="88">
+A
+</text>
+<text fill="black" x="90">
+A
+</text>
+<text fill="black" x="92">
+A
+</text>
+<text fill="black" x="94">
+A
+</text>
+<text fill="black" x="96">
+A
+</text>
+<text fill="black" x="98">
+A
+</text>
+<text fill="black" x="100">
+A
+</text>
+<text fill="black" x="102">
+A
+</text>
+<text fill="black" x="104">
+A
+</text>
+<text fill="black" x="106">
+A
+</text>
+<text fill="black" x="108">
+A
+</text>
+<text fill="black" x="110">
+A
+</text>
+<text fill="black" x="112">
+A
+</text>
+<text fill="black" x="114">
+A
+</text>
+<text fill="black" x="116">
+A
+</text>
+<text fill="black" x="118">
+A
+</text>
+<text fill="black" x="160">
+A
+</text>
+<text fill="black" x="162">
+A
+</text>
+<text fill="black" x="164">
+A
+</text>
+<text fill="black" x="166">
+A
+</text>
+<text fill="black" x="168">
+A
+</text>
+<text fill="black" x="170">
+A
+</text>
+<text fill="black" x="172">
+A
+</text>
+<text fill="black" x="174">
+A
+</text>
+<text fill="black" x="176">
+A
+</text>
+<text fill="black" x="178">
+A
+</text>
+<text fill="black" x="180">
+A
+</text>
+<text fill="black" x="182">
+A
+</text>
+<text fill="black" x="184">
+A
+</text>
+<text fill="black" x="186">
+A
+</text>
+<text fill="black" x="188">
+A
+</text>
+<text fill="black" x="190">
+A
+</text>
+<text fill="black" x="192">
+A
+</text>
+<text fill="black" x="194">
+A
+</text>
+<text fill="black" x="196">
+A
+</text>
+<text fill="black" x="198">
+A
+</text>
+<text fill="black" x="200">
+A
+</text>
+<text fill="black" x="202">
+A
+</text>
+<text fill="black" x="204">
+A
+</text>
+<text fill="black" x="206">
+A
+</text>
+<text fill="black" x="208">
+A
+</text>
+<text fill="black" x="210">
+A
+</text>
+<text fill="black" x="212">
+A
+</text>
+<text fill="black" x="214">
+A
+</text>
+<text fill="black" x="216">
+A
+</text>
+<text fill="black" x="218">
+A
+</text>
+<text fill="black" x="220">
+A
+</text>
+<text fill="black" x="222">
+A
+</text>
+<text fill="black" x="224">
+A
+</text>
+<text fill="black" x="226">
+A
+</text>
+<text fill="black" x="228">
+A
+</text>
+<text fill="black" x="230">
+A
+</text>
+<text fill="black" x="232">
+A
+</text>
+<text fill="black" x="234">
+A
+</text>
+<text fill="black" x="236">
+A
+</text>
+<text fill="black" x="238">
+A
+</text>
+<text fill="black" x="242">
+A
+</text>
+<text fill="black" x="244">
+A
+</text>
+<text fill="black" x="246">
+A
+</text>
+<text fill="black" x="248">
+A
+</text>
+<text fill="black" x="250">
+A
+</text>
+<text fill="black" x="252">
+A
+</text>
+<text fill="black" x="254">
+A
+</text>
+<text fill="black" x="256">
+A
+</text>
+<text fill="black" x="258">
+A
+</text>
+<text fill="black" x="260">
+A
+</text>
+<text fill="black" x="262">
+A
+</text>
+<text fill="black" x="264">
+A
+</text>
+<text fill="black" x="266">
+A
+</text>
+<text fill="black" x="268">
+A
+</text>
+<text fill="black" x="270">
+A
+</text>
+<text fill="black" x="272">
+A
+</text>
+<text fill="black" x="274">
+A
+</text>
+<text fill="black" x="276">
+A
+</text>
+<text fill="black" x="278">
+A
+</text>
+<text fill="black" x="280">
+A
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 9.525)">
+<text fill="black" x="0">
+A
+</text>
+<text fill="black" x="2">
+A
+</text>
+<text fill="black" x="4">
+A
+</text>
+<text fill="black" x="6">
+A
+</text>
+<text fill="black" x="8">
+A
+</text>
+<text fill="black" x="10">
+A
+</text>
+<text fill="black" x="12">
+A
+</text>
+<text fill="black" x="14">
+A
+</text>
+<text fill="black" x="16">
+A
+</text>
+<text fill="black" x="18">
+A
+</text>
+<text fill="black" x="20">
+A
+</text>
+<text fill="black" x="22">
+A
+</text>
+<text fill="black" x="24">
+A
+</text>
+<text fill="black" x="26">
+A
+</text>
+<text fill="black" x="28">
+A
+</text>
+<text fill="black" x="30">
+A
+</text>
+<text fill="black" x="32">
+A
+</text>
+<text fill="black" x="34">
+A
+</text>
+<text fill="black" x="36">
+A
+</text>
+<text fill="black" x="38">
+A
+</text>
+<text fill="black" x="40">
+G
+</text>
+<text fill="black" x="42">
+G
+</text>
+<text fill="black" x="44">
+G
+</text>
+<text fill="black" x="46">
+G
+</text>
+<text fill="black" x="48">
+G
+</text>
+<text fill="black" x="50">
+G
+</text>
+<text fill="black" x="52">
+G
+</text>
+<text fill="black" x="54">
+G
+</text>
+<text fill="black" x="56">
+G
+</text>
+<text fill="black" x="58">
+G
+</text>
+<text fill="black" x="60">
+G
+</text>
+<text fill="black" x="62">
+G
+</text>
+<text fill="black" x="64">
+G
+</text>
+<text fill="black" x="66">
+G
+</text>
+<text fill="black" x="68">
+G
+</text>
+<text fill="black" x="70">
+G
+</text>
+<text fill="black" x="72">
+G
+</text>
+<text fill="black" x="74">
+G
+</text>
+<text fill="black" x="76">
+G
+</text>
+<text fill="black" x="78">
+G
+</text>
+<text fill="black" x="80">
+A
+</text>
+<text fill="black" x="82">
+A
+</text>
+<text fill="black" x="84">
+A
+</text>
+<text fill="black" x="86">
+A
+</text>
+<text fill="black" x="88">
+A
+</text>
+<text fill="black" x="90">
+A
+</text>
+<text fill="black" x="92">
+A
+</text>
+<text fill="black" x="94">
+A
+</text>
+<text fill="black" x="96">
+A
+</text>
+<text fill="black" x="98">
+A
+</text>
+<text fill="black" x="100">
+A
+</text>
+<text fill="black" x="102">
+A
+</text>
+<text fill="black" x="104">
+A
+</text>
+<text fill="black" x="106">
+A
+</text>
+<text fill="black" x="108">
+A
+</text>
+<text fill="black" x="110">
+A
+</text>
+<text fill="black" x="112">
+A
+</text>
+<text fill="black" x="114">
+A
+</text>
+<text fill="black" x="116">
+A
+</text>
+<text fill="black" x="118">
+A
+</text>
+<text fill="black" x="120">
+A
+</text>
+<text fill="black" x="122">
+A
+</text>
+<text fill="black" x="124">
+A
+</text>
+<text fill="black" x="126">
+A
+</text>
+<text fill="black" x="128">
+A
+</text>
+<text fill="black" x="130">
+A
+</text>
+<text fill="black" x="132">
+A
+</text>
+<text fill="black" x="134">
+A
+</text>
+<text fill="black" x="136">
+A
+</text>
+<text fill="black" x="138">
+A
+</text>
+<text fill="black" x="140">
+A
+</text>
+<text fill="black" x="142">
+A
+</text>
+<text fill="black" x="144">
+A
+</text>
+<text fill="black" x="146">
+A
+</text>
+<text fill="black" x="148">
+A
+</text>
+<text fill="black" x="150">
+A
+</text>
+<text fill="black" x="152">
+A
+</text>
+<text fill="black" x="154">
+A
+</text>
+<text fill="black" x="156">
+A
+</text>
+<text fill="black" x="160">
+A
+</text>
+<text fill="black" x="162">
+A
+</text>
+<text fill="black" x="164">
+A
+</text>
+<text fill="black" x="166">
+A
+</text>
+<text fill="black" x="168">
+A
+</text>
+<text fill="black" x="170">
+A
+</text>
+<text fill="black" x="172">
+A
+</text>
+<text fill="black" x="174">
+A
+</text>
+<text fill="black" x="176">
+A
+</text>
+<text fill="black" x="178">
+A
+</text>
+<text fill="black" x="180">
+A
+</text>
+<text fill="black" x="182">
+A
+</text>
+<text fill="black" x="184">
+A
+</text>
+<text fill="black" x="186">
+A
+</text>
+<text fill="black" x="188">
+A
+</text>
+<text fill="black" x="190">
+A
+</text>
+<text fill="black" x="192">
+A
+</text>
+<text fill="black" x="194">
+A
+</text>
+<text fill="black" x="196">
+A
+</text>
+<text fill="black" x="198">
+A
+</text>
+<text fill="black" x="200">
+A
+</text>
+<text fill="black" x="242">
+A
+</text>
+<text fill="black" x="244">
+A
+</text>
+<text fill="black" x="246">
+A
+</text>
+<text fill="black" x="248">
+A
+</text>
+<text fill="black" x="250">
+A
+</text>
+<text fill="black" x="252">
+A
+</text>
+<text fill="black" x="254">
+A
+</text>
+<text fill="black" x="256">
+A
+</text>
+<text fill="black" x="258">
+A
+</text>
+<text fill="black" x="260">
+A
+</text>
+<text fill="black" x="262">
+A
+</text>
+<text fill="black" x="264">
+A
+</text>
+<text fill="black" x="266">
+A
+</text>
+<text fill="black" x="268">
+A
+</text>
+<text fill="black" x="270">
+A
+</text>
+<text fill="black" x="272">
+A
+</text>
+<text fill="black" x="274">
+A
+</text>
+<text fill="black" x="276">
+A
+</text>
+<text fill="black" x="278">
+A
+</text>
+<text fill="black" x="280">
+A
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 12.7)">
+<text fill="black" x="0">
+T
+</text>
+<text fill="black" x="2">
+T
+</text>
+<text fill="black" x="4">
+T
+</text>
+<text fill="black" x="6">
+T
+</text>
+<text fill="black" x="8">
+T
+</text>
+<text fill="black" x="10">
+T
+</text>
+<text fill="black" x="12">
+T
+</text>
+<text fill="black" x="14">
+T
+</text>
+<text fill="black" x="16">
+T
+</text>
+<text fill="black" x="18">
+T
+</text>
+<text fill="black" x="20">
+T
+</text>
+<text fill="black" x="22">
+T
+</text>
+<text fill="black" x="24">
+T
+</text>
+<text fill="black" x="26">
+T
+</text>
+<text fill="black" x="28">
+T
+</text>
+<text fill="black" x="30">
+T
+</text>
+<text fill="black" x="32">
+T
+</text>
+<text fill="black" x="34">
+T
+</text>
+<text fill="black" x="36">
+T
+</text>
+<text fill="black" x="38">
+T
+</text>
+<text fill="black" x="40">
+C
+</text>
+<text fill="black" x="42">
+C
+</text>
+<text fill="black" x="44">
+C
+</text>
+<text fill="black" x="46">
+C
+</text>
+<text fill="black" x="48">
+C
+</text>
+<text fill="black" x="50">
+C
+</text>
+<text fill="black" x="52">
+C
+</text>
+<text fill="black" x="54">
+C
+</text>
+<text fill="black" x="56">
+C
+</text>
+<text fill="black" x="58">
+C
+</text>
+<text fill="black" x="60">
+C
+</text>
+<text fill="black" x="62">
+C
+</text>
+<text fill="black" x="64">
+C
+</text>
+<text fill="black" x="66">
+C
+</text>
+<text fill="black" x="68">
+C
+</text>
+<text fill="black" x="70">
+C
+</text>
+<text fill="black" x="72">
+C
+</text>
+<text fill="black" x="74">
+C
+</text>
+<text fill="black" x="76">
+C
+</text>
+<text fill="black" x="78">
+C
+</text>
+<text fill="black" x="80">
+T
+</text>
+<text fill="black" x="82">
+T
+</text>
+<text fill="black" x="84">
+T
+</text>
+<text fill="black" x="86">
+T
+</text>
+<text fill="black" x="88">
+T
+</text>
+<text fill="black" x="90">
+T
+</text>
+<text fill="black" x="92">
+T
+</text>
+<text fill="black" x="94">
+T
+</text>
+<text fill="black" x="96">
+T
+</text>
+<text fill="black" x="98">
+T
+</text>
+<text fill="black" x="100">
+T
+</text>
+<text fill="black" x="102">
+T
+</text>
+<text fill="black" x="104">
+T
+</text>
+<text fill="black" x="106">
+T
+</text>
+<text fill="black" x="108">
+T
+</text>
+<text fill="black" x="110">
+T
+</text>
+<text fill="black" x="112">
+T
+</text>
+<text fill="black" x="114">
+T
+</text>
+<text fill="black" x="116">
+T
+</text>
+<text fill="black" x="118">
+T
+</text>
+<text fill="black" x="120">
+T
+</text>
+<text fill="black" x="122">
+T
+</text>
+<text fill="black" x="124">
+T
+</text>
+<text fill="black" x="126">
+T
+</text>
+<text fill="black" x="128">
+T
+</text>
+<text fill="black" x="130">
+T
+</text>
+<text fill="black" x="132">
+T
+</text>
+<text fill="black" x="134">
+T
+</text>
+<text fill="black" x="136">
+T
+</text>
+<text fill="black" x="138">
+T
+</text>
+<text fill="black" x="140">
+T
+</text>
+<text fill="black" x="142">
+T
+</text>
+<text fill="black" x="144">
+T
+</text>
+<text fill="black" x="146">
+T
+</text>
+<text fill="black" x="148">
+T
+</text>
+<text fill="black" x="150">
+T
+</text>
+<text fill="black" x="152">
+T
+</text>
+<text fill="black" x="154">
+T
+</text>
+<text fill="black" x="156">
+T
+</text>
+<text fill="black" x="160">
+T
+</text>
+<text fill="black" x="162">
+T
+</text>
+<text fill="black" x="164">
+T
+</text>
+<text fill="black" x="166">
+T
+</text>
+<text fill="black" x="168">
+T
+</text>
+<text fill="black" x="170">
+T
+</text>
+<text fill="black" x="172">
+T
+</text>
+<text fill="black" x="174">
+T
+</text>
+<text fill="black" x="176">
+T
+</text>
+<text fill="black" x="178">
+T
+</text>
+<text fill="black" x="180">
+T
+</text>
+<text fill="black" x="182">
+T
+</text>
+<text fill="black" x="184">
+T
+</text>
+<text fill="black" x="186">
+T
+</text>
+<text fill="black" x="188">
+T
+</text>
+<text fill="black" x="190">
+T
+</text>
+<text fill="black" x="192">
+T
+</text>
+<text fill="black" x="194">
+T
+</text>
+<text fill="black" x="196">
+T
+</text>
+<text fill="black" x="198">
+T
+</text>
+<text fill="black" x="200">
+T
+</text>
+<text fill="grey" x="202">
+G
+</text>
+<text fill="grey" x="204">
+G
+</text>
+<text fill="grey" x="206">
+G
+</text>
+<text fill="grey" x="208">
+G
+</text>
+<text fill="grey" x="210">
+G
+</text>
+<text fill="grey" x="212">
+G
+</text>
+<text fill="grey" x="214">
+G
+</text>
+<text fill="grey" x="216">
+G
+</text>
+<text fill="grey" x="218">
+G
+</text>
+<text fill="grey" x="220">
+G
+</text>
+<text fill="grey" x="222">
+G
+</text>
+<text fill="grey" x="224">
+G
+</text>
+<text fill="grey" x="226">
+G
+</text>
+<text fill="grey" x="228">
+G
+</text>
+<text fill="grey" x="230">
+G
+</text>
+<text fill="grey" x="232">
+G
+</text>
+<text fill="grey" x="234">
+G
+</text>
+<text fill="grey" x="236">
+G
+</text>
+<text fill="grey" x="238">
+G
+</text>
+<text fill="grey" x="240">
+G
+</text>
+<text fill="black" x="242">
+T
+</text>
+<text fill="black" x="244">
+T
+</text>
+<text fill="black" x="246">
+T
+</text>
+<text fill="black" x="248">
+T
+</text>
+<text fill="black" x="250">
+T
+</text>
+<text fill="black" x="252">
+T
+</text>
+<text fill="black" x="254">
+T
+</text>
+<text fill="black" x="256">
+T
+</text>
+<text fill="black" x="258">
+T
+</text>
+<text fill="black" x="260">
+T
+</text>
+<text fill="black" x="262">
+T
+</text>
+<text fill="black" x="264">
+T
+</text>
+<text fill="black" x="266">
+T
+</text>
+<text fill="black" x="268">
+T
+</text>
+<text fill="black" x="270">
+T
+</text>
+<text fill="black" x="272">
+T
+</text>
+<text fill="black" x="274">
+T
+</text>
+<text fill="black" x="276">
+T
+</text>
+<text fill="black" x="278">
+T
+</text>
+<text fill="black" x="280">
+T
+</text>
+</g>
+<g font-family="Liberation Mono" font-size="3.175" transform="translate(0 15.875)">
+<text fill="black" x="40">
+C
+</text>
+<text fill="black" x="42">
+C
+</text>
+<text fill="black" x="44">
+C
+</text>
+<text fill="black" x="46">
+C
+</text>
+<text fill="black" x="48">
+C
+</text>
+<text fill="black" x="50">
+C
+</text>
+<text fill="black" x="52">
+C
+</text>
+<text fill="black" x="54">
+C
+</text>
+<text fill="black" x="56">
+C
+</text>
+<text fill="black" x="58">
+C
+</text>
+<text fill="black" x="60">
+C
+</text>
+<text fill="black" x="62">
+C
+</text>
+<text fill="black" x="64">
+C
+</text>
+<text fill="black" x="66">
+C
+</text>
+<text fill="black" x="68">
+C
+</text>
+<text fill="black" x="70">
+C
+</text>
+<text fill="black" x="72">
+C
+</text>
+<text fill="black" x="74">
+C
+</text>
+<text fill="black" x="76">
+C
+</text>
+<text fill="black" x="78">
+C
+</text>
+</g>
+<g transform="translate(120.25,6.35) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+A1
+</text>
+</g>
+</g>
+<g transform="translate(80.25,15.875) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+A2
+</text>
+</g>
+</g>
+<g transform="translate(38.25,15.875) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+A3
+</text>
+</g>
+</g>
+<g transform="translate(158.25,6.35) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+A4
+</text>
+</g>
+</g>
+<g transform="translate(202.25,9.525) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+B1
+</text>
+</g>
+</g>
+<g transform="translate(80.25,0) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+B2
+</text>
+</g>
+</g>
+<g transform="translate(38.25,0) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+B3
+</text>
+</g>
+</g>
+<g transform="translate(240.25,9.525) scale(0.5)">
+<path d="M 0.8000001,-2.78125 a 1.2,1.2 90 0 0 -1.2,1.2 v 0.78124976a 1.2,1.2 90 0 0 1.2,1.2 h 1.3999999a 1.2,1.2 90 0 0 1.2,-1.2 v -0.78124976a 1.2,1.2 90 0 0 -1.2,-1.2 h -1.3999999" fill="none" stroke="black" stroke-width="0.2"/>
+<g>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="-0.28574997">
+B4
+</text>
+</g>
+</g>
+</g>
+<g transform="translate(0 31.749998)">
+<g transform="scale(0.6)">
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="0">
+Legend:
+</text>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="3.3337498">
+Reference
+</text>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="0" y="6.50875">
+Query
+</text>
+<text fill="#00CC00" font-family="Liberation Mono" font-size="3.175" letter-spacing="0.094689965" x="0" y="9.68375">
+GREEN CHARACTERS
+</text>
+<text fill="black" font-family="DejaVu Sans" font-size="3" x="34" y="3.3337498">
+REF 
+</text>
+<text fill="black" font-family="DejaVu Sans" font-size="3" x="34" y="6.50875">
+QRY 
+</text>
+<text fill="black" font-family="DejaVu Sans Mono" font-size="2.38125" letter-spacing="0.06636667" x="34" y="9.68375">
+Repeated characters due to a TS with SP4 &lt; SP1
+</text>
+</g>
+</g>
+</g>
+</svg>

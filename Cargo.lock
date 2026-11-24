@@ -814,16 +814,20 @@ version = "8.0.0"
 dependencies = [
  "base64 0.22.1",
  "clap",
+ "compact-genome",
  "ena",
  "fontcull",
+ "generic_a_star",
  "itertools 0.15.0",
  "lib_tsalign",
  "log",
  "resvg",
+ "roxmltree 0.21.2",
  "strong-type",
  "svg",
  "tagged-vec",
  "thiserror 2.0.21",
+ "toml",
  "ttf-parser",
 ]
 

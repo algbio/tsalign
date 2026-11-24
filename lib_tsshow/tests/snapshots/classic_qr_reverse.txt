@@ -1,0 +1,7 @@
+Child1:  AAcAT       
+Child3:          CGGG
+ParentF: AAaATGGGCGGG
+ParentR: TTTTACCCGCCC
+Child2:   TTTA       
+Parent: AAaATgg-gCGGG
+Child:  AAcATatTtCGGG

@@ -1,0 +1,21 @@
+Child1:                                         
+Child3:                                         
+ParentF: AAAAAAAAAAAATCTCGGTTTTCCTTTTTCTCGGGGCCG
+ParentR: TTTTTTTTTTTTAGAGCCAAAAGGAAAAAGAGCCCCGGC
+Child2:                    AAAAGGAAAAA          
+Parent: AAAAAaaAAAAATCTCGG
+Child:  AAAAAggAAAAATCTCGG
+Parent1:                      
+Parent3:              CTCGGg  
+ChildF:  AAAAAGGAAAAATCTCGGcCC
+ChildR:  TTTTTCCTTTTTAGAGCCGGG
+Parent2: TTTTTCCTTTT          
+Child:  ATCTCGG------------------------C
+Parent: ATCTCGGTTTTCCTTTTTCTCGGGGCCGGGGC
+Child1:         CTCGGc                   
+Child3:                                 C
+ParentF: CCTTTTTCTCGGgGCCGGGGCCCCCCCCCCCC
+ParentR: GGAAAAAGAGCCCCGGCCCCGGGGGGGGGGGG
+Child2:            CCCCGGCCCC            
+Parent: CTCGGGGCCGGGGCCCCCccCCCCC
+Child:  -------------CCCCCggCCCCC

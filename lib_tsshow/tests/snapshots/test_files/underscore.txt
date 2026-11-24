@@ -1,0 +1,14 @@
+Parent1: C                                                                                                                                                                                
+Parent3:                                                                                                                                                                                  
+ChildF:  CATAGAGCGTTAGAATTGTAGTATCTTCATGGCAAATATAACCTCTACTCACATGAGGTGACATTATCTATTCTAATGTCTTTTTCCTTAAAATCTATTTAGCCTCACGCCTGAAATCCCAGCACTTTGGGAGGCCGAGGCGGGTGGATCATGAGGTCA  GGAGATCGAGACCAGC
+ChildR:  GTATCTCGCAATCTTAACATCATAGAAGTACCGTTTATATTGGAGATGAGTGTACTCCACTGTAATAGATAAGATTACAGAAAAAGGAATTTTAGATAAATCGGAGTGCGGACTTTAGGGTCGTGAAACCCTCCGGCTCCGCCCACCTAGTACTCCAGT--CCTCTAGCTCTGGTCG
+Parent2:                                                                                                                                                              GTCCCCTCTA        
+Child:  CATagagC--GTtAGaATTGtAGTaTC--TtCaTG---GCAaatAtAaCCtC-TA----CTCAC-AtGagGTGAcATTAtCTAttCTaA--tGTCtttttCCttAaAATctAtTtAG
+Parent: CATctccCCTGTcAGc--TGgAGTcTCACTcCgTGCAGGCAtggAaAtCCcCATATGGGC-CACCAgGttGTGAgA--AaC-AgaCTcACCcGTCcaaacCCaaAgAATggAcTcAG
+Child1:                                                                                                                                                                                                                                                                                             
+Child3:                                                                                                                                                                                                                                                                                           aA
+ParentF: CCTTGGCTCATGCGTGAGGTTGCCTGGTTGCCGCAGTGCCTGCTTTTCTCCCTGTGTCACTTTAGTTGTCTCCTGAATAACAGTTTCAGGTTTGTCTATGGCTTCTTCGGGGAGCTGAGACACCTGGACAGAGTGGGCCACACAAATCAAGTGGGACACATCTCCCCTGTCAGCTGGAGTCTCACTCCGTGCAGGCATGGAAATCCCCATATGGGCCACCAGGTTGTGAGAAACAGACTCACCCGTCCAAACCCAAAGAATGGACTCAGAGACCCAGAGAAcA
+ParentR: GGAACCGAGTaCGCACTCCAACGGACCAACGGCGTCACGGACGAAAAGAGGGACACAGTGAAATCAACAGAGGACTTATTGTCAAAGTCCAAACAGATACCGAAGAAGCCCCTCGACTCTGTGGACCTGTCTCACCCGGTGTGTTTAGTTCACCCTGTGTAGAGGGGACAGTCGACCTCAGAGTGAGGCACGTCCGTACCTTTAGGGGTATACCCGGTGGTCCAACACTCTTTGTCTGAGTGGGCAGGTTTGGGTTTCTTACCTGAGTCTCTGGGTCTCTTGT
+Child2:         AGTcCGCACTCC                                                                                                                                                                                                                                                                        
+Parent: TcAGc--TGgAGTcTCACTcCgTGCAGGCAtggAaAtCCcCATATGGGC-CACCAgGttGTGAgA--AaC-AgaCTcACCcGTCcaaacCCaaAgAATggAcTcAGagaC---CCaGAgAACA
+Child:  TtAGaATTGtAGTaTC--TtCaTG---GCAaatAtAaCCtC-TA----CTCAC-AtGagGTGAcATTAtCTAttCTaA--tGTCtttttCCttAaAATctAtTtAGcctCACGCCtGAa---A

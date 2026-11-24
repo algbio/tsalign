@@ -1,0 +1,28 @@
+type = "WithTarget"
+alignment = [[66, "PrimaryMatch"], [24, "PrimaryInsertion"], [14, "PrimaryMatch"]]
+reference_offset = 0
+query_offset = 0
+reference_limit = 80
+query_limit = 104
+cost = 26.0
+cost_per_base = 0.2826086956521739
+duration_seconds = 0.0
+opened_nodes = 29478.0
+closed_nodes = 9895.0
+suboptimal_opened_nodes = 16996.0
+suboptimal_opened_nodes_ratio = 1.3616407626982856
+template_switch_amount = 0.0
+runtime = 0.0
+memory = 0.0
+
+[result]
+astar_result_type = "FoundTarget"
+cost = 26
+
+[sequences]
+reference_name = "reference "
+reference = "TGATCCGAGCCTACTGACGTCTCGGAAGTTTTCATGCTCATCCCACCGCTATATACTAACTGTTCTAAAATGCGCTTCAC"
+reference_rc = "GTGAAGCGCATTTTAGAACAGTTAGTATATAGCGGTGGGATGAGCATGAAAACTTCCGAGACGTCAGTAGGCTCGGATCA"
+query_name = "query "
+query = "TGATCCGAGCCTACTGACGTCTCGGAAGTTTTCATGCTCATCCCACCGCTATATACTAACTGTTCTCGGAAGTTTTCATGCTCATCCCCTAAAATGCGCTTCAC"
+query_rc = "GTGAAGCGCATTTTAGGGGATGAGCATGAAAACTTCCGAGAACAGTTAGTATATAGCGGTGGGATGAGCATGAAAACTTCCGAGACGTCAGTAGGCTCGGATCA"
