@@ -201,3 +201,155 @@ fn parse_downstream(
 
     stream.stream_alignment()
 }
+
+#[cfg(test)]
+mod tests {
+    use lib_tsalign::{
+        aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
+        alignment_result::{AlignmentType, TSMUncertaintyRange, alignment::Alignment},
+    };
+
+    use super::parse;
+
+    fn entrance(
+        first_offset: isize,
+        descendant: TemplateSwitchDescendant,
+        ancestor: TemplateSwitchAncestor,
+        direction: TemplateSwitchDirection,
+    ) -> AlignmentType {
+        AlignmentType::TemplateSwitchEntrance {
+            first_offset,
+            uncertainty_range: Some(TSMUncertaintyRange::new()),
+            descendant,
+            ancestor,
+            direction,
+        }
+    }
+
+    fn exit(anti_descendant_gap: isize) -> AlignmentType {
+        AlignmentType::TemplateSwitchExit {
+            anti_descendant_gap,
+        }
+    }
+
+    #[test]
+    fn reverse_template_switch() {
+        let alignment = Alignment::from(vec![
+            (4, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance(
+                    3,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Reference,
+                    TemplateSwitchDirection::Reverse,
+                ),
+            ),
+            (2, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondarySubstitution),
+            (1, exit(3)),
+            (3, AlignmentType::PrimaryMatch),
+        ]);
+        let template_switches = parse(&alignment, 0, 0).unwrap();
+        assert_eq!(template_switches.len(), 1);
+        let ts = &template_switches[0];
+
+        assert_eq!(ts.descendant, TemplateSwitchDescendant::Query);
+        assert_eq!(ts.ancestor, TemplateSwitchAncestor::Reference);
+        assert_eq!((ts.sp1_offset.reference(), ts.sp1_offset.query()), (4, 4));
+        // SP2 = SP1 on the ancestor + first offset, and the reverse inner goes left.
+        assert_eq!(ts.sp2_ancestor_offset, 7);
+        assert_eq!(ts.sp3_ancestor_offset, 4);
+        assert_eq!((ts.sp4_offset.reference(), ts.sp4_offset.query()), (7, 7));
+        assert_eq!(
+            (ts.upstream_offset.reference(), ts.upstream_offset.query()),
+            (0, 0)
+        );
+        assert_eq!(
+            (ts.downstream_limit.reference(), ts.downstream_limit.query()),
+            (10, 10)
+        );
+        assert_eq!(ts.upstream.cigar(), "4=");
+        assert_eq!(ts.template_switch.cigar(), "2=1X");
+        assert_eq!(ts.downstream.cigar(), "3=");
+    }
+
+    #[test]
+    fn forward_template_switch_with_offsets() {
+        let alignment = Alignment::from(vec![
+            (2, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance(
+                    -2,
+                    TemplateSwitchDescendant::Reference,
+                    TemplateSwitchAncestor::Query,
+                    TemplateSwitchDirection::Forward,
+                ),
+            ),
+            (3, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondaryDeletion),
+            (1, exit(-1)),
+            (2, AlignmentType::PrimaryMatch),
+        ]);
+        let template_switches = parse(&alignment, 5, 10).unwrap();
+        assert_eq!(template_switches.len(), 1);
+        let ts = &template_switches[0];
+
+        assert_eq!((ts.sp1_offset.reference(), ts.sp1_offset.query()), (7, 12));
+        assert_eq!(ts.sp2_ancestor_offset, 10);
+        assert_eq!(ts.sp3_ancestor_offset, 14);
+        // The descendant advances by the inner without the deletion, the anti-descendant by the gap.
+        assert_eq!((ts.sp4_offset.reference(), ts.sp4_offset.query()), (10, 11));
+    }
+
+    #[test]
+    fn several_template_switches() {
+        let ts = |descendant| {
+            [
+                (
+                    1,
+                    entrance(
+                        2,
+                        descendant,
+                        TemplateSwitchAncestor::Reference,
+                        TemplateSwitchDirection::Reverse,
+                    ),
+                ),
+                (2, AlignmentType::SecondaryMatch),
+                (1, exit(2)),
+            ]
+        };
+        let mut alignment = vec![(3, AlignmentType::PrimaryMatch)];
+        alignment.extend(ts(TemplateSwitchDescendant::Query));
+        alignment.push((1, AlignmentType::PrimaryInsertion));
+        alignment.extend(ts(TemplateSwitchDescendant::Reference));
+        alignment.push((3, AlignmentType::PrimaryMatch));
+        let template_switches = parse(&Alignment::from(alignment), 0, 0).unwrap();
+
+        assert_eq!(template_switches.len(), 2);
+        assert_eq!(
+            template_switches[0].descendant,
+            TemplateSwitchDescendant::Query
+        );
+        assert_eq!(
+            template_switches[1].descendant,
+            TemplateSwitchDescendant::Reference
+        );
+        assert_eq!(
+            (
+                template_switches[1].sp1_offset.reference(),
+                template_switches[1].sp1_offset.query()
+            ),
+            (5, 6)
+        );
+        // The downstream of the first TS ends at the next TS.
+        assert_eq!(template_switches[0].downstream.cigar(), "1I");
+    }
+
+    #[test]
+    fn no_template_switches() {
+        let alignment = Alignment::from(vec![(5, AlignmentType::PrimaryMatch)]);
+        assert!(parse(&alignment, 0, 0).unwrap().is_empty());
+    }
+}

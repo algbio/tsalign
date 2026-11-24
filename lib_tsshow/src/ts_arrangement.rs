@@ -26,6 +26,9 @@ pub mod row;
 pub mod source;
 pub mod template_switch;
 
+#[cfg(test)]
+mod tests;
+
 pub struct TsArrangement {
     source: TsSourceArrangement,
     complement: TsComplementArrangement,
@@ -140,14 +143,22 @@ impl TsArrangement {
                 ..last_printed_source_column_exclusive.min(self.source.query_length().into()),
         );
 
+        // The hidden characters of empty columns may have been removed already,
+        // hence the source columns are mapped to the next existing character.
         let first_printed_arrangement_column_inclusive = self
-            .reference_source_to_arrangement_column(first_printed_source_column_inclusive)
-            .min(self.query_source_to_arrangement_column(first_printed_source_column_inclusive));
+            .source
+            .reference_source_to_arrangement_column_at_or_after(
+                first_printed_source_column_inclusive,
+            )
+            .min(self.source.query_source_to_arrangement_column_at_or_after(
+                first_printed_source_column_inclusive,
+            ));
         let last_printed_arrangement_column_exclusive = self
-            .reference_source_to_arrangement_column(
+            .source
+            .reference_source_to_arrangement_column_at_or_after(
                 last_printed_source_column_exclusive.min(self.source.reference_length().into()),
             )
-            .max(self.query_source_to_arrangement_column(
+            .max(self.source.query_source_to_arrangement_column_at_or_after(
                 last_printed_source_column_exclusive.min(self.source.query_length().into()),
             ));
         self.remove_column_range(last_printed_arrangement_column_exclusive..);

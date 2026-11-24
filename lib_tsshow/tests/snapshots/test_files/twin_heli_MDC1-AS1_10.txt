@@ -1,0 +1,29 @@
+Child: PrimatesAnc069 
+Parent: Homo_sapiens 
+Direction: reverse
+
+Switch process:
+Parent1: aA                                                                              
+Parent3:                                                                                 
+ChildF:  cACAAGCAGCTTTGCTGGTCCCCCAACTGCTTTCACATCTGTTTGATTTGTCCCCTCCACAGACACCTGATGCTTCTTTA
+
+ParentR: GGACAACGTCATtGTCAAAACTTTATGTGGTTCCCACAAGGCCAGAGGGATTGTTTTTGAACGGAAGAGTCCCTTTTACGAAACTGTTTCAGAAGAGACTGGATCCCCTTTTCGTCTGTGAGTTGAGACCGACATAGATAGACAGGACAGAGGAAACTTTCTCTTTCTTTTTTTTGACGAT
+Parent2:           ATcGTCAAAA                                                                                                                                                                 
+
+No-ts alignment:
+Child:  cAcAAgCaGCTtTG--------CTGGTCcC---CCA--AcTGCTTTCA--CaTcTgTTtgAttTgtccCCT--CCA-CAgaCAcCtgatG--CTTCttTA
+Parent: aAaAAaCtGCTaTGAAACAATTCTGGTCaCAGGCCAGAAaT----TCAGCCtTaTtTTaaAaaTaggaCCTTACCAACAttCAtCaacaGGGCTTCcaTA
+Parent: Homo_sapiens 
+Child: PrimatesAnc069 
+Direction: reverse
+
+Switch process:
+Child1:                                                                                                                                                                                                                                                                                            
+Child3:                                                                                                GGcT                                                                                                                                                                                        
+ParentF: TGAAACAATTCTGGTCACAGGCCAGAAATTCAGCCTTATTTTAAAAATAGGACCTTACCAACATTCATCAACAGGGCTTCCATATAGTAAGAGTGGaTTACAACTGAGAGAGCAGTAAGCCACAGACTCTATTTAGGAAATAGTTCTCAAGGAATCCCAGACAAGAGAGTGAAGAAACAACATCACAAGTCAACTACGGAAAACTAAAACCTGTGGCACTTACAGCTATAGCAAATACTAAACAAAACCCAGCTCATAGTCAGATTA ACATAAAACCTCAC
+ParentR: ACTTTGTTAAGACCAGTGTCCGGTCTTTAAGTCGGAATAAAATTTTTATCCTGGAATGGTTGTAAGTAGTTGTCCCGAAGGTATATCATTCTCACCTAATGTTGACTCTCTCGTCATTCGGTGTCTGAGATAAATCCTTTATCAAGAGTTCCTTAGGGTCTGTTCTCTCACTTCTTTGTTGTAGTGTTCAGTTGATGCCTTTTGATTTTGGACACCGTGAATGTCGATATCGTTTATGATTTGTTTTGGGTCGAGTATCAGTCTAAT-TGTATTTTGGAGTG
+Child2:                                                                                                                                                                                                                                                                         TAATATGTAT         
+
+No-ts alignment:
+Parent: TGAAACAATTCTGGTCaCAGGCCAGAAaT----TCAGCCtTaTtTTaaAaaTaggaCCTTACCAACAttCAtCaacaGGGCTTCcaTATA-GTAAgAgTGGaT
+Child:  TG--------CTGGTCcC---CCA--AcTGCTTTCA--CaTcTgTTtgAttTgtccCCT--CCA-CAgaCAcCtgatG--CTTCttTATATGT-AtAaTGGcT
