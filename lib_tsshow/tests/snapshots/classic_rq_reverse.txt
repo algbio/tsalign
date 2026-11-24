@@ -1,7 +1,14 @@
+Child: query 
+Parent: reference 
+Direction: reverse
+
+Switch process:
 Parent1: AAcAT       
 Parent3:         CGGG
 ChildF:  AAaATGGGCGGG
 ChildR:  TTTTACCCGCCC
 Parent2:  TTTA       
+
+No-ts alignment:
 Child:  AAaATgg-gCGGG
 Parent: AAcATatTtCGGG

@@ -1,14 +1,28 @@
+Parent: reference 
+Child: query 
+Direction: reverse
+
+Switch process:
 Child1:  AGAGAGAA-GAGCTCGATAGCTAGATGACTAC                      
 Child3:                                                         
 ParentF: AGAGAGAAAGAGCTCGATAGCTA-ATGACTACAGTCGAAGCAAAAAGGTACCGCT
 ParentR: TCTCTCTTTCTCGAGCTATCGAT TACTGATGTCAGCTTCGTTTTTCCATGGCGA
 Child2:     CTCTTTCTCGAGCT                                      
+
+No-ts alignment:
 Parent: AGAGAGAAAGAGCTCGATAGCTA-ATGACTACAGTCGAAGC-----aaaAAGGTACCgCT
 Child:  AGAGAGAA-GAGCTCGATAGCTAGATGACTAC--TCGA-GCTCTTTctcAAGGTACCcCT
+Child: query 
+Parent: reference 
+Direction: reverse
+
+Switch process:
 Parent1:                                                           
 Parent3:                                       CTTTGGGGTTGGTGTGTGTA
 ChildF:  GATGACTACTCGAGCTCTTTCTCAAGGTACCCCTGTCGCTTTGGGGTTGGTGTGTGTA
 ChildR:  CTACTGATGAGCTCGAGAAAGAGTTCCATGGGGACAGCGAAACCCCAACCACACACAT
 Parent2:           GCTCG                                           
+
+No-ts alignment:
 Child:  AAGGTACCcCTG-TCGCTTTGGGGTTGGTGTGTGTA
 Parent: AAGGTACCgCTGCTCGCTTTGGGGTTGGTGTGTGTA

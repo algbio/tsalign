@@ -111,6 +111,7 @@ pub fn create_ts_svg(
     config: &SvgConfig,
 ) -> Result<()> {
     info!("Creating template switch SVG");
+    crate::check_no_ts_result(result, no_ts_result)?;
 
     let AlignmentResult::WithTarget {
         alignment,

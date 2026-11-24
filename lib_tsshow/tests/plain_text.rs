@@ -96,7 +96,9 @@ fn every_template_switch_is_shown() {
 fn whole_sequence_template_switch() {
     let output = render_plain_text(&whole_sequence_reverse_ts(), &None);
     assert!(output.contains("Switch process:"), "{output}");
-    assert!(output.contains("AACCTCCTCC"), "{output}");
+    // The inner of a reverse TS is shown reversed, aligned to the reverse complement of the ancestor.
+    assert!(output.contains("ParentR: CCTCCTCCAA"), "{output}");
+    assert!(output.contains("Child2:  CCTCCTCCAA"), "{output}");
 }
 
 /// An aborted alignment has nothing to show, which is not an error.

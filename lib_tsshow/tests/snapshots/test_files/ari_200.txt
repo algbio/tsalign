@@ -1,14 +1,28 @@
+Child: ALT 
+Parent: REF 
+Direction: reverse
+
+Switch process:
 Parent1: GGTAGCATTGTCGACTACAT                                  
 Parent3:                               T                       
 ChildF:  GGTAGCATTGTCGACTACATCAGTAGTACATCGATGTACTACTGATGTAGTCGA
 ChildR:  CCATCGTAACAGCTGATGTAGTCATCATGTAGCTACATGATGACTACATCAGCT
 Parent2:                                GCTACATGATGAC          
+
+No-ts alignment:
 Child:  GGTAGCATTGTCGACTACATCAGTAGTACAT
 Parent: GGTAGCATTGTCGACTACATCAGTAGTACAT
+Parent: REF 
+Child: ALT 
+Direction: reverse
+
+Switch process:
 Child1:                                                     T                                                                       
 Child3:                                                                                                         TCTAAAAGAACTTCATCATG
 ParentF: TTCTTTTAGATTAGGAATGGTAGCATTGTCGACTACATCAGTAGTACATCGTCAGTAGACAACGATGTACTACTGATATAGTCGACAATGCTACCATTCCTAATCTAAAAGAACTTCATCATG
 ParentR: AAGAAAATCTAATCCTTACCATCGTAACAGCTGATGTAGTCATCATGTAGCAGTCATCTGTTGCTACATGATGACTATATCAGCTGTTACGATGGTAAGGATTAGATTTTCTTGAAGTAGTAC
 Child2:            AATCCTTACCATCGTAACAGCTGATGTAGTCATCATGTAGC                                                                        
+
+No-ts alignment:
 Parent: TCAGTAGACAACGATGTACTACTGATaTAGTCGACAATGCTACCATTCCTAATCTAAAAGAACTTCATCATG
 Child:  -------------ATGTACTACTGATgTAGTCGACAATGCTACCATTCCTAATCTAAAAGAACTTCATCATG
