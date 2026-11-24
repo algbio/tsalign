@@ -1,9 +1,9 @@
 #![allow(rustdoc::redundant_explicit_links)]
 
 use generic_a_star::cost::U32Cost;
-use lib_tsalign::a_star_aligner::{
-    alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
-    template_switch_distance::AlignmentType,
+use lib_tsalign::{
+    alignment_geometry::AlignmentRange,
+    alignment_result::{AlignmentResult, AlignmentType},
 };
 use log::{debug, info, trace};
 

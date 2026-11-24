@@ -9,7 +9,7 @@ use lib_ts_chainalign::{
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::AlignmentCosts,
 };
-use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
+use lib_tsalign::alignment_geometry::AlignmentRange;
 use log::{debug, info, warn};
 
 use std::{fmt::Debug, fs::File, path::PathBuf};

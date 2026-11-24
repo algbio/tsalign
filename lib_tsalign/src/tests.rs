@@ -8,32 +8,30 @@ use generic_a_star::cost::U64Cost;
 use noisy_float::types::r64;
 
 use crate::{
-    a_star_aligner::{
-        alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        template_switch_distance::{
-            TSMUncertaintyRangeExtensionMode,
-            context::DynamicStrategies,
-            strategies::{
-                AlignmentStrategySelection,
-                allow_ts_14_out_of_range::Ts14OutOfRangeStrategy,
-                chaining::NoChainingStrategy,
-                descendant::AnyTemplateSwitchDescendantStrategy,
-                node_ord::AntiDiagonalNodeOrdStrategy,
-                primary_match::AllowPrimaryMatchStrategy,
-                primary_range::NoPrunePrimaryRangeStrategy,
-                secondary_deletion::AllowSecondaryDeletionStrategy,
-                shortcut::NoShortcutStrategy,
-                template_switch_count::NoTemplateSwitchCountStrategy,
-                template_switch_min_length::{
-                    LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                    PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
-                    PreprocessedTemplateSwitchMinLengthStrategy,
-                },
-                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
+    aligner::{
+        context::DynamicStrategies,
+        strategies::{
+            AlignmentStrategySelection,
+            chaining::NoChainingStrategy,
+            descendant::AnyTemplateSwitchDescendantStrategy,
+            node_ord::AntiDiagonalNodeOrdStrategy,
+            primary_match::AllowPrimaryMatchStrategy,
+            primary_range::NoPrunePrimaryRangeStrategy,
+            secondary_deletion::AllowSecondaryDeletionStrategy,
+            shortcut::NoShortcutStrategy,
+            template_switch_count::NoTemplateSwitchCountStrategy,
+            template_switch_min_length::{
+                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                PreprocessedTemplateSwitchMinLengthStrategy,
             },
+            template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
         },
         template_switch_distance_a_star_align,
+        ts_14_out_of_range::Ts14OutOfRangeStrategy,
     },
+    alignment_geometry::{AlignmentCoordinates, AlignmentRange},
+    alignment_result::TSMUncertaintyRangeExtensionMode,
     config::TemplateSwitchConfig,
 };
 

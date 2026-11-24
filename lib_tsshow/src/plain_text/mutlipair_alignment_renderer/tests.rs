@@ -1,4 +1,4 @@
-use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType;
+use lib_tsalign::alignment_result::AlignmentType;
 
 use crate::plain_text::mutlipair_alignment_renderer::{
     Character, CharacterKind, MultipairAlignmentSequence, NoCharacterData,

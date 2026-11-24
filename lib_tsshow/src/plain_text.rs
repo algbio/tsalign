@@ -1,15 +1,11 @@
 use std::{io::Write, iter};
 
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_result::{
-            AlignmentResult,
-            a_star_sequences::SequencePair,
-            alignment::stream::{AlignmentStream, AlignmentStreamCoordinates},
-        },
-        template_switch_distance::{
-            AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
-        },
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
+    alignment_result::{
+        AlignmentResult, AlignmentType,
+        a_star_sequences::SequencePair,
+        alignment::stream::{AlignmentStream, AlignmentStreamCoordinates},
     },
     costs::U64Cost,
 };

@@ -1,8 +1,6 @@
 use std::iter;
 
-use lib_tsalign::a_star_aligner::template_switch_distance::{
-    AlignmentType, TemplateSwitchAncestor,
-};
+use lib_tsalign::{aligner::TemplateSwitchAncestor, alignment_result::AlignmentType};
 use log::{trace, warn};
 use tagged_vec::TaggedVec;
 

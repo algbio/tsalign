@@ -2,12 +2,9 @@ use std::io;
 
 use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
 use lib_tsalign::{
-    a_star_aligner::{
-        alignment_geometry::{AlignmentCoordinates, AlignmentRange},
-        alignment_result::AlignmentResult,
-        configurable_a_star_align::Aligner,
-        template_switch_distance::{AlignmentType, TSMUncertaintyRangeExtensionMode},
-    },
+    Aligner,
+    alignment_geometry::{AlignmentCoordinates, AlignmentRange},
+    alignment_result::{AlignmentResult, AlignmentType, TSMUncertaintyRangeExtensionMode},
     costs::U64Cost,
 };
 use lib_tsshow::plain_text::show_template_switches;

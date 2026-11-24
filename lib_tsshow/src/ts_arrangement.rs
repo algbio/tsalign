@@ -7,8 +7,9 @@ use character::Char;
 use complement::{ComplementChar, TsComplementArrangement};
 use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
 use inner::{TsInner, TsInnerArrangement};
-use lib_tsalign::a_star_aligner::template_switch_distance::{
-    AlignmentType, TemplateSwitchAncestor, TemplateSwitchDescendant,
+use lib_tsalign::{
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant},
+    alignment_result::AlignmentType,
 };
 use log::debug;
 use source::{SourceChar, TsSourceArrangement};

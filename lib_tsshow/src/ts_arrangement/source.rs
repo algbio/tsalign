@@ -1,11 +1,8 @@
 use std::{cmp::Ordering, iter};
 
-use lib_tsalign::a_star_aligner::{
-    alignment_result::alignment::Alignment,
-    template_switch_distance::{
-        AlignmentType, TSMUncertaintyRange, TemplateSwitchAncestor, TemplateSwitchDescendant,
-        TemplateSwitchDirection,
-    },
+use lib_tsalign::{
+    aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant, TemplateSwitchDirection},
+    alignment_result::{AlignmentType, TSMUncertaintyRange, alignment::Alignment},
 };
 use log::{debug, trace};
 use tagged_vec::TaggedVec;

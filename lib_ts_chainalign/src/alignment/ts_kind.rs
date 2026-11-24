@@ -1,8 +1,6 @@
 use std::fmt::Display;
 
-use lib_tsalign::a_star_aligner::template_switch_distance::{
-    TemplateSwitchAncestor, TemplateSwitchDescendant,
-};
+use lib_tsalign::aligner::{TemplateSwitchAncestor, TemplateSwitchDescendant};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct TsKind {
