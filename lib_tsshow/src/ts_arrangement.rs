@@ -26,6 +26,9 @@ pub mod row;
 pub mod source;
 pub mod template_switch;
 
+#[cfg(test)]
+mod tests;
+
 pub struct TsArrangement {
     source: TsSourceArrangement,
     complement: TsComplementArrangement,
