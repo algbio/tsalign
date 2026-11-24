@@ -6,7 +6,7 @@ use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::{AStarCost, U32Cost};
 use lib_ts_chainalign::{
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
-    costs::AlignmentCosts,
+    costs::{AlignmentCosts, DEFAULT_CONFIG_TSA},
 };
 use lib_tsalign::config::TemplateSwitchConfig;
 use log::info;
@@ -25,6 +25,23 @@ pub fn load_tsa_config<AlphabetType: Alphabet, Cost: AStarCost>(
     let costs = TemplateSwitchConfig::read_plain(config_file)
         .with_context(|| format!("Error parsing template switch config from {config_path:?}"))?;
     Ok(costs)
+}
+
+/// The configuration directory of the classic aligner (`a-star-template-switch`) if `-c` is not given.
+pub const DEFAULT_CONFIGURATION_DIRECTORY: &str = "sample_tsa_config";
+
+/// Load the config of tschainalign from the configuration directory,
+/// or the built-in default config of tschainalign if no directory is given.
+pub fn load_tschain_config<AlphabetType: Alphabet, Cost: AStarCost>(
+    configuration_directory: Option<&Path>,
+) -> Result<TemplateSwitchConfig<AlphabetType, Cost>> {
+    if let Some(configuration_directory) = configuration_directory {
+        load_tsa_config(configuration_directory)
+    } else {
+        info!("Using the built-in default config of tschainalign");
+        TemplateSwitchConfig::read_plain(DEFAULT_CONFIG_TSA.as_bytes())
+            .context("Error parsing the built-in default config of tschainalign")
+    }
 }
 
 /// Returns true if the argument with the given id was given on the command line,

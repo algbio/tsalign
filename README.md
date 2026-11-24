@@ -82,6 +82,9 @@ If you have two sequences in a file `pair.fa`, computing an alignment could look
 tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
 ```
 
+The configuration directory `-c` defaults to `sample_tsa_config`.
+For the chaining aligner (`--alignment-method a-star-chain-ts` and `tsalign preprocess`), which does not support that config, it defaults to a built-in config equal to [`test_files/config/chainalign/config.tsa`](test_files/config/chainalign/config.tsa).
+
 #### Choosing a different alphabet
 
 If you want to align strings with an alphabet other than the default DNA alphabet, consider using the parameter `-a`.

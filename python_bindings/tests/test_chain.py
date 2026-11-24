@@ -436,9 +436,62 @@ def test_invalid_parameters_raise_value_error(kwargs, match):
         ChainAligner(costs_file=CHAIN_CONFIG, **kwargs)
 
 
+def test_default_costs(tmp_path):
+    # The built-in default costs are test_files/config/chainalign/config.tsa.
+    assert tsalign.CHAIN_ALIGNER_DEFAULT_COSTS == CHAIN_CONFIG.read_text()
+    cache_directory = tmp_path / "cache"
+    result = ChainAligner(k=4, cache_directory=cache_directory).align(TS_REFERENCE, TS_QUERY)
+    assert result is not None
+    assert result.stats()["cost"] == TS_COST
+    # The cache file name depends on the costs, so the default aligner wrote the cache of the explicit config.
+    explicit = ChainAligner(
+        costs_file=CHAIN_CONFIG, k=4, cache_directory=cache_directory, force_no_preprocessing=True
+    ).align(TS_REFERENCE, TS_QUERY)
+    assert explicit is not None
+    assert explicit.stats()["cost"] == result.stats()["cost"]
+    assert explicit.cigar() == result.cigar()
+
+
+def test_module_level_align_default_costs():
+    result = tsalign.align(TS_REFERENCE, TS_QUERY, method="a-star-chain-ts", k=4)
+    assert result is not None
+    assert result.stats()["cost"] == TS_COST
+
+
+def test_cli_default_config_equals_python_default(tsalign_cli, tmp_path):
+    # Without -c, the CLI uses the same built-in default config for tschainalign.
+    output = tmp_path / "statistics.toml"
+    subprocess.run(
+        [
+            str(tsalign_cli),
+            "align",
+            "--alignment-method",
+            "a-star-chain-ts",
+            "--alphabet",
+            "dna",
+            "-l",
+            "warn",
+            "-k",
+            "4",
+            "--cache-directory",
+            str(tmp_path),
+            "-p",
+            str(TEST_FILES / "twin_10_ts_only.fa"),
+            "-o",
+            str(output),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        # Not the repository root, which contains the classic default sample_tsa_config.
+        cwd=tmp_path,
+    )
+    match = re.search(r"^cost = ([0-9.]+)$", output.read_text(), re.MULTILINE)
+    assert match is not None, output.read_text()
+    python_cost = ChainAligner(k=4).align(TS_REFERENCE, TS_QUERY).stats()["cost"]
+    assert float(match.group(1)) == python_cost == TS_COST
+
+
 def test_invalid_costs_raise_value_error():
-    with pytest.raises(ValueError, match="costs"):
-        ChainAligner()
     with pytest.raises(ValueError, match="at most one"):
         ChainAligner(costs=CHAIN_CONFIG.read_text(), costs_file=CHAIN_CONFIG)
     # tschainalign does not support the sample config (e.g. its length costs).
