@@ -42,6 +42,12 @@ split-debuginfo = "unpacked" # Keeps symbols out of the main object file
 [profile.release]
 debug = 1
 
+# Compile the chaining aligner as a single codegen unit, so that LLVM can inline across all of it.
+# This makes tschainalign 3-23 % faster (about as fast as with fat LTO, #142),
+# and it barely changes the build time, since lib_ts_chainalign is not on the critical path of the build.
+[profile.release.package.lib_ts_chainalign]
+codegen-units = 1
+
 # Used by the end-to-end tests in tsalign-tests: release speed, but with assertions.
 [profile.e2e]
 inherits = "release"
