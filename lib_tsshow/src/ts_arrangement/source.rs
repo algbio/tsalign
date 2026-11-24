@@ -581,14 +581,20 @@ impl TsSourceArrangement {
         self.reference.len()
     }
 
+    /// Marks the ancestor character at the given column as substituted.
+    ///
+    /// Hidden characters (e.g. the inner of another TS that is also used as ancestor of this TS) stay hidden.
     pub fn ancestor_to_lower_case(
         &mut self,
         ancestor: TemplateSwitchAncestor,
         column: ArrangementColumn,
     ) {
-        match ancestor {
-            TemplateSwitchAncestor::Reference => self.reference[column].to_lower_case(),
-            TemplateSwitchAncestor::Query => self.query[column].to_lower_case(),
+        let character = match ancestor {
+            TemplateSwitchAncestor::Reference => &mut self.reference[column],
+            TemplateSwitchAncestor::Query => &mut self.query[column],
+        };
+        if !character.is_hidden() {
+            character.to_lower_case();
         }
     }
 
