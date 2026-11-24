@@ -267,9 +267,8 @@ fn overlapping_forward_template_switches() {
     render_svg(&result, &None, &default_svg_config()).unwrap();
 }
 
-/// Known bug: overlapping reverse TSs with uncertainty ranges (found by the property tests).
+/// Regression test for issue #286: overlapping reverse TSs with uncertainty ranges (found by the property tests).
 #[test]
-#[ignore = "issue #286"]
 fn overlapping_reverse_template_switches_with_uncertainty() {
     use TemplateSwitchAncestor as A;
     use TemplateSwitchDescendant as D;
