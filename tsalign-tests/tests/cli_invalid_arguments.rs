@@ -152,18 +152,24 @@ fn chain_rejects_inexact_pruning_options_without_inexact_pruning() -> Result<()>
             )?;
         }
     }
-    assert_rejected(
-        &format!(
-            "{CHAIN} -k 9 --max-anchor-mutations 1 --anchor-pruning inexact --inexact-pruning-rules primary-foo"
+    // Unknown rules and the conflicting deprecated flag are rejected by the argument parser (exit code 2).
+    for (args, expected) in [
+        (
+            "--anchor-pruning inexact --inexact-pruning-rules primary-foo",
+            "primary-foo",
         ),
-        &["primary-foo"],
-    )?;
-    assert_rejected(
-        &format!(
-            "{CHAIN} -k 9 --max-anchor-mutations 1 --anchor-pruning inexact --no-anchor-domination-pruning"
+        (
+            "--anchor-pruning inexact --no-anchor-domination-pruning",
+            "--no-anchor-domination-pruning",
         ),
-        &["--no-anchor-domination-pruning"],
-    )
+    ] {
+        let args = format!("{CHAIN} -k 9 --max-anchor-mutations 1 {args}");
+        let output = run_in_repo_root_output(&args)?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "`{args}`\nstderr:\n{stderr}");
+        assert!(stderr.contains(expected), "`{args}`\nstderr:\n{stderr}");
+    }
+    Ok(())
 }
 
 #[test]

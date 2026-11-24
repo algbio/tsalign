@@ -125,7 +125,7 @@ impl RuleKind {
 
 /// A rule of the inexact pruning mode, for primary or secondary anchors.
 ///
-/// See the [module documentation](self) for the precise semantics.
+/// See the module documentation of `anchors::inexact_pruning` for the precise semantics.
 /// The names (in kebab case, e.g. `primary-prefix-domination`) are stable.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord, ValueEnum)]
 pub enum InexactPruningRule {
@@ -391,7 +391,7 @@ impl RuleSet {
 
 /// The number of anchors matched and removed by each rule, for one anchor type.
 ///
-/// See the [module documentation](self#statistics).
+/// See the module documentation of `anchors::inexact_pruning`.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
 pub struct RuleCounts {
     /// Indexed by [`RuleKind`].
@@ -435,7 +435,7 @@ impl RuleCounts {
     }
 }
 
-/// An anchor in the space in which it was generated, see the [module documentation](self#anchor-space).
+/// An anchor in the space in which it was generated, see the module documentation of `anchors::inexact_pruning`.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub(crate) struct RawAnchor<Cost> {
     pub a_start: usize,
@@ -477,7 +477,7 @@ pub(crate) struct PruningContext<'a, Cost> {
 
 /// Removes the anchors that match an enabled rule and returns the statistics.
 ///
-/// `to_raw` converts an anchor into the [anchor space](self#anchor-space).
+/// `to_raw` converts an anchor into the anchor space (see the module documentation).
 /// The order of the remaining anchors is preserved.
 pub(crate) fn prune<Anchor, Cost: AStarCost>(
     anchors: &mut Vec<Anchor>,
@@ -638,7 +638,7 @@ fn is_dominated<Cost: AStarCost>(
 }
 
 /// Returns true if the anchor is a gap-free anchor with a substitution in its first or last column,
-/// see the [module documentation](self#rules).
+/// see the module documentation of `anchors::inexact_pruning`.
 fn is_edge_substitution<Cost: AStarCost>(
     anchor: &RawAnchor<Cost>,
     context: &PruningContext<'_, Cost>,
@@ -694,7 +694,7 @@ impl ExactAnchorIndex {
         Self { by_diagonal }
     }
 
-    /// Returns true if the anchor is not exact and overlaps an exact anchor, see the [module documentation](self#rules).
+    /// Returns true if the anchor is not exact and overlaps an exact anchor, see the module documentation of `anchors::inexact_pruning`.
     fn overlaps<Cost: AStarCost>(
         &self,
         anchor: &RawAnchor<Cost>,
