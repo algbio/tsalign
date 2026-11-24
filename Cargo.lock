@@ -780,7 +780,9 @@ dependencies = [
  "num-traits",
  "rustc-hash",
  "serde",
+ "sha",
  "tagged-vec",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
@@ -1054,9 +1056,13 @@ dependencies = [
 name = "py_lib_tsalign"
 version = "8.0.0"
 dependencies = [
+ "clap",
  "compact-genome",
+ "generic_a_star",
+ "lib_ts_chainalign",
  "lib_tsalign",
  "lib_tsshow",
+ "log",
  "pyo3",
  "pyo3-log",
  "pythonize",
@@ -1708,7 +1714,6 @@ name = "tsalign"
 version = "8.0.0"
 dependencies = [
  "anyhow",
- "bincode",
  "clap",
  "compact-genome",
  "generic_a_star",
@@ -1716,9 +1721,7 @@ dependencies = [
  "lib_tsalign",
  "lib_tsshow",
  "log",
- "sha",
  "simplelog",
- "tempfile",
  "toml",
  "traitsequence",
  "utf8-chars",

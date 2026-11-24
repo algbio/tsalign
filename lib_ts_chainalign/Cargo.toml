@@ -30,3 +30,5 @@ tagged-vec.workspace = true
 multicriteria-dijkstra = "0.1.3"
 thiserror.workspace = true
 noisy_float = "0.2.0"
+sha = "1.0.3"
+tempfile = "3.27.0"

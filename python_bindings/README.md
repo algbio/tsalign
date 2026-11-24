@@ -140,3 +140,61 @@ accepted — including `Bio.Seq`:
 from Bio.Seq import Seq
 result = tsalign.align(Seq("ACGTACGT"), Seq("ACGACGT"))
 ```
+
+## tschainalign (chaining aligner)
+
+`ChainAligner` exposes tschainalign, the alignment method
+`--alignment-method a-star-chain-ts` of the CLI.  It chains k-mer anchors
+(exact, or with up to `max_anchor_mutations` mutations) and aligns the gaps
+between them exactly.  It supports only the characters `A`, `C`, `G` and `T`,
+and only cost configurations without flanks, such as
+[`test_files/config/chainalign/config.tsa`](../test_files/config/chainalign/config.tsa),
+so the costs are required.
+
+```python
+aligner = tsalign.ChainAligner(
+    costs_file="test_files/config/chainalign/config.tsa",  # or a directory containing config.tsa
+    max_anchor_mutations=1,          # default: 0 (exact anchors)
+    cache_directory="tsalign-cache", # optional, shared with the CLI
+)
+result = aligner.align(reference, query, cost_limit=100, iteration_limit=1000)
+if result is not None:
+    print(result.cigar(), result.stats()["cost"])
+    print(result.chain_statistics())  # anchor counts, pruning, chaining rounds, times
+```
+
+The result is the same `Alignment` type as for `Aligner`.  Its statistics
+additionally contain `chain_cost` and `chain_statistics`.  `align` returns
+`None` if the cost limit (on the chain cost, inclusive) or the iteration limit
+(number of chaining rounds) is reached.  It has no `memory_limit`.
+
+The other parameters are named as the CLI options, with the same defaults:
+`k` (default: inferred from the sequence lengths), `inexact_chaining_lower_bound`,
+`max_chaining_successors`, `max_exact_cost_function_cost`,
+`chaining_closed_list`, `chaining_open_list`, `anchor_pruning`
+(`"none"`, `"exact"`, `"inexact"`), `inexact_pruning_rules` (a string like the
+CLI's `--inexact-pruning-rules`, or a list of rule names),
+`exact_overlap_diagonal_distance` and `force_no_preprocessing`.
+Invalid or unsupported parameters raise `ValueError`.
+
+### Preprocessing and caching
+
+tschainalign needs lower bounds that are expensive to compute
+(preprocessing).  They depend on the costs, `k`, `max_anchor_mutations` and
+the length of the longer sequence rounded up to a power of two.  A
+`ChainAligner` keeps all lower bounds it has computed in memory, so reuse
+one aligner for many alignments, and fix `k` if the sequence lengths vary.
+
+With `cache_directory`, the lower bounds are also loaded from and stored in
+the same cache files as `tsalign preprocess` and `tsalign align --cache-directory`
+use, so Python and the CLI can share them.  `aligner.preprocess(max_length)`
+precomputes them for all sequences up to `max_length`, like
+`tsalign preprocess`.  With `force_no_preprocessing=True`, `align` raises
+`FileNotFoundError` instead of preprocessing.
+
+The GIL is released while preprocessing and aligning, so a `ChainAligner`
+can be used from several threads.
+
+`tsalign.align(reference, query, method="a-star-chain-ts", costs_file=...)`
+creates a temporary `ChainAligner`, which preprocesses on every call unless a
+`cache_directory` is given.
