@@ -14,9 +14,9 @@ REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 SMALL_CONFIG = REPOSITORY / "test_files" / "config" / "small" / "config.tsa"
 CHAIN_CONFIG = REPOSITORY / "test_files" / "config" / "chainalign" / "config.tsa"
 
-# The query contains the reverse complement of CCG at positions 4..7 of the reference.
-INVERSION_REFERENCE = "AAAACCGTTTAGCTAGCTTGCA"
-INVERSION_QUERY = "AAAACGGTTTAGCTAGCTTGCA"
+# twin_show_ts_small.fa: aligned with a reverse TS with the small config.
+INVERSION_REFERENCE = "AAAATGGGCGGG"
+INVERSION_QUERY = "AACATATTTCGGG"
 # twin_10_ts_only.fa: the query is the reverse complement of the reference.
 TS_REFERENCE = "GGAGGAGGTT"
 TS_QUERY = "AACCTCCTCC"
