@@ -768,11 +768,17 @@ impl TsSourceArrangement {
         Self::arrangement_to_arrangement_char_column(&self.query, arrangement_column)
     }
 
+    /// Returns the number of characters left of the given arrangement column.
+    ///
+    /// The column must contain a character, or be the column right of the arrangement (e.g. if a TS ends at the end of the sequence).
     fn arrangement_to_arrangement_char_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         arrangement_column: ArrangementColumn,
     ) -> ArrangementCharColumn {
-        assert!(sequence[arrangement_column].is_char());
+        assert!(
+            arrangement_column.primitive() == sequence.len()
+                || sequence[arrangement_column].is_char()
+        );
         sequence
             .iter_values()
             .take(arrangement_column.primitive())
@@ -868,19 +874,24 @@ impl TsSourceArrangement {
         &self,
         column: ArrangementCharColumn,
     ) -> SourceColumn {
-        Self::arrangement_char_to_source_column(&self.reference, column)
+        Self::arrangement_char_to_source_column(&self.reference, column, self.reference_length)
     }
 
     pub fn query_arrangement_char_to_source_column(
         &self,
         column: ArrangementCharColumn,
     ) -> SourceColumn {
-        Self::arrangement_char_to_source_column(&self.query, column)
+        Self::arrangement_char_to_source_column(&self.query, column, self.query_length)
     }
 
+    /// Returns the source column of the character at the given arrangement char column.
+    ///
+    /// The column right of the last character (e.g. the SP4 of a TS that ends at the end of the sequence)
+    /// is mapped to the source column right of the sequence.
     fn arrangement_char_to_source_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         column: ArrangementCharColumn,
+        source_length: usize,
     ) -> SourceColumn {
         sequence
             .iter_values()
@@ -891,6 +902,7 @@ impl TsSourceArrangement {
                     None
                 }
             })
+            .chain(iter::once(source_length.into()))
             .nth(column.primitive())
             .unwrap()
     }

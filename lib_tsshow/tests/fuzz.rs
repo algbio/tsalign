@@ -44,6 +44,10 @@ fn fuzz(
     let mut random = Random::new(seed() ^ name.len() as u64);
     let mut failures = Vec::new();
 
+    // The panic hook is global, so the fuzz tests must not run concurrently.
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+
     // Silence the panic messages of the failing cases, they are reported below with the location of the panic.
     let hook = panic::take_hook();
     panic::set_hook(Box::new(|info| {
