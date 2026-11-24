@@ -70,6 +70,17 @@ pub struct AlignmentStatistics<Cost> {
     )]
     pub chain_cost: Option<R64>,
 
+    /// The iteration limit of tschainalign, if tschainalign stopped because it reached it.
+    ///
+    /// The iteration limit is the maximum number of chaining rounds.
+    /// If it is set, then there is no alignment, `result` is [`AStarResult::NoTarget`],
+    /// and `cost` is the lower bound of the chain cost reached before stopping.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub exceeded_iteration_limit: Option<u64>,
+
     /// Runtime in seconds.
     ///
     /// To be filled by some other tool, not collected by tsalign.
@@ -170,6 +181,53 @@ impl<Cost: AStarCost> AlignmentResult<Cost> {
         )
     }
 
+    /// Create a result without alignment for an aligner that stopped because it reached its iteration limit.
+    ///
+    /// `cost_lower_bound` is a lower bound of the optimal cost known when the aligner stopped.
+    /// See [`AlignmentStatistics::exceeded_iteration_limit`].
+    #[expect(clippy::too_many_arguments)]
+    pub fn new_exceeded_iteration_limit<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        iteration_limit: u64,
+        cost_lower_bound: Cost,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        reference_name: &str,
+        query_name: &str,
+        alignment_range: AlignmentRange,
+        duration_seconds: f64,
+        opened_nodes: usize,
+        closed_nodes: usize,
+        suboptimal_opened_nodes: usize,
+        reference_length: usize,
+        query_length: usize,
+    ) -> Self {
+        // `new` takes the cost from the result, which has no cost if there is no target.
+        let mut result = Self::new(
+            None,
+            reference,
+            query,
+            reference_name,
+            query_name,
+            alignment_range,
+            AStarResult::ExceededCostLimit {
+                cost_limit: cost_lower_bound,
+            },
+            duration_seconds,
+            opened_nodes,
+            closed_nodes,
+            suboptimal_opened_nodes,
+            reference_length,
+            query_length,
+        );
+        let statistics = result.statistics_mut();
+        statistics.result = AStarResult::NoTarget;
+        statistics.exceeded_iteration_limit = Some(iteration_limit);
+        result
+    }
+
     #[expect(clippy::too_many_arguments)]
     fn new<
         AlphabetType: Alphabet,
@@ -228,6 +286,7 @@ impl<Cost: AStarCost> AlignmentResult<Cost> {
                 })
                 .unwrap_or(0.0)),
             chain_cost: None,
+            exceeded_iteration_limit: None,
             runtime: r64(0.0),
             memory: r64(0.0),
         };
@@ -810,7 +869,15 @@ impl<Cost: Display> Display for AlignmentResult<Cost> {
 
 impl<Cost: Display> Display for AlignmentStatistics<Cost> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, "{}", self.result)?;
+        if let Some(iteration_limit) = self.exceeded_iteration_limit {
+            writeln!(
+                f,
+                "Exceeded iteration limit of {iteration_limit}, the chain cost is at least {}",
+                self.cost
+            )?;
+        } else {
+            writeln!(f, "{}", self.result)?;
+        }
         if let Some(chain_cost) = self.chain_cost {
             writeln!(f, "Chain cost: {chain_cost}")?;
         }
@@ -853,6 +920,7 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
             suboptimal_opened_nodes_ratio: Default::default(),
             template_switch_amount: Default::default(),
             chain_cost: None,
+            exceeded_iteration_limit: None,
             runtime: Default::default(),
             memory: Default::default(),
         }

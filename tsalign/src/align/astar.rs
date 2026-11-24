@@ -54,7 +54,7 @@ pub fn align_a_star_template_switch_distance<
         query,
         range,
         additional_tsm_starts_and_ends,
-        cli.a_star.cost_limit,
+        cli.common.cost_limit,
         cli.a_star.memory_limit,
         !cli.a_star.dont_extend_beyond_range,
         cli.a_star.ts_uncertainty_range_extension_mode,

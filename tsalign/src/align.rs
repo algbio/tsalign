@@ -133,6 +133,15 @@ struct CommonArgs {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     use_embedded_rq_ranges: bool,
+
+    /// An inclusive cost limit for the alignment.
+    ///
+    /// If there is no alignment with at most that cost, the aligner will abort without result.
+    ///
+    /// For tschainalign (a-star-chain-ts), the limit applies to the chain cost, which tschainalign minimises.
+    /// For inexact anchors, the cost of the alignment may be lower than its chain cost.
+    #[clap(long)]
+    cost_limit: Option<U64Cost>,
 }
 
 // Options of the classic aligner (`a-star-template-switch`).
@@ -192,15 +201,10 @@ struct AStarArgs {
     #[clap(long)]
     no_ts: bool,
 
-    /// A cost limit for the alignment.
-    ///
-    /// If there is no alignment with at most that cost, the aligner will abort without result.
-    #[clap(long)]
-    cost_limit: Option<U64Cost>,
-
     /// An approximate memory limit in bytes for the aligner.
     ///
     /// If it is exceeded, then the aligner will abort without result.
+    /// Not supported by tschainalign (a-star-chain-ts).
     #[clap(long)]
     memory_limit: Option<usize>,
 
@@ -269,6 +273,15 @@ struct ChainArgs {
     /// This flag is for comparing against the chaining with all anchors.
     #[clap(long)]
     no_anchor_domination_pruning: bool,
+
+    /// The maximum number of chaining rounds.
+    ///
+    /// Each round searches the cheapest chain with regard to the current lower bounds of the gap costs,
+    /// and then aligns its gaps exactly, which improves the lower bounds.
+    /// If the optimal chain is not found within this many rounds, the aligner will abort without result,
+    /// but reports a lower bound of the chain cost.
+    #[clap(long)]
+    iteration_limit: Option<u64>,
 }
 
 #[derive(Args)]
@@ -466,15 +479,21 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
 
     debug!("Choosing alignment method...");
     match cli.common.alignment_method {
-        AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
-            cli,
-            reference_sequence,
-            query_sequence,
-            range,
-            additional_tsm_starts_and_ends,
-            &format!("{} {}", reference_record.id, reference_record.comment),
-            &format!("{} {}", query_record.id, query_record.comment),
-        ),
+        AlignmentMethod::AStarTemplateSwitch => {
+            ensure!(
+                cli.chain.iteration_limit.is_none(),
+                "--iteration-limit is not supported by the classic aligner (a-star-template-switch), only by tschainalign (a-star-chain-ts)"
+            );
+            align_a_star_template_switch_distance(
+                cli,
+                reference_sequence,
+                query_sequence,
+                range,
+                additional_tsm_starts_and_ends,
+                &format!("{} {}", reference_record.id, reference_record.comment),
+                &format!("{} {}", query_record.id, query_record.comment),
+            )
+        }
         AlignmentMethod::AStarChainTS => align_a_star_chain_ts(
             cli,
             reference_sequence,
