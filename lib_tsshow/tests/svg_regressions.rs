@@ -6,6 +6,7 @@ use lib_tsalign::{
     alignment_geometry::AlignmentRange,
     alignment_result::{AlignmentType, TSMUncertaintyRange},
 };
+use lib_tsshow::svg::UncertaintyRangeMode;
 
 mod common;
 
@@ -109,4 +110,105 @@ fn restricted_context_with_removed_hidden_inner() {
     let mut config = default_svg_config();
     config.restrict_context = Some(2);
     render_svg(&result, &None, &config).unwrap();
+}
+
+fn entrance_with_uncertainty(
+    first_offset: isize,
+    descendant: TemplateSwitchDescendant,
+    ancestor: TemplateSwitchAncestor,
+    [
+        start_left_shift,
+        start_right_shift,
+        end_left_shift,
+        end_right_shift,
+    ]: [u16; 4],
+) -> AlignmentType {
+    AlignmentType::TemplateSwitchEntrance {
+        first_offset,
+        uncertainty_range: Some(TSMUncertaintyRange {
+            start_left_shift,
+            start_right_shift,
+            end_left_shift,
+            end_right_shift,
+        }),
+        descendant,
+        ancestor,
+        direction: TemplateSwitchDirection::Reverse,
+    }
+}
+
+fn render_with_all_uncertainty_modes(result: &common::Result) {
+    for mode in [UncertaintyRangeMode::InnerOnly, UncertaintyRangeMode::Full] {
+        let mut config = default_svg_config();
+        config.uncertainty_range_mode = mode;
+        render_svg(result, &None, &config).unwrap();
+    }
+}
+
+/// The uncertainty range of a TS inner that is at the right end of the arrangement
+/// extends beyond the arrangement (index out of bounds in `inner.rs`).
+#[test]
+fn uncertainty_range_beyond_the_right_end() {
+    let result = build_result(
+        "CGTTCAACCTGACCGAT",
+        "CCCGTCGCTT",
+        vec![
+            (2, AlignmentType::PrimaryMatch),
+            (2, AlignmentType::PrimarySubstitution),
+            (4, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance_with_uncertainty(
+                    8,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Reference,
+                    [2, 0, 1, 0],
+                ),
+            ),
+            (2, AlignmentType::SecondaryMatch),
+            (1, exit(-2)),
+            (11, AlignmentType::PrimaryDeletion),
+        ],
+        AlignmentRange::new_complete(17, 10),
+    );
+    render_with_all_uncertainty_modes(&result);
+}
+
+/// The uncertainty range of a TS inner that is at the left end of the arrangement
+/// extends beyond the arrangement (subtraction overflow of an arrangement column).
+#[test]
+fn uncertainty_range_beyond_the_left_end() {
+    let result = build_result(
+        "GAGACCGGGACAGG",
+        "CGCCGCCCCTAT",
+        vec![
+            (
+                1,
+                entrance(
+                    8,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Query,
+                    TemplateSwitchDirection::Reverse,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (2, AlignmentType::SecondarySubstitution),
+            (1, exit(12)),
+            (
+                1,
+                entrance_with_uncertainty(
+                    -9,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Reference,
+                    [0, 0, 1, 2],
+                ),
+            ),
+            (2, AlignmentType::SecondaryMatch),
+            (1, exit(-2)),
+            (4, AlignmentType::PrimaryMatch),
+            (3, AlignmentType::PrimaryInsertion),
+        ],
+        AlignmentRange::new_complete(14, 12),
+    );
+    render_with_all_uncertainty_modes(&result);
 }
