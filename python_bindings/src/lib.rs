@@ -15,6 +15,8 @@ use pyo3::{
 };
 use pythonize::{depythonize, pythonize};
 
+mod chain;
+
 #[pyclass]
 struct TSPairwiseAlignment {
     result: AlignmentResult<U64Cost>,
@@ -54,6 +56,17 @@ impl TSPairwiseAlignment {
 fn py_to_str(o: Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
     let str = o.str()?.to_str()?.as_bytes().to_vec();
     Ok(str)
+}
+
+fn gap_characters_to_ascii(gap_characters: &str) -> PyResult<Vec<u8>> {
+    gap_characters
+        .chars()
+        .map(|c| {
+            u8::try_from(c).ok().filter(u8::is_ascii).ok_or_else(|| {
+                PyValueError::new_err("gap_characters must contain only ASCII characters")
+            })
+        })
+        .collect()
 }
 
 #[pyclass(name = "Aligner")]
@@ -114,14 +127,7 @@ impl TSAligner {
         let reference = py_to_str(reference)?;
         let query = py_to_str(query)?;
 
-        let gap_characters: Vec<_> = gap_characters
-            .chars()
-            .map(|c| {
-                u8::try_from(c).map_err(|_| {
-                    PyValueError::new_err("gap_characters must contain only ASCII characters")
-                })
-            })
-            .collect::<PyResult<_>>()?;
+        let gap_characters = gap_characters_to_ascii(gap_characters)?;
 
         // The aligner removes the gap characters before applying the ranges,
         // so the default limits are the lengths without gap characters.
@@ -172,5 +178,6 @@ fn tsalign(m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_class::<TSPairwiseAlignment>()?;
     m.add_class::<TSAligner>()?;
+    m.add_class::<chain::TSChainAligner>()?;
     Ok(())
 }

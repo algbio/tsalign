@@ -27,12 +27,19 @@ CHAIN_CONFIG = TEST_FILES / "config" / "chainalign" / "config.tsa"
 FLANK_CONFIG = REPOSITORY / "sample_tsa_config" / "config.tsa"
 
 # Inputs of up to 100 characters, so that the debug build preprocesses them quickly.
-CLI_COMPARISON_FILES = ["twin_10_ts.fa", "twin_10_0.1.fa", "twin_10_eq.fa", "twin_100_0.01.fa"]
+CLI_COMPARISON_FILES = [
+    "twin_10_ts_only.fa",
+    "twin_10_ts.fa",
+    "twin_10_0.1.fa",
+    "twin_in_place_inversion.fa",
+    "twin_100_0.01.fa",
+]
 
-TS_REFERENCE = "ACATCTGCAA"
-TS_QUERY = "ACGCAGATAA"
-# The cost of twin_10_ts.fa with the chainalign config, as computed by the CLI.
-TS_COST = 12
+# twin_10_ts_only.fa: the query is the reverse complement of the reference.
+TS_REFERENCE = "GGAGGAGGTT"
+TS_QUERY = "AACCTCCTCC"
+# The cost of twin_10_ts_only.fa with the chainalign config, as computed by the CLI.
+TS_COST = 2
 
 
 def read_pair_fasta(path):
@@ -149,7 +156,9 @@ def test_viz_template_switches(exact_aligner, capfd):
 @pytest.mark.parametrize("file_name", CLI_COMPARISON_FILES)
 def test_same_cost_as_cli(tsalign_cli, tmp_path, file_name, max_anchor_mutations):
     pair_fasta = TEST_FILES / file_name
+    # The CLI's align does not create the cache directory.
     cache_directory = tmp_path / "cache"
+    cache_directory.mkdir()
     cli_cost = cli_align(
         tsalign_cli,
         pair_fasta,
@@ -170,7 +179,8 @@ def test_same_cost_as_cli(tsalign_cli, tmp_path, file_name, max_anchor_mutations
 
 def test_python_uses_cli_cache(tsalign_cli, tmp_path):
     cache_directory = tmp_path / "cache"
-    pair_fasta = TEST_FILES / "twin_10_ts.fa"
+    cache_directory.mkdir()
+    pair_fasta = TEST_FILES / "twin_10_ts_only.fa"
     cli_cost = cli_align(
         tsalign_cli, pair_fasta, tmp_path, "-k", "4", "--cache-directory", str(cache_directory)
     )
@@ -222,7 +232,7 @@ def test_cli_uses_python_cache(tsalign_cli, tmp_path):
 
     cli_cost = cli_align(
         tsalign_cli,
-        TEST_FILES / "twin_10_ts.fa",
+        TEST_FILES / "twin_10_ts_only.fa",
         tmp_path,
         "-k",
         "4",
@@ -305,7 +315,7 @@ def test_iteration_limit(exact_aligner):
 
 
 def test_gap_characters_and_range(exact_aligner):
-    result = exact_aligner.align("ACA-TCTGCAA", "AC-GCAGATAA", gap_characters="-")
+    result = exact_aligner.align("GGA-GGAGGTT", "AA-CCTCCTCC-", gap_characters="-")
     assert result is not None
     assert result.stats()["cost"] == TS_COST
 
@@ -431,8 +441,8 @@ def test_invalid_costs_raise_value_error():
         ChainAligner()
     with pytest.raises(ValueError, match="at most one"):
         ChainAligner(costs=CHAIN_CONFIG.read_text(), costs_file=CHAIN_CONFIG)
-    # tschainalign does not support flanks.
-    with pytest.raises(ValueError, match="flank"):
+    # tschainalign does not support the sample config (e.g. its length costs).
+    with pytest.raises(ValueError, match="not supported by tschainalign"):
         ChainAligner(costs_file=FLANK_CONFIG)
     with pytest.raises(ValueError):
         ChainAligner(costs="not a config")

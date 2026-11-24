@@ -29,6 +29,7 @@ use crate::{
 pub(crate) mod alignment;
 pub(crate) mod alignment_history;
 pub(crate) mod anchors;
+pub mod cache;
 pub mod chain_align;
 pub(crate) mod chaining_cost_function;
 pub mod chaining_lower_bounds;
