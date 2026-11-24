@@ -73,19 +73,32 @@ fn fuzz(
     failures.sort_by_key(|(alignment, _)| {
         alignment.reference.len() + alignment.query.len() + alignment.alignment.len()
     });
-    // Group the failures by the location of the panic.
-    let mut messages: Vec<&str> = failures.iter().map(|(_, m)| m.as_str()).collect();
-    messages.sort();
-    messages.dedup_by(|a, b| a.split(": ").next() == b.split(": ").next());
+    // Group the failures by the location of the panic, and report the smallest failing alignment of each group.
+    let mut groups: Vec<(&str, &RandomAlignment, &str)> = Vec::new();
+    for (alignment, message) in &failures {
+        let location = message.split(": ").next().unwrap();
+        if !groups.iter().any(|(l, _, _)| *l == location) {
+            groups.push((location, alignment, message));
+        }
+    }
+    let report: Vec<String> = groups
+        .iter()
+        .map(|(_, alignment, message)| {
+            format!(
+                "{message}
+Smallest failing alignment:
+{}",
+                alignment.reproduction()
+            )
+        })
+        .collect();
     assert!(
         failures.is_empty(),
-        "{name}: {} of {} random alignments failed (seed {}).\nDistinct failures:\n  {}\nSmallest failing alignment:\n{}\n{}",
+        "{name}: {} of {} random alignments failed (seed {}).\n\n{}",
         failures.len(),
         cases(),
         seed(),
-        messages.join("\n  "),
-        failures[0].0.reproduction(),
-        failures[0].1,
+        report.join("\n\n"),
     );
 }
 
