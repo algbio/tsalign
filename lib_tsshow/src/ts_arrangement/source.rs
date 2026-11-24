@@ -315,6 +315,10 @@ impl TsSourceArrangement {
         let sp3_ancestor = sp3_ancestor;
         let descendant_inner_length = descendant_inner_length;
 
+        let anti_descendant_length = match ts_descendant {
+            TemplateSwitchDescendant::Reference => self.query_length,
+            TemplateSwitchDescendant::Query => self.reference_length,
+        };
         let (descendant, anti_descendant, current_descendant_index, current_anti_descendant_index) =
             match ts_descendant {
                 TemplateSwitchDescendant::Reference => (
@@ -347,19 +351,33 @@ impl TsSourceArrangement {
         *current_descendant_index += descendant_inner_length;
 
         let anti_descendant_inner_length = if anti_descendant_gap < 0 {
-            // Insert copies.
-            let duplicate_rev: Vec<_> = anti_descendant
+            // Insert copies of the characters that the anti-descendant jumps back over.
+            //
+            // These are the characters whose source columns directly precede the source column of the current
+            // anti-descendant character. The characters left of the current arrangement column are not necessarily
+            // these, because the current arrangement column may be at the start of copies that were inserted
+            // by an earlier TS which also jumped back (#286).
+            let current_anti_descendant_source_column = anti_descendant
                 .iter_values()
-                .take(current_anti_descendant_index.primitive())
-                .rev()
-                .filter_map(|c| {
-                    if c.is_char() {
-                        Some(c.make_visible_copy())
-                    } else {
-                        None
-                    }
+                .skip(current_anti_descendant_index.primitive())
+                .find(|c| c.is_char())
+                .map(|c| c.source_column())
+                .unwrap_or(anti_descendant_length.into());
+            let copy_count = usize::try_from(-anti_descendant_gap).unwrap();
+            let duplicate_rev: Vec<_> = (1..=copy_count)
+                .map_while(|offset| current_anti_descendant_source_column.checked_sub(offset))
+                .map(|source_column| {
+                    // Copy the occurrence of the source column that is closest to the left of the current position.
+                    anti_descendant
+                        .iter_values()
+                        .take(current_anti_descendant_index.primitive())
+                        .rev()
+                        .find(|c| c.is_char() && c.source_column() == source_column)
+                        .unwrap_or_else(|| {
+                            panic!("Source column {source_column} is not left of the current anti-descendant position")
+                        })
+                        .make_visible_copy()
                 })
-                .take(usize::try_from(-anti_descendant_gap).unwrap())
                 .collect();
 
             anti_descendant.splice(
