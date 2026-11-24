@@ -70,3 +70,43 @@ fn forward_substitution_against_hidden_ancestor() {
     );
     render_svg(&result, &None, &default_svg_config()).unwrap();
 }
+
+/// `--restrict-context-to` with a TS whose hidden inner was removed as an empty column before restricting the context.
+#[test]
+fn restricted_context_with_removed_hidden_inner() {
+    let reverse = TemplateSwitchDirection::Reverse;
+    let result = build_result(
+        "GCTTACTATA",
+        "TTATTGATGAGAAGC",
+        vec![
+            (7, AlignmentType::PrimaryMatch),
+            (
+                1,
+                entrance(
+                    -1,
+                    TemplateSwitchDescendant::Reference,
+                    TemplateSwitchAncestor::Reference,
+                    reverse,
+                ),
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (1, exit(3)),
+            (
+                1,
+                entrance(
+                    -5,
+                    TemplateSwitchDescendant::Query,
+                    TemplateSwitchAncestor::Query,
+                    reverse,
+                ),
+            ),
+            (4, AlignmentType::SecondaryMatch),
+            (1, AlignmentType::SecondarySubstitution),
+            (1, exit(2)),
+        ],
+        AlignmentRange::new_complete(10, 15),
+    );
+    let mut config = default_svg_config();
+    config.restrict_context = Some(2);
+    render_svg(&result, &None, &config).unwrap();
+}
