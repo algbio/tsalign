@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod align;
+mod alphabet;
 mod preprocess;
 mod show;
 mod util;

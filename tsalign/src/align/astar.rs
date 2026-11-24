@@ -151,7 +151,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
     reference_name: &str,
     query_name: &str,
 ) {
-    match cli.ts_node_ord_strategy {
+    match cli.a_star.ts_node_ord_strategy {
         /*TemplateSwitchNodeOrdStrategySelector::CostOnly => {
             align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
                 _,
@@ -191,7 +191,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
     reference_name: &str,
     query_name: &str,
 ) {
-    match cli.ts_min_length_strategy {
+    match cli.a_star.ts_min_length_strategy {
         TemplateSwitchMinLengthStrategySelector::None => {
             align_a_star_template_switch_select_chaining_strategy::<
                 _,
@@ -289,7 +289,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
     reference_name: &str,
     query_name: &str,
 ) {
-    match cli.ts_chaining_strategy {
+    match cli.a_star.ts_chaining_strategy {
         TemplateSwitchChainingStrategySelector::None => {
             align_a_star_template_switch_select_no_ts_strategy::<
                 _,
@@ -352,7 +352,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     reference_name: &str,
     query_name: &str,
 ) {
-    if cli.no_ts {
+    if cli.a_star.no_ts {
         align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
             _,
@@ -409,7 +409,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
-    match cli.ts_total_length_strategy {
+    match cli.a_star.ts_total_length_strategy {
         #[cfg(feature = "strategy_total_length_none")]
         TemplateSwitchTotalLengthStrategySelector::None => {
             align_a_star_template_switch_select_template_switch_descendant_strategy::<
@@ -474,7 +474,7 @@ fn align_a_star_template_switch_select_template_switch_descendant_strategy<
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
-    match cli.ts_descendant_strategy {
+    match cli.a_star.ts_descendant_strategy {
         TemplateSwitchDescendantStrategySelector::AllowAny => {
             align_a_star_template_switch_distance_call::<
                 _,
@@ -540,9 +540,9 @@ fn align_a_star_template_switch_distance_call<
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
-    let costs = load_tsa_config(&cli.configuration_directory).unwrap();
+    let costs = load_tsa_config(&cli.common.configuration_directory).unwrap();
     let dynamic_strategies = DynamicStrategies {
-        ts_14_out_of_range: cli.allow_ts_14_out_of_range,
+        ts_14_out_of_range: cli.a_star.allow_ts_14_out_of_range,
     };
 
     let alignment = template_switch_distance_a_star_align::<
@@ -570,11 +570,11 @@ fn align_a_star_template_switch_distance_call<
         additional_tsm_starts_and_ends,
         &costs,
         dynamic_strategies,
-        cli.cost_limit,
-        cli.memory_limit,
-        cli.force_label_correcting,
-        !cli.dont_extend_beyond_range,
-        cli.ts_uncertainty_range_extension_mode.into(),
+        cli.a_star.cost_limit,
+        cli.a_star.memory_limit,
+        cli.a_star.force_label_correcting,
+        !cli.a_star.dont_extend_beyond_range,
+        cli.a_star.ts_uncertainty_range_extension_mode.into(),
         template_switch_count_memory,
     );
     info!("Finished aligning");
