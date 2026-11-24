@@ -40,7 +40,8 @@ pub struct Cli {
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
-    /// Default: the built-in default config of tschainalign (equal to `test_files/config/chainalign`).
+    /// Default: the built-in default config of tschainalign
+    /// (equal to `test_files/config/chainalign` of the repository), independent of the working directory.
     #[clap(long, short = 'c')]
     configuration_directory: Option<PathBuf>,
 

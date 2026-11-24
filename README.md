@@ -82,8 +82,9 @@ If you have two sequences in a file `pair.fa`, computing an alignment could look
 tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
 ```
 
-The configuration directory `-c` defaults to `sample_tsa_config`.
-For the chaining aligner (`--alignment-method a-star-chain-ts` and `tsalign preprocess`), which does not support that config, it defaults to a built-in config equal to [`test_files/config/chainalign/config.tsa`](test_files/config/chainalign/config.tsa).
+Without `-c`, tsalign uses a config built into the binary, independent of the working directory.
+For the classic aligner, it equals [`sample_tsa_config/config.tsa`](sample_tsa_config/config.tsa) (embedded from [`lib_tsalign/default_config.tsa`](lib_tsalign/default_config.tsa)).
+For the chaining aligner (`--alignment-method a-star-chain-ts` and `tsalign preprocess`), which does not support that config, it equals [`test_files/config/chainalign/config.tsa`](test_files/config/chainalign/config.tsa) (embedded from [`lib_ts_chainalign/default_config.tsa`](lib_ts_chainalign/default_config.tsa)).
 
 #### Choosing a different alphabet
 
@@ -97,6 +98,8 @@ Available alphabets are:
 * **rna-n**: ACGUN
 * **dna-iupac**: ABCDGHKMNRSTVWY
 * **rna-iupac**: ABCDGHKMNRSUVWY
+
+The built-in default config of the classic aligner is given for ACGTN; for other alphabets, `U` takes the costs of `T` and other characters take the costs of `N`.
 
 #### Skip characters
 

@@ -872,10 +872,16 @@ pub fn run_tsalign_raw(args: &[String]) -> (std::process::ExitStatus, String) {
 
 /// Run tsalign from the repository root and return its exit status, stdout and stderr, without interpreting them.
 pub fn run_tsalign_output(args: &[String]) -> std::process::Output {
+    run_tsalign_output_in(args, repo_root())
+}
+
+/// Run tsalign in the given working directory and return its exit status, stdout and stderr,
+/// without interpreting them.
+pub fn run_tsalign_output_in(args: &[String], working_directory: &Path) -> std::process::Output {
     let _permit = ProcessPermit::acquire();
     Command::new(tsalign_binary())
         .args(args)
-        .current_dir(repo_root())
+        .current_dir(working_directory)
         .env("RUST_BACKTRACE", "0")
         .stdin(Stdio::null())
         .output()

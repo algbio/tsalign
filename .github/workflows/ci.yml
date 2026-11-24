@@ -147,6 +147,25 @@ jobs:
           maturin develop
           pytest tests
 
+  rust_package:
+    name: Rust package
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # Packages every published crate and builds it from its package,
+      # so files outside a crate (e.g. `include_str!`) or missing features fail here instead of at the release.
+      - name: cargo package
+        run: cargo package --workspace --exclude tsalign-tests
+
   rust_doc:
     name: Rust doc
     runs-on: ubuntu-latest

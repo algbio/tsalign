@@ -13,10 +13,11 @@ pub use compat::CostConversionError;
 /// The default cost configuration of tschainalign in the plain `.tsa` format of
 /// [`TemplateSwitchConfig::read_plain`](lib_tsalign::config::TemplateSwitchConfig::read_plain).
 ///
-/// The classic default config (`sample_tsa_config`) is not supported by tschainalign,
-/// so the CLI (without `-c`) and the Python bindings (without costs) use this one instead.
-/// It is `test_files/config/chainalign/config.tsa` of the repository: only reverse template switches.
-pub const DEFAULT_CONFIG_TSA: &str = include_str!("../../test_files/config/chainalign/config.tsa");
+/// The classic default config ([`lib_tsalign::config::DEFAULT_CONFIG_TSA`]) is not supported by tschainalign,
+/// so the CLI (without `-c`) and the Python bindings (without costs) use this one instead:
+/// only reverse template switches, over the DNA alphabet without `N`.
+/// It is `lib_ts_chainalign/default_config.tsa` of the repository, which equals `test_files/config/chainalign/config.tsa`.
+pub const DEFAULT_CONFIG_TSA: &str = include_str!("../default_config.tsa");
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct GapAffineCosts<Cost> {
@@ -294,5 +295,17 @@ mod tests {
             TemplateSwitchConfig::<DnaAlphabet, U32Cost>::read_plain(DEFAULT_CONFIG_TSA.as_bytes())
                 .unwrap();
         AlignmentCosts::try_from(config).unwrap();
+    }
+
+    #[test]
+    fn default_config_equals_test_files_config() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test_files/config/chainalign/config.tsa");
+        assert_eq!(
+            DEFAULT_CONFIG_TSA,
+            std::fs::read_to_string(&path).unwrap(),
+            "the built-in default config of tschainalign differs from {}",
+            path.display()
+        );
     }
 }
