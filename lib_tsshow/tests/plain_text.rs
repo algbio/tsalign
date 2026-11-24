@@ -163,3 +163,37 @@ fn no_ts_alignment_of_other_sequences_is_an_error() {
     let error = result.expect_err("the no-TS alignment of other sequences was accepted");
     assert!(error.to_string().contains("sequences"), "{error}");
 }
+
+/// Found by the property tests: an upstream that starts with a gap in the anti-descendant, and a downstream that ends
+/// with a gap in the anti-descendant, made the multipair alignment renderer panic (`multi_insert`).
+#[test]
+fn gaps_at_both_ends_of_the_anti_descendant() {
+    let result = build_result(
+        "CAG",
+        "ATCCG",
+        vec![
+            (1, AlignmentType::PrimaryDeletion),
+            (
+                1,
+                AlignmentType::TemplateSwitchEntrance {
+                    first_offset: 3,
+                    uncertainty_range: Some(TSMUncertaintyRange::new()),
+                    descendant: TemplateSwitchDescendant::Reference,
+                    ancestor: TemplateSwitchAncestor::Query,
+                    direction: TemplateSwitchDirection::Reverse,
+                },
+            ),
+            (1, AlignmentType::SecondaryMatch),
+            (
+                1,
+                AlignmentType::TemplateSwitchExit {
+                    anti_descendant_gap: 5,
+                },
+            ),
+            (1, AlignmentType::PrimaryDeletion),
+        ],
+        AlignmentRange::new_complete(3, 5),
+    );
+    let output = render_plain_text(&result, &None);
+    assert!(output.contains("ChildF:  -ATCCG-"), "{output}");
+}
