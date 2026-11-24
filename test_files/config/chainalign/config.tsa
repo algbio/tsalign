@@ -1,8 +1,3 @@
-# Limits
-
-left_flank_length = 0
-right_flank_length = 0
-
 # Base Cost
 
 rrf_cost = 31
@@ -93,39 +88,3 @@ GapOpenCostVector
 GapExtendCostVector
  A C G T
  2 2 2 2
-
-# Left Flank Edit Costs
-
-SubstitutionCostTable
-  |  A  C  G  T
---+------------
-A |  0  3  3  3
-C |  3  0  3  3
-G |  3  3  0  3
-T |  3  3  3  0
-
-GapOpenCostVector
- A C G T
- 4 4 4 4
-
-GapExtendCostVector
- A C G T
- 1 1 1 1
-
-# Right Flank Edit Costs
-
-SubstitutionCostTable
-  |  A  C  G  T
---+------------
-A |  0  3  3  3
-C |  3  0  3  3
-G |  3  3  0  3
-T |  3  3  3  0
-
-GapOpenCostVector
- A C G T
- 4 4 4 4
-
-GapExtendCostVector
- A C G T
- 1 1 1 1

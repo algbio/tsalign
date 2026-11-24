@@ -150,12 +150,7 @@ fn test_lower_bound_chaining_empty_reference_and_query() {
 
 /// The costs of `test_files/config/chainalign/config.tsa`.
 /// Template switches have base cost 2 and an inner length of at least 10.
-const TS_END_TEST_COSTS: &str = r#"# Limits
-
-left_flank_length = 0
-right_flank_length = 0
-
-# Base Cost
+const TS_END_TEST_COSTS: &str = r#"# Base Cost
 
 rrf_cost = 31
 rqf_cost = 30
@@ -244,43 +239,7 @@ GapOpenCostVector
 
 GapExtendCostVector
  A C G T
- 2 2 2 2
-
-# Left Flank Edit Costs
-
-SubstitutionCostTable
-  |  A  C  G  T
---+------------
-A |  0  3  3  3
-C |  3  0  3  3
-G |  3  3  0  3
-T |  3  3  3  0
-
-GapOpenCostVector
- A C G T
- 4 4 4 4
-
-GapExtendCostVector
- A C G T
- 1 1 1 1
-
-# Right Flank Edit Costs
-
-SubstitutionCostTable
-  |  A  C  G  T
---+------------
-A |  0  3  3  3
-C |  3  0  3  3
-G |  3  3  0  3
-T |  3  3  3  0
-
-GapOpenCostVector
- A C G T
- 4 4 4 4
-
-GapExtendCostVector
- A C G T
- 1 1 1 1"#;
+ 2 2 2 2"#;
 
 /// Align with [`TS_END_TEST_COSTS`] and return the cost and the number of template switches.
 fn align_ts_end_test(reference: &[u8], query: &[u8]) -> (f64, f64) {
@@ -366,12 +325,7 @@ fn forward_ts_offset_test_costs(
         .unwrap();
 
     format!(
-        r#"# Limits
-
-left_flank_length = 0
-right_flank_length = 0
-
-# Base Cost
+        r#"# Base Cost
 
 rrf_cost = inf
 rqf_cost = inf

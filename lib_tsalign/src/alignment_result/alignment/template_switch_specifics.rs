@@ -19,7 +19,7 @@ mod tests;
 impl Alignment {
     /// Moves the start of a template switch one character pair to the left if possible, moving the character pair into the template switch.
     ///
-    /// Only works if the alignment preceding the template switch is a match or substitution, and not a flank.
+    /// Only works if the alignment preceding the template switch is a match or substitution.
     ///
     /// In case of success, it returns true, and otherwise false.
     ///
@@ -179,8 +179,6 @@ impl Alignment {
     ///
     /// In case of success, it returns true, and otherwise false.
     ///
-    /// Assumes that the template switch is not preceded by a flank.
-    ///
     /// Compact index identifies the start of the template switch in terms of the compact representation of the alignment.
     /// See [`Self::iter_compact`].
     pub fn move_template_switch_start_forwards<
@@ -202,25 +200,6 @@ impl Alignment {
             );
             return false;
         };
-
-        // Assert that no flanks are involved.
-        if *compact_index != 0
-            && !self
-                .alignment
-                .get(*compact_index - 1)
-                .is_none_or(|(_, alignment_type)| {
-                    !matches!(
-                        alignment_type,
-                        AlignmentType::PrimaryFlankDeletion
-                            | AlignmentType::PrimaryFlankInsertion
-                            | AlignmentType::PrimaryFlankSubstitution
-                            | AlignmentType::PrimaryFlankMatch
-                    )
-                })
-        {
-            error!("We did not want flanks to get involved...");
-            return false;
-        }
 
         if let Some((_, AlignmentType::SecondaryMatch | AlignmentType::SecondarySubstitution)) =
             self.alignment.get(*compact_index + 1)
@@ -303,7 +282,7 @@ impl Alignment {
 
     /// Moves the end of a template switch one character pair to the right if possible, moving the character pair into the template switch.
     ///
-    /// Only works if the alignment preceding the template switch is a match or substitution, and not a flank.
+    /// Only works if the alignment preceding the template switch is a match or substitution.
     ///
     /// In case of success, it returns true, and otherwise false.
     ///
@@ -480,8 +459,6 @@ impl Alignment {
     ///
     /// In case of success, it returns true, and otherwise false.
     ///
-    /// Assumes that the template switch is not succeeded by a flank.
-    ///
     /// Compact index identifies the start of the template switch in terms of the compact representation of the alignment.
     /// See [`Self::iter_compact`].
     pub fn move_template_switch_end_backwards<
@@ -515,24 +492,6 @@ impl Alignment {
             return false;
         };
         let mut exit_index = compact_index + exit_index_offset;
-
-        // Assert that no flanks are involved.
-        if !self
-            .alignment
-            .get(exit_index + 1)
-            .is_none_or(|(_, alignment_type)| {
-                !matches!(
-                    alignment_type,
-                    AlignmentType::PrimaryFlankDeletion
-                        | AlignmentType::PrimaryFlankInsertion
-                        | AlignmentType::PrimaryFlankSubstitution
-                        | AlignmentType::PrimaryFlankMatch
-                )
-            })
-        {
-            error!("We have some unexpected flanks!");
-            return false;
-        }
 
         if let Some((_, AlignmentType::SecondaryMatch | AlignmentType::SecondarySubstitution)) =
             self.alignment.get(exit_index - 1)
@@ -600,8 +559,6 @@ impl Alignment {
     }
 
     /// Compute the cost of an alignment.
-    ///
-    /// Flanks are not supported.
     pub fn compute_complete_cost<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -625,8 +582,6 @@ impl Alignment {
     }
 
     /// Compute the cost of an alignment, ignoring the cost of the TSM geometries.
-    ///
-    /// Flanks are not supported.
     pub fn compute_cost_ignore_geometry<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -650,8 +605,6 @@ impl Alignment {
     }
 
     /// Compute the cost of an alignment.
-    ///
-    /// Flanks are not supported.
     pub fn compute_cost<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -679,7 +632,6 @@ impl Alignment {
     /// Compute the cost and lengths of an alignment.
     ///
     /// The lengths are the number of characters consumed from the reference and query sequences, respectively.
-    /// Flanks are not supported.
     pub fn compute_cost_and_lengths<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -745,12 +697,6 @@ impl Alignment {
                     reference_index += 1;
                     query_index += 1;
                     cost_increment
-                }
-                AlignmentType::PrimaryFlankInsertion
-                | AlignmentType::PrimaryFlankDeletion
-                | AlignmentType::PrimaryFlankSubstitution
-                | AlignmentType::PrimaryFlankMatch => {
-                    todo!("Flanks are not yet supported")
                 }
                 AlignmentType::SecondaryInsertion => {
                     let descendant_character = match descendant {

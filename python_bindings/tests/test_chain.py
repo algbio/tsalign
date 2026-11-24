@@ -21,10 +21,10 @@ from tsalign import AlignmentRange, ChainAligner
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 TEST_FILES = REPOSITORY / "test_files"
-# The standard config of tschainalign: no flanks, only reverse template switches.
+# The standard config of tschainalign: only reverse template switches.
 CHAIN_CONFIG = TEST_FILES / "config" / "chainalign" / "config.tsa"
-# A config with flanks, which tschainalign does not support.
-FLANK_CONFIG = REPOSITORY / "sample_tsa_config" / "config.tsa"
+# A config that tschainalign does not support (e.g. its length costs).
+UNSUPPORTED_CONFIG = REPOSITORY / "sample_tsa_config" / "config.tsa"
 
 # Inputs of up to 100 characters, so that the debug build preprocesses them quickly.
 CLI_COMPARISON_FILES = [
@@ -443,7 +443,7 @@ def test_invalid_costs_raise_value_error():
         ChainAligner(costs=CHAIN_CONFIG.read_text(), costs_file=CHAIN_CONFIG)
     # tschainalign does not support the sample config (e.g. its length costs).
     with pytest.raises(ValueError, match="not supported by tschainalign"):
-        ChainAligner(costs_file=FLANK_CONFIG)
+        ChainAligner(costs_file=UNSUPPORTED_CONFIG)
     with pytest.raises(ValueError):
         ChainAligner(costs="not a config")
 

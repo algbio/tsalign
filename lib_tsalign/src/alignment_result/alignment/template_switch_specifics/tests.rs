@@ -326,8 +326,6 @@ static END_ALIGNMENTS: &[&[(usize, AlignmentType)]] = &[
 
 static CONFIG: LazyLock<TemplateSwitchConfig<DnaAlphabet, U64Cost>> =
     LazyLock::new(|| TemplateSwitchConfig {
-        left_flank_length: 0,
-        right_flank_length: 0,
         template_switch_min_length: 3,
         base_cost: BaseCost {
             rrf: 10u64.into(),
@@ -363,8 +361,6 @@ static CONFIG: LazyLock<TemplateSwitchConfig<DnaAlphabet, U64Cost>> =
             [3u64, 7, 7, 7].map(Into::into).to_vec(),
             [1u64, 1, 1, 1].map(Into::into).to_vec(),
         ),
-        left_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
-        right_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
         rq_qr_offset_costs: CostFunction::try_from(
             (-20..=20)
                 .map(|i| (i, U64Cost::from(17 * u64::try_from(i + 21).unwrap())))

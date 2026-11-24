@@ -112,19 +112,6 @@ Consult [`sample_tsa_config/config.tsa`](sample_tsa_config/config.tsa) for an ex
 The file format is very strict in that the order of options must stay the same.
 We explain the content of the file step-by-step.
 
-#### Using different gap-affine costs for TSM flanks
-
-You can use different gap-affine costs for the upstream and downstream sequences (flanks) of TSMs.
-Increasing the size of these flanks affects performance a lot.
-The flank lengths are set here, and the different costs are set at the end of the file.
-
-```txt
-# Limits
-
-left_flank_length = 0
-right_flank_length = 0
-```
-
 #### TSM base cost
 
 Each TSM incurs a cost based on its type.
@@ -219,18 +206,19 @@ GapExtendCostVector
 Following the primary edit costs, there are analogous sections.
 `Secondary Forward Edit Costs` are the costs for the 2-3-alignment of a repeat.
 `Secondary Reverse Edit Costs` are the costs for the 2-3-alignment of a TSM.
-`Left Flank Edit Costs` are the costs in the upstream flank of a TSM.
-`Right Flank Edit Costs` are the costs in the downstream flank of a TSM.
 
 ```txt
 # Secondary Forward Edit Costs
 
 # Secondary Reverse Edit Costs
-
-# Left Flank Edit Costs
-
-# Right Flank Edit Costs
 ```
+
+Older versions of tsalign also supported different gap-affine costs for the flanks of TSMs,
+configured by a `# Limits` section with `left_flank_length` and `right_flank_length` at the start of the file
+and `Left Flank Edit Costs` and `Right Flank Edit Costs` sections at its end.
+Flanks have been removed.
+Cost files that still contain these sections are accepted if both flank lengths are zero, and the sections are ignored with a warning.
+Cost files with non-zero flank lengths are rejected.
 
 ### SVG/PNG Visualisation
 

@@ -147,7 +147,7 @@ result = tsalign.align(Seq("ACGTACGT"), Seq("ACGACGT"))
 `--alignment-method a-star-chain-ts` of the CLI.  It chains k-mer anchors
 (exact, or with up to `max_anchor_mutations` mutations) and aligns the gaps
 between them exactly.  It supports only the characters `A`, `C`, `G` and `T`,
-and only cost configurations without flanks, such as
+and only cost configurations with uniform edit costs and zero-range jump costs, such as
 [`test_files/config/chainalign/config.tsa`](../test_files/config/chainalign/config.tsa),
 so the costs are required.
 

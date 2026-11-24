@@ -21,8 +21,6 @@ use crate::{
 pub enum CostConversionError {
     #[error("the alphabet must contain only characters A, C, G and T: {0}")]
     UnsupportedAlphabet(AlphabetError),
-    #[error("flank lengths must be zero")]
-    NonZeroFlankLength,
     #[error("all match costs must be zero")]
     NonZeroMatchCost,
     #[error("all substitution costs must be equal")]
@@ -41,10 +39,6 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TryFrom<TemplateSwitchConfig<Alpha
     type Error = CostConversionError;
 
     fn try_from(value: TemplateSwitchConfig<AlphabetType, Cost>) -> Result<Self, Self::Error> {
-        if value.left_flank_length != 0 || value.right_flank_length != 0 {
-            return Err(CostConversionError::NonZeroFlankLength);
-        }
-
         let ts_base_cost = TsBaseCost::from_iter([
             (TsKind::TS11, value.base_cost.rrr),
             (TsKind::TS12, value.base_cost.qrr), // Note that the ancestor is the secondary and the descendant is the primary, hence these are flipped.

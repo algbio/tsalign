@@ -138,19 +138,16 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 Identifier::Primary {
                     reference_index,
                     query_index,
-                    flank_index,
                     data,
                     ..
                 }
                 | Identifier::PrimaryReentry {
                     reference_index,
                     query_index,
-                    flank_index,
                     data,
                     ..
                 } => {
-                    if flank_index == 0
-                        && reference_index <= reference_length
+                    if reference_index <= reference_length
                         && query_index <= query_length
                         && (data >= target_min_available_primary_matches || (reference_index == 0 && query_index == 0))
                     {
@@ -247,8 +244,6 @@ fn generate_template_switch_alignment_lower_bound_config<
 ) -> TemplateSwitchConfig<AlphabetType, Cost> {
     // Template switches are handled by the TS lower bound matrix, hence we disable them in the search.
     TemplateSwitchConfig {
-        left_flank_length: config.left_flank_length,
-        right_flank_length: config.right_flank_length,
         template_switch_min_length: usize::MAX,
 
         base_cost: BaseCost::new_max(),
@@ -256,8 +251,6 @@ fn generate_template_switch_alignment_lower_bound_config<
         primary_edit_costs: config.primary_edit_costs.clone(),
         secondary_forward_edit_costs: GapAffineAlignmentCostTable::new_max(),
         secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new_max(),
-        left_flank_edit_costs: config.left_flank_edit_costs.clone(),
-        right_flank_edit_costs: config.right_flank_edit_costs.clone(),
 
         rq_qr_offset_costs: CostFunction::new_max(),
         rr_qq_offset_costs: CostFunction::new_max(),

@@ -24,16 +24,12 @@ pub enum Identifier<PrimaryExtraData> {
         reference_index: usize,
         query_index: usize,
         gap_type: GapType,
-        /// Positive for left flank, negative for right flank.
-        flank_index: isize,
         data: PrimaryExtraData,
     },
     PrimaryReentry {
         reference_index: usize,
         query_index: usize,
         gap_type: GapType,
-        /// Positive for left flank, negative for right flank.
-        flank_index: isize,
         data: PrimaryExtraData,
     },
     TemplateSwitchEntrance {
@@ -104,7 +100,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     pub const fn new_primary(
         reference_index: usize,
         query_index: usize,
-        flank_index: isize,
         gap_type: GapType,
         data: PrimaryExtraData,
     ) -> Self {
@@ -116,7 +111,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         Self::Primary {
             reference_index,
             query_index,
-            flank_index,
             gap_type,
             data,
         }
@@ -135,7 +129,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
-        flank_index: isize,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -158,7 +151,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 Self::Primary {
                     reference_index: reference_index + 1,
                     query_index: query_index + 1,
-                    flank_index,
                     gap_type: GapType::None,
                     data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                     <Strategies as AlignmentStrategySelector>::Cost,
@@ -177,7 +169,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
-        flank_index: isize,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -200,7 +191,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 Self::Primary {
                     reference_index: reference_index + 1,
                     query_index,
-                    flank_index,
                     gap_type: GapType::Deletion,
                     data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                     <Strategies as AlignmentStrategySelector>::Cost,
@@ -219,7 +209,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
-        flank_index: isize,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -242,7 +231,6 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 Self::Primary {
                     reference_index,
                     query_index: query_index + 1,
-                    flank_index,
                     gap_type: GapType::Insertion,
                     data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                     <Strategies as AlignmentStrategySelector>::Cost,

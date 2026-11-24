@@ -51,17 +51,8 @@ pub trait PrimaryMatchStrategy<Cost>: Eq + Clone + Debug + Display {
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self::IdentifierPrimaryExtraData;
 
-    /// If false, then this node cannot have a primary match outgoing edge outside of a flank.
-    fn can_do_primary_non_flank_match<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
-    >(
-        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
-        context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> bool;
-
-    /// If false, then this node cannot have a primary match outgoing edge within a flank.
-    fn can_do_primary_flank_match<
+    /// If false, then this node cannot have a primary match outgoing edge.
+    fn can_do_primary_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
@@ -135,18 +126,7 @@ impl<Cost: Bounded> PrimaryMatchStrategy<Cost> for AllowPrimaryMatchStrategy {
     ) -> Self::IdentifierPrimaryExtraData {
     }
 
-    fn can_do_primary_non_flank_match<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
-    >(
-        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> bool {
-        // Can always use a match.
-        true
-    }
-
-    fn can_do_primary_flank_match<
+    fn can_do_primary_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
@@ -226,7 +206,7 @@ impl<Cost: AStarCost> PrimaryMatchStrategy<Cost> for MaxConsecutivePrimaryMatchS
         }
     }
 
-    fn can_do_primary_non_flank_match<
+    fn can_do_primary_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
@@ -240,17 +220,6 @@ impl<Cost: AStarCost> PrimaryMatchStrategy<Cost> for MaxConsecutivePrimaryMatchS
         };
         debug_assert!(data < isize::MAX as usize);
         data > 0
-    }
-
-    fn can_do_primary_flank_match<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
-    >(
-        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> bool {
-        // Can always use a flank match.
-        true
     }
 
     fn fake_substitution_cost<

@@ -310,7 +310,8 @@ class ChainAligner:
     cache directory.
 
     tschainalign supports only the characters ``A``, ``C``, ``G`` and ``T``
-    in the sequences, and only cost configurations without flanks, see
+    in the sequences, and only cost configurations with uniform edit costs and
+    zero-range jump costs, see
     ``test_files/config/chainalign/config.tsa`` in the repository.
 
     All parameters are keyword-only, named and with the defaults as the
@@ -369,7 +370,7 @@ class ChainAligner:
     ------
     ValueError
         If a parameter is invalid or not supported, if the costs cannot be
-        parsed or are not supported by tschainalign (e.g. flanks), or if
+        parsed or are not supported by tschainalign (e.g. its length costs), or if
         options for inexact anchors are given with ``max_anchor_mutations=0``.
 
     Examples
@@ -407,8 +408,8 @@ class ChainAligner:
             raise ValueError("Provide at most one of 'costs' or 'costs_file'.")
         if costs is None and costs_file is None:
             raise ValueError(
-                "ChainAligner requires 'costs' or 'costs_file'; tschainalign supports only costs "
-                "without flanks, e.g. test_files/config/chainalign/config.tsa of the repository."
+                "ChainAligner requires 'costs' or 'costs_file'; tschainalign supports only some "
+                "costs, e.g. test_files/config/chainalign/config.tsa of the repository."
             )
         if costs_file is not None:
             costs = _read_costs_file(costs_file)
