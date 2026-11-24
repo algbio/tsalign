@@ -17,7 +17,7 @@ Child: query
 Direction: reverse
 
 Switch process:
-Child1:                  ATAGCTAGATGACTAC                               
+Child1:                  ATAGCTAGATGACTAC                                
 Child3:                                              AAGGTACCcCTG-TCGCTTT
 ParentF: AGAGAGAAAGAGCTCGATAGCTA-ATGACTACAGTCGAAGCAAAAAGGTACCgCTGCTCGCTTT
 ParentR: TCTCTCTTTCTCGAGCTATCGAT TACTGATGTCAGCTTCGTTTTTCCATGGCGACGAGCGAAA

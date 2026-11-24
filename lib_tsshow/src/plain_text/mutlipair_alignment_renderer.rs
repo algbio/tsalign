@@ -360,12 +360,14 @@ impl<SequenceName: Eq + Ord, CharacterData>
         assert!(extension.next().is_none());
         assert_eq!(query_offset_column.is_some(), query_limit_column.is_some());
 
+        translated_reference_sequence
+            .insert_gaps(gap_data_generator, reference_gaps.iter().copied());
+        // The query is in the coordinates of the reference after inserting the gaps,
+        // hence it is extended to the length of the reference including the gaps.
         translated_query_sequence.extend_with_blanks(
             &mut blank_data_generator,
             translated_reference_sequence.len(),
         );
-        translated_reference_sequence
-            .insert_gaps(gap_data_generator, reference_gaps.iter().copied());
 
         for sequence in self.sequences.values_mut() {
             sequence.insert_blanks(&mut blank_data_generator, reference_gaps.iter().copied());

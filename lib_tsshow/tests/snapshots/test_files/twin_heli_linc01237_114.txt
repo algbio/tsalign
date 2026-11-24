@@ -21,7 +21,7 @@ Parent1:
 Parent3:                                                                                             G                                                                                                            
 ChildF:  AAGGCCATGCAGGCACTCTGGCTCTCAAAACCAGCTGGGATGCCAGGACTGAGGCTCACTCTGAACCACCTGCGTGCCCAGGGCTGGGCAAAGACCTGGTGCAGCCAAACCTCAGAGGAGGAAAGGCAACGTTGTGAGCAAATTAGAAAGGGGTCGGGGGAGAAATTCATACACACATACAC ATATACATGCATACACAC
 ChildR:  TTCCGGTACGTCCGTGAGACCGAGAGTTTTGGTCGACCCTACGGTCCTGACTCCGAGTGAGACTTGGTGGACGCACGGGTCCCGACCCGTTTCTGGACCACGTCGGTTTGGAGTCTCCTCCTTTCCGTTGCAACACTCGTTTAATCTTTCCCCAGCCCCCTCTTTAAGTATGTGTGTATGTG-TATATGTACGTATGTGTG
-Parent2:                                                                                                                                                                                      GATATATGTA         
+Parent2:                                                                                                                                                                                      GATATATGTA          
 
 No-ts alignment:
 Child:  A-AGG-CCAtGC-AGGCAC-TCTggcTCTcAaAACcagcTgggATGCCAGGACTgAggCTcActcTgAACCACCTGcGTgCCcagGgcTggGcAaA---G
