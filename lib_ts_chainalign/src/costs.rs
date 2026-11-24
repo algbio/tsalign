@@ -15,7 +15,7 @@ pub use compat::CostConversionError;
 ///
 /// The classic default config (`sample_tsa_config`) is not supported by tschainalign,
 /// so the CLI (without `-c`) and the Python bindings (without costs) use this one instead.
-/// It is `test_files/config/chainalign/config.tsa` of the repository: no flanks, only reverse template switches.
+/// It is `test_files/config/chainalign/config.tsa` of the repository: only reverse template switches.
 pub const DEFAULT_CONFIG_TSA: &str = include_str!("../../test_files/config/chainalign/config.tsa");
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]

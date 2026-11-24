@@ -87,7 +87,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 reference_index,
                 query_index,
                 gap_type: GapType::None,
-                flank_index: 0,
                 data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                 <Strategies as AlignmentStrategySelector>::Cost,
             >>::create_root_identifier_primary_extra_data( context),
@@ -100,7 +99,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        successor_flank_index: isize,
         cost_increment: Strategies::Cost,
         is_match: bool,
         context: &Context<SubsequenceType, Strategies>,
@@ -109,27 +107,19 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
-        let alignment_type = match (
-            is_match,
-            flank_index == successor_flank_index && successor_flank_index == 0,
-        ) {
-            (true, true) => AlignmentType::PrimaryMatch,
-            (true, false) => AlignmentType::PrimaryFlankMatch,
-            (false, true) => AlignmentType::PrimarySubstitution,
-            (false, false) => AlignmentType::PrimaryFlankSubstitution,
+        let alignment_type = if is_match {
+            AlignmentType::PrimaryMatch
+        } else {
+            AlignmentType::PrimarySubstitution
         };
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_diagonal_successor(
-                successor_flank_index,
-                alignment_type,
-                context,
-            ),
+            predecessor_identifier.generate_primary_diagonal_successor(alignment_type, context),
             cost_increment,
             alignment_type,
             context,
@@ -140,7 +130,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        successor_flank_index: isize,
         cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
@@ -148,23 +137,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
-        let alignment_type = if flank_index == successor_flank_index && successor_flank_index == 0 {
-            AlignmentType::PrimaryDeletion
-        } else {
-            AlignmentType::PrimaryFlankDeletion
-        };
+        let alignment_type = AlignmentType::PrimaryDeletion;
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_deletion_successor(
-                successor_flank_index,
-                alignment_type,
-                context,
-            ),
+            predecessor_identifier.generate_primary_deletion_successor(alignment_type, context),
             cost_increment,
             alignment_type,
             context,
@@ -175,7 +156,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        successor_flank_index: isize,
         cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
@@ -183,23 +163,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
-        let alignment_type = if flank_index == successor_flank_index && successor_flank_index == 0 {
-            AlignmentType::PrimaryInsertion
-        } else {
-            AlignmentType::PrimaryFlankInsertion
-        };
+        let alignment_type = AlignmentType::PrimaryInsertion;
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_insertion_successor(
-                successor_flank_index,
-                alignment_type,
-                context,
-            ),
+            predecessor_identifier.generate_primary_insertion_successor(alignment_type, context),
             cost_increment,
             alignment_type,
             context,
@@ -625,7 +597,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 reference_index,
                 query_index,
                 gap_type: GapType::None,
-                flank_index: -context.config.right_flank_length,
                 data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                 <Strategies as AlignmentStrategySelector>::Cost,
             >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry {reference_index, query_index}, context),
@@ -652,19 +623,16 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let identifier @ (Identifier::Primary {
             reference_index,
             query_index,
-            flank_index,
             ..
         }
         | Identifier::PrimaryReentry {
             reference_index,
             query_index,
-            flank_index,
             ..
         }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
-        assert_eq!(flank_index, context.config.left_flank_length);
 
         let reference_index =
             usize::try_from(isize::try_from(reference_index).unwrap() + delta_reference).ok()?;
@@ -681,7 +649,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 reference_index,
                 query_index,
                 gap_type: GapType::None,
-                flank_index: -context.config.right_flank_length,
                 data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
                 <Strategies as AlignmentStrategySelector>::Cost,
             >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryShortcut { delta_reference, delta_query, }, context),

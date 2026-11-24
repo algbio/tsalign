@@ -17,22 +17,6 @@ pub enum AlignmentType {
     PrimarySubstitution,
     /// The query contains the same base as the reference.
     PrimaryMatch,
-    /// The query contains a base that is missing from the reference.
-    ///
-    /// This happens inside a TS flank.
-    PrimaryFlankInsertion,
-    /// The query is missing a base present in the reference.
-    ///
-    /// This happens inside a TS flank.
-    PrimaryFlankDeletion,
-    /// The query contains a different base than the reference.
-    ///
-    /// This happens inside a TS flank.
-    PrimaryFlankSubstitution,
-    /// The query contains the same base as the reference.
-    ///
-    /// This happens inside a TS flank.
-    PrimaryFlankMatch,
     /// The TS ancestor is missing a base present in the TS descendant.
     SecondaryInsertion,
     /// The TS ancestor contains a base that is missing from the TS descendant.
@@ -86,16 +70,12 @@ impl AlignmentType {
     pub fn is_repeatable(&self) -> bool {
         match self {
             Self::PrimaryInsertion
-            | Self::PrimaryFlankInsertion
             | Self::SecondaryInsertion
             | Self::PrimaryDeletion
-            | Self::PrimaryFlankDeletion
             | Self::SecondaryDeletion
             | Self::PrimarySubstitution
-            | Self::PrimaryFlankSubstitution
             | Self::SecondarySubstitution
             | Self::PrimaryMatch
-            | Self::PrimaryFlankMatch
             | Self::SecondaryMatch
             | Self::Root
             | Self::AlternativeStart { .. }
@@ -108,22 +88,11 @@ impl AlignmentType {
     }
 
     pub fn is_repeated(&self, previous: &Self) -> bool {
-        if (matches!(self, Self::PrimaryInsertion | Self::PrimaryFlankInsertion)
-            && matches!(
-                previous,
-                Self::PrimaryInsertion | Self::PrimaryFlankInsertion
-            ))
-            || (matches!(self, Self::PrimaryDeletion | Self::PrimaryFlankDeletion)
-                && matches!(previous, Self::PrimaryDeletion | Self::PrimaryFlankDeletion))
-            || (matches!(
-                self,
-                Self::PrimarySubstitution | Self::PrimaryFlankSubstitution
-            ) && matches!(
-                previous,
-                Self::PrimarySubstitution | Self::PrimaryFlankSubstitution
-            ))
-            || (matches!(self, Self::PrimaryMatch | Self::PrimaryFlankMatch)
-                && matches!(previous, Self::PrimaryMatch | Self::PrimaryFlankMatch))
+        if (matches!(self, Self::PrimaryInsertion) && matches!(previous, Self::PrimaryInsertion))
+            || (matches!(self, Self::PrimaryDeletion) && matches!(previous, Self::PrimaryDeletion))
+            || (matches!(self, Self::PrimarySubstitution)
+                && matches!(previous, Self::PrimarySubstitution))
+            || (matches!(self, Self::PrimaryMatch) && matches!(previous, Self::PrimaryMatch))
         {
             return true;
         }
@@ -195,8 +164,6 @@ impl AlignmentType {
         match self {
             Self::PrimaryInsertion => Self::PrimaryDeletion,
             Self::PrimaryDeletion => Self::PrimaryInsertion,
-            Self::PrimaryFlankInsertion => Self::PrimaryFlankDeletion,
-            Self::PrimaryFlankDeletion => Self::PrimaryFlankInsertion,
             Self::SecondaryInsertion => Self::SecondaryDeletion,
             Self::SecondaryDeletion => Self::SecondaryInsertion,
             Self::TemplateSwitchEntrance {
@@ -236,8 +203,6 @@ impl AlignmentType {
 
             symmetric @ (Self::PrimarySubstitution
             | Self::PrimaryMatch
-            | Self::PrimaryFlankSubstitution
-            | Self::PrimaryFlankMatch
             | Self::SecondarySubstitution
             | Self::SecondaryMatch
             | Self::TemplateSwitchExit { .. }

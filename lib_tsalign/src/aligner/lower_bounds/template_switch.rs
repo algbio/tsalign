@@ -37,7 +37,6 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchLowerBoundMatrix<Cost> {
     entries: Vec<TSLBMatrixEntry<Cost>>,
-    min_distance_between_two_template_switches: usize,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -145,11 +144,9 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                             reference_index,
                             query_index,
                             gap_type,
-                            flank_index,
                             ..
                         } => {
                             debug_assert_eq!(gap_type, GapType::None);
-                            debug_assert_eq!(flank_index, 0);
 
                             let reentry_x =
                                 isize::try_from(reference_index).unwrap() - root_xy_isize;
@@ -284,17 +281,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                 }
             })
             .collect();
-        let min_distance_between_two_template_switches =
-            usize::try_from(config.left_flank_length + config.right_flank_length).unwrap();
-
-        Self {
-            entries,
-            min_distance_between_two_template_switches,
-        }
-    }
-
-    pub fn min_distance_between_two_template_switches(&self) -> usize {
-        self.min_distance_between_two_template_switches
+        Self { entries }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &TSLBMatrixEntry<Cost>> {
@@ -322,8 +309,6 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
     config: &TemplateSwitchConfig<AlphabetType, Cost>,
 ) -> TemplateSwitchConfig<AlphabetType, Cost> {
     TemplateSwitchConfig {
-        left_flank_length: 0,
-        right_flank_length: 0,
         template_switch_min_length: config.template_switch_min_length,
 
         base_cost: config.base_cost.clone(),
@@ -337,8 +322,6 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
             .secondary_reverse_edit_costs
             .clone()
             .into_match_agnostic_lower_bound(),
-        left_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
-        right_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
 
         // The offset only affects which part of the secondary string is being compared against, but otherwise does not change anything.
         // Hence we can ignore it for the lower bound, and simply choose its minimum.
@@ -399,11 +382,6 @@ impl<Cost: AStarCost> Display for TemplateSwitchLowerBoundMatrix<Cost> {
         );
 
         writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
-        writeln!(
-            f,
-            "min distance: {}",
-            self.min_distance_between_two_template_switches
-        )?;
         writeln!(
             f,
             "x range: [{min_x}, {max_x}]; y range: [{min_y}, {max_y}]",

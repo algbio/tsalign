@@ -7,7 +7,7 @@ use a_star_sequences::SequencePair;
 use alignment::Alignment;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
@@ -396,10 +396,6 @@ impl<Cost: AStarCost + From<u64>> AlignmentResult<Cost> {
             trace!("There is no alignment, therefore we cannot postprocess it.");
             return 0;
         };
-        if config.left_flank_length > 0 || config.right_flank_length > 0 {
-            warn!("Alignment extension does not support flanks");
-            return 0;
-        }
 
         // Compute cost before extending.
         let mut current_cost = alignment.compute_complete_cost(
@@ -552,10 +548,6 @@ impl<Cost: AStarCost + From<u64>> AlignmentResult<Cost> {
         };
         if mode == TSMUncertaintyRangeExtensionMode::None {
             debug!("TSM uncertainty range extension is disabled");
-            return;
-        }
-        if config.left_flank_length > 0 || config.right_flank_length > 0 {
-            warn!("TS extension does not support flanks");
             return;
         }
 

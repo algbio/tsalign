@@ -22,7 +22,7 @@ _ALIGNER_KWARG_NAMES = frozenset(
 )
 
 #: The default costs of :class:`ChainAligner` as a raw ``.tsa``-format string:
-#: no flanks, only reverse template switches.  Equal to
+#: only reverse template switches.  Equal to
 #: ``test_files/config/chainalign/config.tsa`` in the repository.
 CHAIN_ALIGNER_DEFAULT_COSTS: str = _CHAIN_ALIGNER_DEFAULT_COSTS
 
@@ -317,8 +317,8 @@ class ChainAligner:
     cache directory.
 
     tschainalign supports only the characters ``A``, ``C``, ``G`` and ``T``
-    in the sequences, and only cost configurations without flanks, like its
-    default costs :data:`CHAIN_ALIGNER_DEFAULT_COSTS`
+    in the sequences, and only cost configurations with uniform edit costs and
+    zero-range jump costs, like its default costs :data:`CHAIN_ALIGNER_DEFAULT_COSTS`
     (``test_files/config/chainalign/config.tsa`` in the repository).
 
     All parameters are keyword-only, named and with the defaults as the
@@ -381,7 +381,7 @@ class ChainAligner:
     ------
     ValueError
         If a parameter is invalid or not supported, if the costs cannot be
-        parsed or are not supported by tschainalign (e.g. flanks), or if
+        parsed or are not supported by tschainalign (e.g. its length costs), or if
         options for inexact anchors are given with ``max_anchor_mutations=0``.
 
     Examples

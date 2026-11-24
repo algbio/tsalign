@@ -165,10 +165,6 @@ impl AlignmentStream {
             | AlignmentType::PrimaryDeletion
             | AlignmentType::PrimarySubstitution
             | AlignmentType::PrimaryMatch
-            | AlignmentType::PrimaryFlankInsertion
-            | AlignmentType::PrimaryFlankDeletion
-            | AlignmentType::PrimaryFlankSubstitution
-            | AlignmentType::PrimaryFlankMatch
             | AlignmentType::SecondaryInsertion
             | AlignmentType::SecondaryDeletion
             | AlignmentType::SecondarySubstitution
@@ -205,12 +201,9 @@ impl AlignmentStreamCoordinates {
 
     fn advance(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
         let (reference_length, query_length) = match alignment_type {
-            AlignmentType::PrimaryInsertion | AlignmentType::PrimaryFlankInsertion => (0, 1),
-            AlignmentType::PrimaryDeletion | AlignmentType::PrimaryFlankDeletion => (1, 0),
-            AlignmentType::PrimarySubstitution
-            | AlignmentType::PrimaryMatch
-            | AlignmentType::PrimaryFlankSubstitution
-            | AlignmentType::PrimaryFlankMatch => (1, 1),
+            AlignmentType::PrimaryInsertion => (0, 1),
+            AlignmentType::PrimaryDeletion => (1, 0),
+            AlignmentType::PrimarySubstitution | AlignmentType::PrimaryMatch => (1, 1),
             AlignmentType::TemplateSwitchEntrance { descendant, .. } => {
                 assert!(
                     self.template_switch_descendant.is_none(),

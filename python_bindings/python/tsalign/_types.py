@@ -19,10 +19,8 @@ class SimpleAlignmentOp:
     """A basic edit operation in the primary or secondary alignment track.
 
     The ``kind`` attribute is one of: ``PrimaryMatch``, ``PrimarySubstitution``,
-    ``PrimaryInsertion``, ``PrimaryDeletion``, ``PrimaryFlankMatch``,
-    ``PrimaryFlankSubstitution``, ``PrimaryFlankInsertion``, ``PrimaryFlankDeletion``,
-    ``SecondaryMatch``, ``SecondarySubstitution``, ``SecondaryInsertion``,
-    ``SecondaryDeletion``.
+    ``PrimaryInsertion``, ``PrimaryDeletion``, ``SecondaryMatch``,
+    ``SecondarySubstitution``, ``SecondaryInsertion``, ``SecondaryDeletion``.
     """
 
     kind: str
