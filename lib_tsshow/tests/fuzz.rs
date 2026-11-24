@@ -46,8 +46,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
         "translated_reference_sequence.len()",
     ),
     ("mutlipair_alignment_renderer.rs", "index out of bounds"),
-    // Issue #285. SVG: overlapping forward TSs.
-    ("ts_arrangement/source.rs", "Blank has no copy property"),
     // Issue #286. SVG: overlapping reverse TSs with uncertainty ranges.
     (
         "ts_arrangement/inner.rs",

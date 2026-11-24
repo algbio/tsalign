@@ -604,22 +604,39 @@ impl TsSourceArrangement {
         column: ArrangementColumn,
     ) {
         let ancestor_sequence = self.ancestor(ancestor);
-        let copy_depth = if column == ArrangementColumn::ZERO {
-            ancestor_sequence[column].copy_depth()
-        } else if column == ArrangementColumn::from(ancestor_sequence.len()) {
-            ancestor_sequence[column - 1usize].copy_depth()
-        } else {
-            let copy_depth_1 = ancestor_sequence[column - 1usize].copy_depth();
-            let copy_depth_2 = ancestor_sequence[column].copy_depth();
 
-            if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
-                Some(copy_depth_1.min(copy_depth_2))
-            } else {
-                None
-            }
+        // The direct neighbours of the gap may have no copy property (blanks or spacers),
+        // e.g. if the ancestor overlaps the inner of a TS (#285).
+        // Hence we use the nearest characters or gaps on both sides, without crossing a separator.
+        let copy_depth_left = Self::nearest_copy_depth(
+            ancestor_sequence
+                .iter_values()
+                .take(column.primitive())
+                .rev(),
+        );
+        let copy_depth_right =
+            Self::nearest_copy_depth(ancestor_sequence.iter_values().skip(column.primitive()));
+
+        let copy_depth = match (copy_depth_left, copy_depth_right) {
+            (Some(copy_depth_1), Some(copy_depth_2)) => copy_depth_1
+                .zip(copy_depth_2)
+                .map(|(copy_depth_1, copy_depth_2)| copy_depth_1.min(copy_depth_2)),
+            (Some(copy_depth), None) | (None, Some(copy_depth)) => copy_depth,
+            (None, None) => None,
         };
 
         self.insert_ancestor_gap(ancestor, column, copy_depth);
+    }
+
+    /// Returns the copy depth of the first character or gap in the given sequence,
+    /// or `None` if there is none before the first separator.
+    fn nearest_copy_depth<'a>(
+        mut sequence: impl Iterator<Item = &'a SourceChar>,
+    ) -> Option<Option<u8>> {
+        sequence
+            .find(|c| c.is_char() || c.is_gap() || matches!(c, SourceChar::Separator))
+            .filter(|c| !matches!(c, SourceChar::Separator))
+            .map(SourceChar::copy_depth)
     }
 
     pub fn insert_ancestor_gap(
