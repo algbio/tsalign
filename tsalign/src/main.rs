@@ -9,6 +9,13 @@ mod preprocess;
 mod show;
 mod util;
 
+/// jemalloc makes the classic aligner 15-23 % faster than glibc malloc,
+/// because it allocates and frees millions of small search nodes (#278, #288).
+/// It does not support MSVC targets, so Windows builds keep the system allocator.
+#[cfg(not(target_os = "windows"))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 #[derive(Parser)]
 
 struct Cli {

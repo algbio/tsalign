@@ -34,3 +34,8 @@ log.workspace = true
 simplelog = "0.12.2"
 anyhow = "1.0.104"
 utf8-chars = "3.0.5"
+
+# jemalloc is much faster than the system allocator for the many small, short-lived A* nodes (#278, #288).
+# It does not support MSVC targets, so Windows builds keep the system allocator.
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+tikv-jemallocator = "0.6.1"
