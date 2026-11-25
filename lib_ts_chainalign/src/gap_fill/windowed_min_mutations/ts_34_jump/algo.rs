@@ -13,7 +13,8 @@ use crate::{
         ts_kind::TsKind,
     },
     alignment_history::{
-        history_alignment_operations::AlignmentHistoryOperation, profile::HistoryProfile,
+        history_alignment_operations::AlignmentHistoryOperation,
+        profile::{HistoryProfile, HistoryProfileParameters},
     },
     costs::AlignmentCosts,
 };
@@ -26,8 +27,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     start: SpecificSecondaryAlignmentCoordinates,
     end: PrimaryAlignmentCoordinates,
-    anchor_k: u8,
-    max_anchor_mutations: u8,
+    history_parameters: HistoryProfileParameters,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -71,8 +71,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             rc_fn,
             start,
             end,
-            anchor_k,
-            max_anchor_mutations,
+            history_parameters: HistoryProfileParameters::new(anchor_k, max_anchor_mutations),
         }
     }
 
@@ -89,7 +88,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             identifier: Identifier::Secondary {
                 coordinates: self.start.into(),
                 gap_type: GapType::None,
-                history: HistoryProfile::new_empty(self.anchor_k, self.max_anchor_mutations),
+                history: HistoryProfile::empty(),
             },
             predecessor: None,
             predecessor_alignment_type: None,
@@ -124,11 +123,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     let is_match = ca == cb;
 
                     if is_match {
-                        if let Some(history) = history.try_extend(
-                            AlignmentHistoryOperation::Match,
-                            self.anchor_k,
-                            self.max_anchor_mutations,
-                        ) {
+                        if let Some(history) = history
+                            .try_extend(AlignmentHistoryOperation::Match, self.history_parameters)
+                        {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -144,8 +141,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         }
                     } else if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::Substitution,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
+                        self.history_parameters,
                     ) {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
@@ -163,11 +159,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 }
 
                 if coordinates.can_increment_ancestor_primary(Some(self.sequences)) {
-                    if let Some(history) = history.try_extend(
-                        AlignmentHistoryOperation::GapInB,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
-                    ) {
+                    if let Some(history) = history
+                        .try_extend(AlignmentHistoryOperation::GapInB, self.history_parameters)
+                    {
                         // Gap in b
                         let new_cost = *cost
                             + match gap_type {
@@ -188,11 +182,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 }
 
                 if coordinates.can_increment_descendant_primary(self.end, Some(self.sequences)) {
-                    if let Some(history) = history.try_extend(
-                        AlignmentHistoryOperation::GapInA,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
-                    ) {
+                    if let Some(history) = history
+                        .try_extend(AlignmentHistoryOperation::GapInA, self.history_parameters)
+                    {
                         // Gap in a
                         let new_cost = *cost
                             + match gap_type {
@@ -236,9 +228,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
             Identifier::Jump34 { coordinates } | Identifier::Primary { coordinates, .. } => {
                 let gap_type = identifier.gap_type();
-                let history = identifier.history().unwrap_or_else(|| {
-                    HistoryProfile::new_empty(self.anchor_k, self.max_anchor_mutations)
-                });
+                let history = identifier.history().unwrap_or_else(HistoryProfile::empty);
 
                 // Generate gap-affine successors.
                 if coordinates.can_increment_both_primary(self.end) {
@@ -246,11 +236,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     let is_match = ca == cb;
 
                     if is_match {
-                        if let Some(history) = history.try_extend(
-                            AlignmentHistoryOperation::Match,
-                            self.anchor_k,
-                            self.max_anchor_mutations,
-                        ) {
+                        if let Some(history) = history
+                            .try_extend(AlignmentHistoryOperation::Match, self.history_parameters)
+                        {
                             // Match
                             let new_cost = *cost;
                             output.extend(std::iter::once(Node {
@@ -266,8 +254,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         }
                     } else if let Some(history) = history.try_extend(
                         AlignmentHistoryOperation::Substitution,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
+                        self.history_parameters,
                     ) {
                         // Substitution
                         let new_cost = *cost + gap_affine_costs.substitution;
@@ -285,11 +272,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 }
 
                 if coordinates.can_increment_a_primary(self.end) {
-                    if let Some(history) = history.try_extend(
-                        AlignmentHistoryOperation::GapInB,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
-                    ) {
+                    if let Some(history) = history
+                        .try_extend(AlignmentHistoryOperation::GapInB, self.history_parameters)
+                    {
                         // Gap in b
                         let new_cost = *cost
                             + match gap_type {
@@ -310,11 +295,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 }
 
                 if coordinates.can_increment_b_primary(self.end) {
-                    if let Some(history) = history.try_extend(
-                        AlignmentHistoryOperation::GapInA,
-                        self.anchor_k,
-                        self.max_anchor_mutations,
-                    ) {
+                    if let Some(history) = history
+                        .try_extend(AlignmentHistoryOperation::GapInA, self.history_parameters)
+                    {
                         // Gap in a
                         let new_cost = *cost
                             + match gap_type {
