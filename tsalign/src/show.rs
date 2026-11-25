@@ -1,11 +1,12 @@
 use std::{
     fs::File,
     io::{Read, Write, stdout},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+use lib_tsalign::{alignment_result::AlignmentResult, costs::U64Cost};
 use lib_tsshow::{
     plain_text::show_template_switches,
     svg::{SvgConfig, UncertaintyRangeMode, create_error_svg, create_ts_svg},
@@ -72,7 +73,8 @@ pub fn cli(cli: Cli) -> Result<()> {
     TermLogger::init(
         cli.log_level,
         Default::default(),
-        TerminalMode::Mixed,
+        // Log to stderr, such that stdout contains only the plain text output.
+        TerminalMode::Stderr,
         ColorChoice::Auto,
     )
     .unwrap();
@@ -83,23 +85,15 @@ pub fn cli(cli: Cli) -> Result<()> {
     }
 
     info!("Reading tsalign output toml file {:?}", cli.input);
-    let mut buffer = String::new();
-    File::open(cli.input)
-        .unwrap_or_else(|error| panic!("Error opening input file: {error}"))
-        .read_to_string(&mut buffer)
-        .unwrap_or_else(|error| panic!("Error reading input file: {error}"));
-    let result =
-        toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"));
-
-    let no_ts_result = cli.no_ts_input.as_ref().map(|no_ts_input| {
-        info!("Reading tsalign no-ts output toml file {no_ts_input:?}");
-        buffer.clear();
-        File::open(no_ts_input)
-            .unwrap_or_else(|error| panic!("Error opening input file: {error}"))
-            .read_to_string(&mut buffer)
-            .unwrap_or_else(|error| panic!("Error reading input file: {error}"));
-        toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"))
-    });
+    let result = read_alignment(&cli.input)?;
+    let no_ts_result = cli
+        .no_ts_input
+        .as_ref()
+        .map(|no_ts_input| {
+            info!("Reading tsalign no-ts output toml file {no_ts_input:?}");
+            read_alignment(no_ts_input)
+        })
+        .transpose()?;
 
     if cli.plain_text {
         show_template_switches(stdout(), &result, &no_ts_result)?;
@@ -127,7 +121,7 @@ pub fn cli(cli: Cli) -> Result<()> {
         let svg = svg;
 
         info!("Writing svg to {svg_out_path:?}");
-        File::create(svg_out_path).unwrap().write_all(&svg).unwrap();
+        write_file(svg_out_path, &svg)?;
 
         if cli.png {
             let png = svg_to_png(&svg, 20.0);
@@ -140,9 +134,26 @@ pub fn cli(cli: Cli) -> Result<()> {
             }
 
             info!("Writing png to {png_out_path:?}");
-            File::create(png_out_path).unwrap().write_all(&png).unwrap();
+            write_file(&png_out_path, &png)?;
         }
     }
 
     Ok(())
+}
+
+/// Reads a toml output file of `tsalign align`.
+fn read_alignment(path: &Path) -> Result<AlignmentResult<U64Cost>> {
+    let mut buffer = String::new();
+    File::open(path)
+        .with_context(|| format!("Error opening input file {path:?}"))?
+        .read_to_string(&mut buffer)
+        .with_context(|| format!("Error reading input file {path:?}"))?;
+    toml::from_str(&buffer).with_context(|| format!("Error parsing input file {path:?}"))
+}
+
+fn write_file(path: &Path, content: &[u8]) -> Result<()> {
+    File::create(path)
+        .with_context(|| format!("Error creating output file {path:?}"))?
+        .write_all(content)
+        .with_context(|| format!("Error writing output file {path:?}"))
 }

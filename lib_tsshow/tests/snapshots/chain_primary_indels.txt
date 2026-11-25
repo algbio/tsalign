@@ -1,0 +1,28 @@
+Child: query 
+Parent: reference 
+Direction: reverse
+
+Switch process:
+Parent1: AGAGAG                                              
+Parent3:                ATAGCTA-ATGACTAC                     
+ChildF:  AGAGAGAAGAGCTCGATAGCTAGATGACTACTCGAGCTCTTTCTCAAGGTAC
+ChildR:  TCTCTCTTCTCGAGCTATCGATCTACTGATGAGCTCGAGAAAGAGTTCCATG
+Parent2:                                 GCTCGAGAAA          
+
+No-ts alignment:
+Child:  AGAGAGAA-GAGCTCGATAGCTAGATGACTAC
+Parent: AGAGAGAAAGAGCTCGATAGCTA-ATGACTAC
+Parent: reference 
+Child: query 
+Direction: reverse
+
+Switch process:
+Child1:                  ATAGCTAGATGACTAC                                
+Child3:                                              AAGGTACCcCTG-TCGCTTT
+ParentF: AGAGAGAAAGAGCTCGATAGCTA-ATGACTACAGTCGAAGCAAAAAGGTACCgCTGCTCGCTTT
+ParentR: TCTCTCTTTCTCGAGCTATCGAT TACTGATGTCAGCTTCGTTTTTCCATGGCGACGAGCGAAA
+Child2:     CTCTTTCTCGAGCT                                               
+
+No-ts alignment:
+Parent: ATAGCTA-ATGACTACAGTCGAAGC-----aaaAAGGTACCgCTGCTCGCTTT
+Child:  ATAGCTAGATGACTAC--TCGA-GCTCTTTctcAAGGTACCcCTG-TCGCTTT

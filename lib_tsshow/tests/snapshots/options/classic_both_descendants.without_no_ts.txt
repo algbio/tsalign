@@ -1,0 +1,20 @@
+Child: QRY 
+Parent: REF 
+Direction: reverse
+
+Switch process:
+Parent1: AAAAAAAAAAGGGGGGGGGGGGGGGGGGGGAAAAAAAAAAAAAAAAAAAA                                       
+Parent3:                                                                      AAAAAAAAAAAAAAAAAAAA
+ChildF:  AAAAAAAAAAGGGGGGGGGGGGGGGGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ChildR:  TTTTTTTTTTCCCCCCCCCCCCCCCCCCCCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+Parent2:           CCCCCCCCCCCCCCCCCCCC                                                           
+Parent: REF 
+Child: QRY 
+Direction: reverse
+
+Switch process:
+Child1:                                                                        AAAAAAAAAAAAAAAAAAAAA                                       
+Child3:                                                                                                                AAAAAAAAAAAAAAAAAAAA
+ParentF: AAAAAAAAAAGGGGGGGGGGGGGGGGGGGGAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ParentR: TTTTTTTTTTCCCCCCCCCCCCCCCCCCCCTTTTTTTTTTTTTTTTTTTTGGGGGGGGGGGGGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+Child2:            CCCCCCCCCCCCCCCCCCCC                                                                                                    

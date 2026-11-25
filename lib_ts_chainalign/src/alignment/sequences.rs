@@ -58,6 +58,7 @@ impl AlignmentSequences {
         }
     }
 
+    #[inline]
     pub fn characters(
         &self,
         coordinates: AlignmentCoordinates,
@@ -71,10 +72,12 @@ impl AlignmentSequences {
         }
     }
 
+    #[inline]
     pub fn primary_characters(&self, coordinates: PrimaryAlignmentCoordinates) -> (u8, u8) {
         (self.seq1[coordinates.a()], self.seq2[coordinates.b()])
     }
 
+    #[inline]
     pub fn secondary_characters(
         &self,
         coordinates: SpecificSecondaryAlignmentCoordinates,

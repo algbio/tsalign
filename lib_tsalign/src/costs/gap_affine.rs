@@ -247,8 +247,21 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
     pub fn restrict_alphabet<TargetAlphabet: Alphabet>(
         &self,
     ) -> Result<GapAffineAlignmentCostTable<TargetAlphabet, Cost>, AlphabetError> {
+        self.translate_alphabet(|character| character)
+    }
+
+    /// Convert this table into a table over `TargetAlphabet`.
+    ///
+    /// Each character of `TargetAlphabet` takes the costs of the character of `AlphabetType`
+    /// whose ASCII representation is `translate` applied to its own ASCII representation.
+    pub fn translate_alphabet<TargetAlphabet: Alphabet>(
+        &self,
+        translate: impl Fn(u8) -> u8,
+    ) -> Result<GapAffineAlignmentCostTable<TargetAlphabet, Cost>, AlphabetError> {
         let characters = TargetAlphabet::iter()
-            .map(|c| AlphabetType::ascii_to_character(TargetAlphabet::character_to_ascii(c)))
+            .map(|c| {
+                AlphabetType::ascii_to_character(translate(TargetAlphabet::character_to_ascii(c)))
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(GapAffineAlignmentCostTable::new(

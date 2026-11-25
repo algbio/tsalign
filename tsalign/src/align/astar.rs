@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path};
+use std::fmt::Debug;
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
@@ -11,7 +11,7 @@ use lib_tsalign::{
 use log::info;
 
 use super::Cli;
-use crate::util::{DEFAULT_CONFIGURATION_DIRECTORY, load_tsa_config};
+use crate::util::load_tsa_config;
 
 /// The node ordering of the classic aligner.
 ///
@@ -51,13 +51,12 @@ pub fn align_a_star_template_switch_distance<
     reference_name: &str,
     query_name: &str,
 ) -> Result<()> {
-    let costs = load_tsa_config(
-        cli.common
-            .configuration_directory
-            .as_deref()
-            .unwrap_or(Path::new(DEFAULT_CONFIGURATION_DIRECTORY)),
-    )?;
-    aligner.set_costs(costs);
+    // Without `-c`, the aligner keeps its built-in default costs.
+    if let Some(configuration_directory) = &cli.common.configuration_directory {
+        aligner.set_costs(load_tsa_config(configuration_directory)?);
+    } else {
+        info!("Using the built-in default config");
+    }
 
     let alignment = aligner.align_sequences(
         reference_name,

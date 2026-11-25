@@ -1,0 +1,28 @@
+type = "WithTarget"
+alignment = [[11, "PrimaryMatch"], [1, "PrimarySubstitution"], [6, "PrimaryMatch"], [5, { TemplateSwitchEntrance = { first_offset = -4, uncertainty_range = { start_left_shift = 0, start_right_shift = 0, end_left_shift = 0, end_right_shift = 0 }, descendant = "Reference", ancestor = "Reference", direction = "Reverse" } }], [8, "SecondaryMatch"], [3, { TemplateSwitchExit = { anti_descendant_gap = 6 } }], [20, "PrimaryMatch"], [1, "PrimarySubstitution"], [5, "PrimaryMatch"], [3, { TemplateSwitchEntrance = { first_offset = -2, uncertainty_range = { start_left_shift = 0, start_right_shift = 0, end_left_shift = 1, end_right_shift = 0 }, descendant = "Query", ancestor = "Query", direction = "Reverse" } }], [9, "SecondaryMatch"], [3, { TemplateSwitchExit = { anti_descendant_gap = 7 } }], [3, "PrimaryMatch"]]
+reference_offset = 0
+query_offset = 0
+reference_limit = 62
+query_limit = 62
+cost = 12.0
+cost_per_base = 0.1935483870967742
+duration_seconds = 0.0
+opened_nodes = 2162487.0
+closed_nodes = 891586.0
+suboptimal_opened_nodes = 525904.0
+suboptimal_opened_nodes_ratio = 0.3213427000036051
+template_switch_amount = 2.0
+runtime = 0.0
+memory = 0.0
+
+[result]
+astar_result_type = "FoundTarget"
+cost = 12
+
+[sequences]
+reference_name = "reference "
+reference = "GATTAGCGGCTATTGTGTAATAGCCGTCCTTCCCGCCCCCGCCTGTTCTGAAAACAAAGTTG"
+reference_rc = "CAACTTTGTTTTCAGAACAGGCGGGGGCGGGAAGGACGGCTATTACACAATAGCCGCTAATC"
+query_name = "query "
+query = "GATTAGCGGCTTTTGTGTGTGGGCTCCTTCCCGCCCCCGCCTGTACTGAACAGTACAGGTTG"
+query_rc = "CAACCTGTACTGTTCAGTACAGGCGGGGGCGGGAAGGAGCCCACACACAAAAGCCGCTAATC"

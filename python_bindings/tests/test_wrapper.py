@@ -5,13 +5,16 @@ extension directly), so they catch mismatches between the wrapper and the Rust
 signature of ``_tsalign.Aligner.align``.
 """
 
+import pathlib
+
 import pytest
 
 import tsalign
 from tsalign import Aligner, AlignmentRange
 
-REFERENCE = "ACGTACGT"
-QUERY = "ACGACGT"
+# Not a reverse complement palindrome like ACGTACGT, for which a template switch would cost the same as the deletion.
+REFERENCE = "AAGTCCAG"
+QUERY = "AAGCCAG"
 # The alignment of REFERENCE and QUERY with default settings.
 EXPECTED_CIGAR = "3=1D4="
 EXPECTED_COST = 3
@@ -29,6 +32,19 @@ def test_aligner_align_defaults():
     assert result is not None
     assert result.cigar() == EXPECTED_CIGAR
     assert result.alignments()
+
+
+def test_aligner_default_costs():
+    # The built-in default costs equal sample_tsa_config/config.tsa, like the CLI's default.
+    sample_config = pathlib.Path(__file__).resolve().parents[2] / "sample_tsa_config" / "config.tsa"
+    # test_files/twin_10_ts_only.fa: a template switch, so that the template switch costs matter.
+    reference = "GGAGGAGGTT"
+    query = "AACCTCCTCC"
+    default = Aligner().align(reference, query)
+    explicit = Aligner(costs_file=sample_config).align(reference, query)
+    assert default is not None and explicit is not None
+    assert default.cigar() == explicit.cigar()
+    assert default.stats()["cost"] == explicit.stats()["cost"]
 
 
 def test_names():
@@ -88,7 +104,7 @@ def test_range():
 @pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
 def test_gap_characters(align):
     # Gap characters are removed from both sequences before aligning.
-    result = align("ACG-TACGT", "AC-GACGT-", gap_characters="-")
+    result = align("AAG-TCCAG", "AA-GCCAG-", gap_characters="-")
     assert result is not None
     assert result.cigar() == EXPECTED_CIGAR
     assert result.stats()["cost"] == EXPECTED_COST
@@ -97,8 +113,8 @@ def test_gap_characters(align):
 def test_gap_characters_with_range():
     # Coordinates refer to the sequences after removing the gap characters.
     result = Aligner().align(
-        "NN-NACGT-ACGTNNN",
-        "ACGACGT",
+        "NN-NAAGT-CCAGNNN",
+        "AAGCCAG",
         gap_characters="-",
         range=AlignmentRange(reference_start=3, reference_end=3 + len(REFERENCE)),
     )
@@ -113,8 +129,8 @@ def test_gap_characters_combined_with_limits():
 
     def run(cost_limit, memory_limit):
         return aligner.align(
-            "ACG-TACGT",
-            "ACGACGT",
+            "AAG-TCCAG",
+            "AAGCCAG",
             gap_characters="-",
             cost_limit=cost_limit,
             memory_limit=memory_limit,
@@ -162,8 +178,8 @@ def test_invalid_range_raises_value_error(align, kwargs):
 @pytest.mark.parametrize("align", [tsalign.align, Aligner().align])
 def test_non_alphabet_character_raises_value_error(align):
     with pytest.raises(ValueError, match="Reference contains non-alphabet character"):
-        align("ACGTXCGT", QUERY)
+        align("AAGTXCAG", QUERY)
     with pytest.raises(ValueError, match="Query contains non-alphabet character"):
-        align(REFERENCE, "ACG-ACGT")
+        align(REFERENCE, "AAG-CCAG")
     # Gap characters are removed before checking the alphabet.
-    assert align(REFERENCE, "ACG-ACGT", gap_characters="-") is not None
+    assert align(REFERENCE, "AAG-CCAG", gap_characters="-") is not None

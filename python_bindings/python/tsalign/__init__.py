@@ -153,6 +153,9 @@ class Aligner:
         One of ``"none"``, ``"maximise"`` (default).
     costs : str, optional
         Cost configuration as a raw ``.tsa``-format string.
+        Default: the built-in default costs, which are also the CLI's default
+        for ``--alignment-method a-star-template-switch``.  They equal
+        ``sample_tsa_config/config.tsa`` in the repository.
     costs_file : str or Path, optional
         Path to a ``.tsa`` cost configuration file.
         Mutually exclusive with ``costs``.

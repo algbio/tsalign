@@ -1,4 +1,6 @@
-use compact_genome::interface::alphabet::Alphabet;
+use compact_genome::{
+    implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN, interface::alphabet::Alphabet,
+};
 use generic_a_star::cost::AStarCost;
 use num_traits::{Bounded, bounds::UpperBounded};
 
@@ -205,73 +207,159 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
     }
 }
 
+/// The default config in the plain `.tsa` format of [`TemplateSwitchConfig::read_plain`],
+/// over the alphabet [`DnaAlphabetOrN`].
+///
+/// It is `lib_tsalign/default_config.tsa` of the repository, which equals `sample_tsa_config/config.tsa`.
+/// [`TemplateSwitchConfig::default`] parses it.
+pub const DEFAULT_CONFIG_TSA: &str = include_str!("../default_config.tsa");
+
+/// Parses [`DEFAULT_CONFIG_TSA`] (a few microseconds).
+///
+/// The default config is given over [`DnaAlphabetOrN`].
+/// For other alphabets, each character takes the costs of the character with the same ASCII representation,
+/// except that `U` takes the costs of `T`, and characters that do not exist in [`DnaAlphabetOrN`]
+/// (for example IUPAC ambiguity codes) take the costs of `N`.
 impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<AlphabetType, Cost> {
     fn default() -> Self {
-        Self {
-            template_switch_min_length: 5,
-            base_cost: BaseCost {
-                rrf: 40.into(),
-                rqf: 40.into(),
-                qrf: 40.into(),
-                qqf: 40.into(),
-                rrr: 3.into(),
-                rqr: 2.into(),
-                qrr: 2.into(),
-                qqr: 3.into(),
-            },
-            primary_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
-                "Primary Edit Costs",
-                0.into(),
-                2.into(),
-                3.into(),
-                1.into(),
-            ),
-            secondary_forward_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
-                "Secondary Forward Edit Costs",
-                0.into(),
-                2.into(),
-                3.into(),
-                1.into(),
-            ),
-            secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
-                "Secondary Reverse Edit Costs",
-                0.into(),
-                2.into(),
-                3.into(),
-                1.into(),
-            ),
-            rq_qr_offset_costs: CostFunction::try_from(vec![
-                (isize::MIN, Cost::max_value()),
-                (-100, 0.into()),
-                (101, Cost::max_value()),
-            ])
-            .unwrap(),
-            rr_qq_offset_costs: CostFunction::try_from(vec![
-                (isize::MIN, Cost::max_value()),
-                (-100, 0.into()),
-                (1, Cost::max_value()),
-            ])
-            .unwrap(),
-            length_costs: CostFunction::try_from(vec![(0, Cost::max_value()), (5, 0.into())])
-                .unwrap(),
-            length_difference_costs: CostFunction::try_from(vec![
-                (isize::MIN, Cost::max_value()),
-                (-100, 0.into()),
-                (101, Cost::max_value()),
-            ])
-            .unwrap(),
-            forward_anti_descendant_gap_costs: CostFunction::try_from(vec![
-                (isize::MIN, Cost::max_value()),
-                (-100, 0.into()),
-                (101, Cost::max_value()),
-            ])
-            .unwrap(),
-            reverse_anti_descendant_gap_costs: CostFunction::try_from(vec![
-                (isize::MIN, Cost::max_value()),
-                (-100, 0.into()),
-                (101, Cost::max_value()),
-            ])
-            .unwrap(),
+        let config: TemplateSwitchConfig<DnaAlphabetOrN, Cost> = DEFAULT_CONFIG_TSA
+            .parse()
+            .expect("the built-in default config is valid");
+        config.translate_alphabet(|character| {
+            let character = character.to_ascii_uppercase();
+            if character == b'U' {
+                b'T'
+            } else if DnaAlphabetOrN::ascii_to_character(character).is_ok() {
+                character
+            } else {
+                b'N'
+            }
+        })
+    }
+}
+
+impl<SourceAlphabet: Alphabet, Cost: AStarCost> TemplateSwitchConfig<SourceAlphabet, Cost> {
+    /// Convert this config into a config over `TargetAlphabet`.
+    ///
+    /// Each character of `TargetAlphabet` takes the costs of the character of `SourceAlphabet`
+    /// whose ASCII representation is `translate` applied to its own ASCII representation.
+    ///
+    /// # Panics
+    ///
+    /// If `translate` returns an ASCII character that is not in `SourceAlphabet`.
+    fn translate_alphabet<TargetAlphabet: Alphabet>(
+        &self,
+        translate: impl Fn(u8) -> u8,
+    ) -> TemplateSwitchConfig<TargetAlphabet, Cost> {
+        let translate_table = |table: &GapAffineAlignmentCostTable<SourceAlphabet, Cost>| {
+            table
+                .translate_alphabet(&translate)
+                .expect("translate returns characters of the source alphabet")
+        };
+
+        TemplateSwitchConfig {
+            template_switch_min_length: self.template_switch_min_length,
+            base_cost: self.base_cost.clone(),
+            primary_edit_costs: translate_table(&self.primary_edit_costs),
+            secondary_forward_edit_costs: translate_table(&self.secondary_forward_edit_costs),
+            secondary_reverse_edit_costs: translate_table(&self.secondary_reverse_edit_costs),
+            rq_qr_offset_costs: self.rq_qr_offset_costs.clone(),
+            rr_qq_offset_costs: self.rr_qq_offset_costs.clone(),
+            length_costs: self.length_costs.clone(),
+            length_difference_costs: self.length_difference_costs.clone(),
+            forward_anti_descendant_gap_costs: self.forward_anti_descendant_gap_costs.clone(),
+            reverse_anti_descendant_gap_costs: self.reverse_anti_descendant_gap_costs.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_genome::{
+        implementation::alphabets::{
+            dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
+            dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
+            rna_alphabet::RnaAlphabet,
+        },
+        interface::alphabet::Alphabet,
+    };
+    use generic_a_star::cost::{U32Cost, U64Cost};
+
+    use super::{DEFAULT_CONFIG_TSA, TemplateSwitchConfig};
+
+    #[test]
+    fn default_config_equals_sample_config() {
+        let sample = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../sample_tsa_config/config.tsa");
+        assert_eq!(
+            DEFAULT_CONFIG_TSA,
+            std::fs::read_to_string(&sample).unwrap(),
+            "the built-in default config differs from {}",
+            sample.display()
+        );
+    }
+
+    #[test]
+    fn default_is_the_parsed_default_config() {
+        let parsed: TemplateSwitchConfig<DnaAlphabetOrN, U64Cost> =
+            DEFAULT_CONFIG_TSA.parse().unwrap();
+        assert_eq!(TemplateSwitchConfig::default(), parsed);
+        TemplateSwitchConfig::<DnaAlphabetOrN, U32Cost>::default()
+            .verify()
+            .unwrap();
+    }
+
+    /// Assert that `character` of `AlphabetType` has the default costs of `expected` of [`DnaAlphabetOrN`].
+    fn assert_same_costs<AlphabetType: Alphabet>(character: u8, expected: u8) {
+        let config = TemplateSwitchConfig::<AlphabetType, U64Cost>::default();
+        let reference = TemplateSwitchConfig::<DnaAlphabetOrN, U64Cost>::default();
+        let character = AlphabetType::ascii_to_character(character).unwrap();
+        let expected = DnaAlphabetOrN::ascii_to_character(expected).unwrap();
+        let other = AlphabetType::ascii_to_character(b'A').unwrap();
+        let reference_other = DnaAlphabetOrN::ascii_to_character(b'A').unwrap();
+
+        for (table, reference_table) in [
+            (&config.primary_edit_costs, &reference.primary_edit_costs),
+            (
+                &config.secondary_forward_edit_costs,
+                &reference.secondary_forward_edit_costs,
+            ),
+            (
+                &config.secondary_reverse_edit_costs,
+                &reference.secondary_reverse_edit_costs,
+            ),
+        ] {
+            assert_eq!(
+                table.gap_open_cost(character.clone()),
+                reference_table.gap_open_cost(expected)
+            );
+            assert_eq!(
+                table.gap_extend_cost(character.clone()),
+                reference_table.gap_extend_cost(expected)
+            );
+            assert_eq!(
+                table.match_or_substitution_cost(character.clone(), other.clone()),
+                reference_table.match_or_substitution_cost(expected, reference_other)
+            );
+            assert_eq!(
+                table.match_or_substitution_cost(character.clone(), character.clone()),
+                reference_table.match_or_substitution_cost(expected, expected)
+            );
+        }
+        assert_eq!(config.base_cost, reference.base_cost);
+        assert_eq!(config.length_costs, reference.length_costs);
+    }
+
+    #[test]
+    fn default_for_other_alphabets() {
+        for character in *b"ACGT" {
+            assert_same_costs::<DnaAlphabet>(character, character);
+            assert_same_costs::<DnaIupacNucleicAcidAlphabet>(character, character);
+        }
+        assert_same_costs::<DnaIupacNucleicAcidAlphabet>(b'N', b'N');
+        // Ambiguity codes take the costs of `N`.
+        assert_same_costs::<DnaIupacNucleicAcidAlphabet>(b'R', b'N');
+        assert_same_costs::<RnaAlphabet>(b'U', b'T');
+        assert_same_costs::<RnaAlphabet>(b'G', b'G');
     }
 }

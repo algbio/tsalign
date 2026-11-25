@@ -22,3 +22,10 @@ strong-type = "1.1.1"
 ena = "0.14.3"
 itertools.workspace = true
 clap.workspace = true
+
+[dev-dependencies]
+lib_tsalign = { version = "8.0.0", path = "../lib_tsalign", features = ["serde"] }
+compact-genome.workspace = true
+generic_a_star.workspace = true
+toml = "1.1.4"
+roxmltree = "0.21.2"
