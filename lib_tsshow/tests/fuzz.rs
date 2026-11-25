@@ -40,8 +40,6 @@ fn cases() -> usize {
 /// They are reproduced by ignored tests in `plain_text.rs` and `svg_regressions.rs`.
 /// Remove the entries when fixing the bugs.
 const KNOWN_BUGS: &[(&str, &str)] = &[
-    // Issue #285. SVG: overlapping forward TSs.
-    ("ts_arrangement/source.rs", "Blank has no copy property"),
     // Issue #286. SVG: overlapping reverse TSs with uncertainty ranges.
     (
         "ts_arrangement/inner.rs",
