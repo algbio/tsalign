@@ -1,14 +1,12 @@
-use binary_heap_plus::BinaryHeap;
 use compact_genome::{
     implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
     interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 use generic_a_star::{
     AStar, AStarResult,
-    closed_lists::AStarClosedList,
-    comparator::AStarNodeComparator,
+    closed_lists::{AStarClosedList, HashClosedList},
     cost::AStarCost,
-    open_lists::{AStarOpenList, linear_heap::LinearHeap},
+    open_lists::{AStarOpenList, binary_heap::BinaryHeap, linear_heap::LinearHeap},
 };
 use indicatif::ProgressBar;
 use itertools::Itertools;
@@ -18,7 +16,6 @@ use lib_tsalign::{
     alignment_result::{AlignmentResult, ChainStatistics},
 };
 use log::{debug, info, trace};
-use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
     iter,
@@ -63,19 +60,17 @@ pub(crate) fn align<Cost: AStarCost>(
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<Cost> {
     match performance_parameters.open_list {
-        ChainingOpenList::StdHeap => {
-            choose_closed_list::<_, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
-                sequences,
-                performance_parameters,
-                limits,
-                statistics,
-                alignment_costs,
-                rc_fn,
-                config,
-                anchors,
-                chaining_cost_function,
-            )
-        }
+        ChainingOpenList::StdHeap => choose_closed_list::<_, BinaryHeap<Node<Cost>>>(
+            sequences,
+            performance_parameters,
+            limits,
+            statistics,
+            alignment_costs,
+            rc_fn,
+            config,
+            anchors,
+            chaining_cost_function,
+        ),
         ChainingOpenList::LinearHeap => choose_closed_list::<_, LinearHeap<_>>(
             sequences,
             performance_parameters,
@@ -103,7 +98,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<Cost> {
     match performance_parameters.closed_list {
-        ChainingClosedList::FxHashMap => actually_align::<_, FxHashMapSeed<_, _>, OpenList>(
+        ChainingClosedList::FxHashMap => actually_align::<_, HashClosedList, OpenList>(
             sequences,
             performance_parameters,
             limits,

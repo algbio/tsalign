@@ -84,21 +84,14 @@ impl<Cost: AStarCost> ShortcutStrategy<Cost> for TemplateSwitchLowerBoundShortcu
     ) {
         match *node.identifier() {
             Identifier::Primary { .. } | Identifier::PrimaryReentry { .. } => {
-                opened_nodes_output.extend(
-                    context
-                        .memory
-                        .shortcut
-                        .iter()
-                        .flat_map(|entry| {
-                            node.generate_template_switch_shortcut_successor(
-                                entry.x(),
-                                entry.y(),
-                                entry.cost(),
-                                context,
-                            )
-                        })
-                        .map(Into::into),
-                );
+                opened_nodes_output.extend(context.memory.shortcut.iter().flat_map(|entry| {
+                    node.generate_template_switch_shortcut_successor(
+                        entry.x(),
+                        entry.y(),
+                        entry.cost(),
+                        context,
+                    )
+                }));
             }
 
             _ => { /* Do nothing. */ }

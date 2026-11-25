@@ -113,7 +113,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                 false,
             ));
             let root_xy = genome_length / 2;
-            a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context).into());
+            a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
             previous_closed_lower_bounds.extend(closed_lower_bounds.drain());
 
             let root_xy_isize = isize::try_from(root_xy).unwrap();

@@ -581,12 +581,10 @@ dependencies = [
 [[package]]
 name = "generic_a_star"
 version = "8.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d04e35ef939c2feef0231f3c607a15aacf00a5b77b4286faf91010775f82fcde"
+source = "git+https://github.com/sebschmi/generic_a_star?branch=agent%2Farena#daf56c4daa54285b25d94bedd2ea4d21565f413d"
 dependencies = [
- "binary-heap-plus",
  "compare",
- "extend_map",
+ "hashbrown 0.17.1",
  "log",
  "num-traits",
  "rustc-hash",
@@ -777,7 +775,6 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 name = "lib_ts_chainalign"
 version = "8.0.0"
 dependencies = [
- "binary-heap-plus",
  "bincode",
  "bitvec",
  "clap",
