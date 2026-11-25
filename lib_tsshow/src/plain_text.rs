@@ -185,7 +185,7 @@ fn show_template_switch(
     debug!("Anti-primary offset: {anti_primary_offset}");
     debug!("SP1 anti-primary offset: {anti_primary_sp1}");
     debug!("SP4 anti-primary offset: {anti_primary_sp4}");
-    debug!("Anti-primary limit: {anti_primary_f3_limit}");
+    debug!("Anti-primary limit: {anti_primary_limit}");
     debug!("Anti-primary len: {}", anti_primary.len());
     debug!(
         "SP2 secondary offset: {}",
@@ -326,7 +326,7 @@ fn show_template_switch(
                 .min(template_switch.sp2_ancestor_offset)
                 .saturating_sub(STREAM_PADDING),
         );
-        let anti_primary_extended_limit = anti_primary_f3_limit.max(
+        let anti_primary_extended_limit = anti_primary_limit.max(
             anti_primary.chars().count().min(
                 template_switch
                     .sp2_ancestor_offset
@@ -440,7 +440,7 @@ fn show_template_switch(
         // Find subsequence of no-ts alignment that matches ts alignment interval.
         let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
         for alignment_type in no_ts_alignment.iter_flat_cloned() {
-            if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_f3_limit {
+            if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit {
                 break;
             } else {
                 stream.push(1, alignment_type);
@@ -448,7 +448,7 @@ fn show_template_switch(
         }
         assert_eq!(
             anti_primary_coordinate_picker(&stream.head_coordinates()),
-            anti_primary_f3_limit
+            anti_primary_limit
         );
 
         while anti_primary_coordinate_picker(&stream.tail_coordinates()) < anti_primary_offset {
@@ -462,7 +462,7 @@ fn show_template_switch(
         debug!("Creating no-ts renderer");
         let mut renderer = MultipairAlignmentRenderer::new_without_data(
             anti_primary_label.clone(),
-            anti_primary[anti_primary_offset..anti_primary_f3_limit].chars(),
+            anti_primary[anti_primary_offset..anti_primary_limit].chars(),
         );
 
         debug!("Adding primary");

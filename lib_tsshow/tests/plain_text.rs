@@ -198,10 +198,9 @@ fn gaps_at_both_ends_of_the_anti_descendant() {
     assert!(output.contains("ChildF:  -ATCCG-"), "{output}");
 }
 
-/// Known bug: several TSs with negative anti-descendant gaps (found by the property tests).
-#[test]
-#[ignore = "issue #284"]
-fn multiple_negative_gaps() {
+/// Two TSs with negative anti-descendant gaps (found by the property tests, issue #284).
+/// The first has an empty downstream, so its upstream ends behind its downstream on the anti-primary.
+fn multiple_negative_gaps_result() -> common::Result {
     let reverse = TemplateSwitchDirection::Reverse;
     let entrance = |first_offset, descendant, ancestor| AlignmentType::TemplateSwitchEntrance {
         first_offset,
@@ -210,7 +209,7 @@ fn multiple_negative_gaps() {
         ancestor,
         direction: reverse,
     };
-    let result = build_result(
+    build_result(
         "TGACTATGTACCCGAACTAAATCATCTAT",
         "TATTATTACGACCCGCCCGTGCGA",
         vec![
@@ -259,6 +258,47 @@ fn multiple_negative_gaps() {
             (6, AlignmentType::PrimaryInsertion),
         ],
         AlignmentRange::new_complete(29, 24),
+    )
+}
+
+/// The upstream (F1) of a TS may end behind the end of its downstream (F3) on the anti-primary.
+/// The anti-primary must then be shown up to the end of F1 (issue #284).
+#[test]
+fn multiple_negative_gaps() {
+    let output = render_plain_text(&multiple_negative_gaps_result(), &None);
+
+    assert_eq!(output.matches("Switch process:").count(), 2, "{output}");
+    // The first TS: F1 ends at query position 18, while F3 is empty and ends at query position 14.
+    assert!(
+        output.contains("Parent1: TGACTATG-TAC----CCGA\n"),
+        "{output}"
     );
-    render_plain_text(&result, &None);
+    assert!(
+        output.contains("ChildF:  TA--TTATTACGACCCGCCC\n"),
+        "{output}"
+    );
+    assert!(output.contains("Parent2:       -A"), "{output}");
+    // The second TS: F3 starts at query position 10, before F1 ends at query position 14.
+    assert!(output.contains("Parent3: TCATCTAT------\n"), "{output}");
+    assert!(output.contains("ChildF:  ACCCGCCCGTGCGA\n"), "{output}");
+}
+
+/// The no-ts alignment is shown over the same anti-primary interval as the TS (issue #284).
+#[test]
+fn multiple_negative_gaps_with_no_ts_alignment() {
+    let no_ts_result = build_result(
+        "TGACTATGTACCCGAACTAAATCATCTAT",
+        "TATTATTACGACCCGCCCGTGCGA",
+        vec![
+            (24, AlignmentType::PrimaryMatch),
+            (5, AlignmentType::PrimaryDeletion),
+        ],
+        AlignmentRange::new_complete(29, 24),
+    );
+    let output = render_plain_text(&multiple_negative_gaps_result(), &Some(no_ts_result));
+
+    assert_eq!(output.matches("No-ts alignment:").count(), 2, "{output}");
+    // The first TS covers the query from 0 to 18, the second from 10 to 24.
+    assert!(output.contains("Child:  TATTATTACGACCCGCCC\n"), "{output}");
+    assert!(output.contains("Child:  ACCCGCCCGTGCGA\n"), "{output}");
 }
