@@ -141,6 +141,7 @@ impl<Cost: AStarCost> MulticriteriaDijkstraContext for Context<'_, '_, '_, Cost>
         }));
     }
 
+    #[inline]
     fn generate_successors<Index: Copy>(
         &self,
         IndexedNode { node, index }: IndexedNode<Self::Node, Index>,
