@@ -213,9 +213,8 @@ fn uncertainty_range_beyond_the_left_end() {
     render_with_all_uncertainty_modes(&result);
 }
 
-/// Known bug: overlapping forward TSs (found by the property tests).
+/// Issue #285: overlapping forward TSs (found by the property tests).
 #[test]
-#[ignore = "issue #285"]
 fn overlapping_forward_template_switches() {
     let forward = TemplateSwitchDirection::Forward;
     let result = build_result(

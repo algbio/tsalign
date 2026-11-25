@@ -564,9 +564,9 @@ dependencies = [
 
 [[package]]
 name = "generic_a_star"
-version = "8.0.2"
+version = "8.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4edcf0655b42a23654d5635e2e7a1d6d26ada1cfc92b04af19f343a84a0c5213"
+checksum = "d04e35ef939c2feef0231f3c607a15aacf00a5b77b4286faf91010775f82fcde"
 dependencies = [
  "binary-heap-plus",
  "compare",
@@ -781,6 +781,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "sha",
+ "smallvec",
  "tagged-vec",
  "tempfile",
  "thiserror 2.0.21",

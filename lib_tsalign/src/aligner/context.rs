@@ -738,9 +738,11 @@ fn generate_output_mapper_function<
 + Fn(
     <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
 ) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
-    move |node| {
-        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(*node, context)
-            .into()
+    move |mut node| {
+        // Reuse the allocation of the box instead of allocating a new one.
+        *node =
+            <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(*node, context);
+        node
     }
 }
 

@@ -359,6 +359,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut total_12_jump_exact_evaluation_time = Duration::default();
         let mut total_12_jump_exact_evaluations = 0;
         let mut total_12_jump_exact_evaluation_opened_nodes = 0usize;
+        // Reused for all anchors to avoid reallocating it.
+        let mut eligible_anchors = Vec::new();
         for (ts_kind, jump_12) in TsKind::iter()
             .zip(&mut jump_12s)
             .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
@@ -370,7 +372,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 let from_index = from_index + 1;
 
                 // Fill 12-jumps with lower bound.
-                let mut eligible_anchors = Vec::new();
+                eligible_anchors.clear();
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
                     if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind) {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
@@ -385,7 +387,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     total_12_jump_exact_evaluations += 1;
                     eligible_anchors.sort_unstable_by_key(|anchor| anchor.start().ancestor());
                     // TODO: use eligible anchors for much more detailed filtering or for an A* lower bound in alignment.
-                    let eligible_anchors = eligible_anchors;
+                    let eligible_anchors = &eligible_anchors;
                     let min_eligible_ancestor =
                         eligible_anchors.first().unwrap().start().ancestor();
                     let align_end = SpecificSecondaryAlignmentCoordinates::new(
@@ -818,6 +820,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut total_12_jump_exact_evaluation_time = Duration::default();
         let mut total_12_jump_exact_evaluations = 0;
         let mut total_12_jump_exact_evaluation_opened_nodes = 0usize;
+        // Reused for all anchors to avoid reallocating it.
+        let mut eligible_anchors = Vec::new();
         for (ts_kind, jump_12) in TsKind::iter()
             .zip(&mut jump_12s)
             .filter(|(ts_kind, _)| ts_base_cost.get(*ts_kind) != Cost::max_value())
@@ -827,7 +831,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 let from_index = from_index + 1;
 
                 // Fill 12-jumps with lower bound.
-                let mut eligible_anchors = Vec::new();
+                eligible_anchors.clear();
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
                     if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind) {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
@@ -855,7 +859,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     total_12_jump_exact_evaluations += 1;
                     eligible_anchors.sort_unstable_by_key(|anchor| anchor.start().ancestor());
                     // TODO: use eligible anchors for much more detailed filtering or for an A* lower bound in alignment.
-                    let eligible_anchors = eligible_anchors;
+                    let eligible_anchors = &eligible_anchors;
                     let min_eligible_ancestor =
                         eligible_anchors.first().unwrap().start().ancestor();
                     let align_end = SpecificSecondaryAlignmentCoordinates::new(
