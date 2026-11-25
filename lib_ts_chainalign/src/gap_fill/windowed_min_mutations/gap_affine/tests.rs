@@ -191,18 +191,24 @@ fn max_match_run_1() {
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 2, 0);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
-    assert_eq!(
-        alignment.alignment,
-        vec![
-            (1, AlignmentType::Match),
-            (1, AlignmentType::Substitution),
-            (1, AlignmentType::Match),
-            (1, AlignmentType::GapB),
-            (1, AlignmentType::Match),
-            (2, AlignmentType::Substitution),
-            (1, AlignmentType::Match),
-            (1, AlignmentType::GapA),
-        ]
+    // The final match and gap can be in either order at the same cost.
+    let prefix = [
+        (1, AlignmentType::Match),
+        (1, AlignmentType::Substitution),
+        (1, AlignmentType::Match),
+        (1, AlignmentType::GapB),
+        (1, AlignmentType::Match),
+        (2, AlignmentType::Substitution),
+    ];
+    let expected_alternatives = [
+        [(1, AlignmentType::Match), (1, AlignmentType::GapA)],
+        [(1, AlignmentType::GapA), (1, AlignmentType::Match)],
+    ]
+    .map(|suffix| prefix.iter().copied().chain(suffix).collect::<Vec<_>>());
+    assert!(
+        expected_alternatives.contains(&alignment.alignment),
+        "{:?}",
+        alignment.alignment
     );
     assert_eq!(cost, U32Cost::from(12u8));
 }
