@@ -36,6 +36,7 @@ impl<
 {
     type Item = Coordinates::IntoTarget;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while let (Some(coordinate_anchor), Some((anchor_index, anchor))) =
             (self.coordinate_iter.peek(), self.anchor_iter.peek())
@@ -71,6 +72,7 @@ impl<
 {
     type Item = Coordinates::IntoTarget;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while let (Some(coordinate_anchor), Some((anchor_index, anchor))) =
             (self.coordinate_iter.peek(), self.anchor_iter.peek())
