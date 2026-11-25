@@ -39,13 +39,7 @@ fn cases() -> usize {
 ///
 /// They are reproduced by ignored tests in `plain_text.rs` and `svg_regressions.rs`.
 /// Remove the entries when fixing the bugs.
-const KNOWN_BUGS: &[(&str, &str)] = &[
-    // Issue #286. SVG: overlapping reverse TSs with uncertainty ranges.
-    (
-        "ts_arrangement/inner.rs",
-        "first_source_column >= last_source_column",
-    ),
-];
+const KNOWN_BUGS: &[(&str, &str)] = &[];
 
 fn is_known_bug(message: &str) -> bool {
     let location = message.split(": ").next().unwrap();
@@ -248,6 +242,17 @@ fn check_arrangement(
     assert_eq!(arrangement.query_complement().len(), width);
     for inner in arrangement.inners().iter_values() {
         assert_eq!(inner.sequence().len(), width, "inner has a different width");
+        // The inner of a TS is a substring of its descendant, also if it consists of copies (#286).
+        let inner_source_columns: Vec<usize> = inner
+            .template_switch()
+            .inner
+            .iter()
+            .map(|c| c.source_column().primitive())
+            .collect();
+        assert!(
+            inner_source_columns.windows(2).all(|w| w[0] + 1 == w[1]),
+            "the inner of a TS is not a substring of its descendant: {inner_source_columns:?}"
+        );
     }
 
     let mut visible = Vec::new();
