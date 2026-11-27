@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::alignment_history::profile::HistoryProfile;
+use crate::alignment_history::profile::{HistoryProfile, MAX_PROFILE_ANCHOR_K, MAX_PROFILE_INDEX};
 
 /// Holds the parameters for the chaining algorithm.
 ///
@@ -41,7 +41,7 @@ pub enum InvalidChainingLowerBoundConfig {
         max_anchor_mutations: u8,
     },
     /// The alignment history profiles of [`InexactLowerBoundKind::WindowedMinMutations`] cannot store anchors of this size
-    /// (`anchor_k + max_anchor_mutations > 127`).
+    /// (they need `anchor_k <= 127` and `max_anchor_mutations <= 3`).
     WindowedMinMutationsCapacityExceeded {
         anchor_k: u32,
         max_anchor_mutations: u8,
@@ -63,7 +63,8 @@ impl ChainingLowerBoundConfig {
     /// * `anchor_k <= 64` (see [`Self::MAX_EXACT_ANCHOR_K`]) for exact anchors (`max_anchor_mutations = 0`);
     /// * `anchor_k <= 255` (see [`Self::MAX_INEXACT_ANCHOR_K`]) for inexact anchors (`max_anchor_mutations > 0`);
     /// * for [`InexactLowerBoundKind::WindowedMinMutations`] with inexact anchors,
-    ///   `anchor_k + max_anchor_mutations <= 127` must hold, so that the alignment history profiles fit into 128 bits per sequence.
+    ///   `anchor_k <= 127` and `max_anchor_mutations <= 3` must hold,
+    ///   so that the alignment history profiles fit into one byte per entry and four entries per sequence.
     pub fn validate(&self) -> Result<(), InvalidChainingLowerBoundConfig> {
         let anchor_k = self.anchor_k;
         let max_anchor_mutations = self.max_anchor_mutations;
@@ -136,8 +137,10 @@ impl Display for InvalidChainingLowerBoundConfig {
                 max_anchor_mutations,
             } => write!(
                 f,
-                "k = {anchor_k} with max_anchor_mutations = {max_anchor_mutations} is too large for the \
-                 windowed-min-mutations lower bound; use a smaller k or the max-match-run lower bound"
+                "k = {anchor_k} with max_anchor_mutations = {max_anchor_mutations} is not supported by the \
+                 windowed-min-mutations lower bound, which needs k <= {MAX_PROFILE_ANCHOR_K} and \
+                 max_anchor_mutations <= {MAX_PROFILE_INDEX}; use a smaller k, fewer anchor mutations \
+                 or the max-match-run lower bound"
             ),
         }
     }
@@ -238,10 +241,17 @@ mod tests {
             )
             .validate()
         };
-        // The alignment history profiles need `anchor_k + max_anchor_mutations + 1 <= 128` bits.
-        assert_eq!(windowed(126, 1), Ok(()));
-        assert_eq!(windowed(64, 63), Ok(()));
-        for (anchor_k, max_anchor_mutations) in [(127, 1), (65, 63), (255, 254)] {
+        // The alignment history profiles need `anchor_k <= 127` and `max_anchor_mutations <= 3`.
+        for (anchor_k, max_anchor_mutations) in [(2, 1), (4, 3), (30, 3), (127, 1), (127, 3)] {
+            assert_eq!(
+                windowed(anchor_k, max_anchor_mutations),
+                Ok(()),
+                "k = {anchor_k}, max_anchor_mutations = {max_anchor_mutations}"
+            );
+        }
+        for (anchor_k, max_anchor_mutations) in
+            [(128, 1), (255, 1), (5, 4), (30, 4), (64, 63), (255, 254)]
+        {
             assert_eq!(
                 windowed(anchor_k, max_anchor_mutations),
                 Err(
@@ -252,6 +262,11 @@ mod tests {
                 )
             );
         }
+        let message = windowed(30, 4).unwrap_err().to_string();
+        assert!(
+            message.contains("needs k <= 127 and max_anchor_mutations <= 3"),
+            "{message}"
+        );
         // Exact anchors do not use alignment histories.
         assert_eq!(windowed(64, 0), Ok(()));
     }
