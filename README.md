@@ -111,6 +111,14 @@ This does not pertain the special `|` character if `--use-embedded-rq-ranges` is
 If you want to compute an alignment without template switches, you can use the `--no-ts` parameter.
 This can be useful for comparing the optimal template switching alignment with the optimal alignment without template switches.
 
+#### Very large searches
+
+The A* search stores its nodes in an arena and refers to them by 32-bit indices, so it can store at most 4294967295 nodes at the same time.
+This only matters for searches that need a few hundred GB of memory.
+If a search needs more nodes, tsalign stops with an error message (not a panic).
+Then rerun it with `--arena-index u64`, which removes the limit at the cost of slightly more memory per node (about 3 % in total for the classic aligner).
+The option applies to both alignment methods and does not change the alignment.
+
 ### Modifying the cost function
 
 We designed tsalign to allow for very detailed alignment costs regarding not just the gap-affine alignment, but also the geometry of a TSM.
