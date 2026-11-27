@@ -288,3 +288,80 @@ fn align_sequences_rejects_ignored_additional_tsm_starts_and_ends() {
         AlignerInputError::IgnoredAdditionalExplicitTSMStartsAndEnds
     );
 }
+
+/// A pseudo-random reference of the given length and a query with every 20th character substituted.
+fn arena_test_sequences(length: usize) -> (Vec<u8>, Vec<u8>) {
+    let mut state = 0x2545_f491_4f6c_dd1du64;
+    let reference: Vec<u8> = (0..length)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            b"ACGT"[(state % 4) as usize]
+        })
+        .collect();
+    let query = reference
+        .iter()
+        .enumerate()
+        .map(|(index, &character)| {
+            if index % 20 == 10 {
+                match character {
+                    b'A' => b'C',
+                    b'C' => b'G',
+                    b'G' => b'T',
+                    _ => b'A',
+                }
+            } else {
+                character
+            }
+        })
+        .collect();
+    (reference, query)
+}
+
+/// If the search needs more nodes at the same time than the arena index type allows,
+/// then the aligner returns an error instead of panicking.
+/// The same alignment succeeds with the default index type `u32`, and gives the same result with `u64`.
+#[test]
+fn full_arena_is_an_error() {
+    // The search for these sequences needs more than 65535 nodes at the same time (but not for 50 characters).
+    let (reference, query) = arena_test_sequences(70);
+    let align_with = |arena_index| {
+        let mut aligner = Aligner::<DnaAlphabet>::default();
+        aligner.set_arena_index(arena_index);
+        align(&aligner, &reference, &query, None, &[])
+    };
+
+    let error = align_with(ArenaIndexType::U16).unwrap_err();
+    assert_eq!(
+        error,
+        AlignerInputError::Search(generic_a_star::AStarError::ArenaFull(
+            generic_a_star::arena::ArenaFullError {
+                capacity: 65_535,
+                index_type: "u16"
+            }
+        ))
+    );
+    assert_eq!(
+        error.to_string(),
+        "the A* node arena is full: it can hold at most 65535 nodes with u16 node indices"
+    );
+
+    let default = align(
+        &Aligner::<DnaAlphabet>::default(),
+        &reference,
+        &query,
+        None,
+        &[],
+    )
+    .unwrap();
+    let u32 = align_with(ArenaIndexType::U32).unwrap();
+    let u64 = align_with(ArenaIndexType::U64).unwrap();
+    assert_eq!(default.cigar(), u32.cigar());
+    assert_eq!(default.cigar(), u64.cigar());
+    assert_eq!(default.statistics().cost, u64.statistics().cost);
+    assert_eq!(
+        default.statistics().opened_nodes,
+        u64.statistics().opened_nodes
+    );
+}
