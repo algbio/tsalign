@@ -581,7 +581,7 @@ dependencies = [
 [[package]]
 name = "generic_a_star"
 version = "8.0.3"
-source = "git+https://github.com/sebschmi/generic_a_star?branch=agent%2Farena#c29dfc3b5316b45ca101961dbf1a25b33f74d87c"
+source = "git+https://github.com/sebschmi/generic_a_star?branch=agent%2Farena#cab7d48001dfb7942aa222e0285226b8fc84cc0b"
 dependencies = [
  "compare",
  "hashbrown 0.17.1",
