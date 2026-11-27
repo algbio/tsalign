@@ -131,6 +131,17 @@ if result is None:
     print("No alignment found within limits")
 ```
 
+The A* search stores at most 4294967295 nodes at the same time, which only
+matters for searches that need a few hundred GB of memory.  If a search needs
+more, `align` raises `tsalign.ArenaFullError` (a `MemoryError`).  Then create
+the aligner with `arena_index="u64"` (default: `"u32"`), which removes the
+limit at the cost of slightly more memory per node, and does not change the
+alignment.  `ChainAligner` takes the same parameter.
+
+```python
+aligner = tsalign.Aligner(arena_index="u64")
+```
+
 ## Accepted sequence types
 
 Any object whose `str()` representation is a valid DNA string (ACGTN) is
@@ -177,7 +188,8 @@ The other parameters are named as the CLI options, with the same defaults:
 `chaining_closed_list`, `chaining_open_list`, `anchor_pruning`
 (`"none"`, `"exact"`, `"inexact"`), `inexact_pruning_rules` (a string like the
 CLI's `--inexact-pruning-rules`, or a list of rule names),
-`exact_overlap_diagonal_distance` and `force_no_preprocessing`.
+`exact_overlap_diagonal_distance`, `force_no_preprocessing` and `arena_index`
+(`"u32"` or `"u64"`, see [Limiting search resources](#limiting-search-resources)).
 Invalid or unsupported parameters raise `ValueError`.
 
 ### Preprocessing and caching

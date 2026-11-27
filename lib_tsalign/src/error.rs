@@ -79,8 +79,9 @@ impl std::fmt::Display for SequenceRole {
     }
 }
 
-/// A reason why the inputs of [`Aligner::align`](crate::Aligner::align) or
-/// [`Aligner::align_sequences`](crate::Aligner::align_sequences) are invalid.
+/// A reason why [`Aligner::align`](crate::Aligner::align) or
+/// [`Aligner::align_sequences`](crate::Aligner::align_sequences) fails:
+/// the inputs are invalid, or the A* search failed ([`Self::Search`]).
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum AlignerInputError {
     /// A sequence contains a character that is not part of the alphabet of the aligner.
@@ -116,6 +117,15 @@ pub enum AlignerInputError {
          because TSMs are not allowed to start or end outside of the alignment range"
     )]
     IgnoredAdditionalExplicitTSMStartsAndEnds,
+
+    /// The A* search failed.
+    ///
+    /// This happens if the search needs more nodes at the same time than the arena index type allows
+    /// ([`AStarError::ArenaFull`](generic_a_star::AStarError::ArenaFull)).
+    /// Then the alignment can be repeated with a larger index type, see
+    /// [`Aligner::set_arena_index`](crate::Aligner::set_arena_index).
+    #[error(transparent)]
+    Search(#[from] generic_a_star::AStarError),
 }
 
 /// Convert an ASCII sequence into a sequence of the given alphabet.

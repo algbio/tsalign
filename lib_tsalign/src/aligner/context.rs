@@ -44,7 +44,7 @@ pub struct Context<
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
-    pub a_star_buffers: AStarBuffers<Box<Node<Strategies>>>,
+    pub a_star_buffers: AStarBuffers<Node<Strategies>>,
     pub memory: Memory<Strategies>,
     pub dynamic_strategies: DynamicStrategies,
 
@@ -121,10 +121,10 @@ impl<
     Strategies: AlignmentStrategySelector,
 > AStarContext for Context<'_, '_, SubsequenceType, Strategies>
 {
-    type Node = Box<Node<Strategies>>;
+    type Node = Node<Strategies>;
 
     fn create_root(&self) -> Self::Node {
-        Box::new(Node {
+        Node {
             node_data: NodeData {
                 identifier: Identifier::Root,
                 predecessor: None,
@@ -133,7 +133,7 @@ impl<
                 a_star_lower_bound: Strategies::Cost::zero(),
             },
             strategies: AlignmentStrategiesNodeMemory::create_root(self),
-        })
+        }
     }
 
     fn generate_successors(
@@ -183,7 +183,6 @@ impl<
                                     },
                                     self,
                                 )
-                                .into()
                             }),
                     );
                 }
@@ -215,7 +214,7 @@ impl<
                         .map(|mut tsm_entrance_node| {
                             tsm_entrance_node.node_data.predecessor =
                                 primary_node.node_data.predecessor;
-                            Box::new(tsm_entrance_node)
+                            tsm_entrance_node
                         }),
                 );
             }
@@ -280,14 +279,11 @@ impl<
                     };
 
                     if cost_increment != Strategies::Cost::max_value() {
-                        opened_nodes_output.extend(
-                            node.generate_primary_diagonal_successor(
-                                cost_increment,
-                                is_match,
-                                self,
-                            )
-                            .map(Into::into),
-                        );
+                        opened_nodes_output.extend(node.generate_primary_diagonal_successor(
+                            cost_increment,
+                            is_match,
+                            self,
+                        ));
                     }
 
                     if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::always_generate_substitution() {
@@ -298,8 +294,7 @@ impl<
                                 cost_increment,
                                 false,
                                 self,
-                            )
-                            .map(Into::into));
+                            ));
                         }
                     }
                 }
@@ -316,8 +311,7 @@ impl<
                                 .primary_edit_costs
                                 .gap_costs(r, gap_type != GapType::Deletion),
                             self,
-                        )
-                        .map(Into::into),
+                        ),
                     );
                 }
 
@@ -333,8 +327,7 @@ impl<
                                 .primary_edit_costs
                                 .gap_costs(q, gap_type != GapType::Insertion),
                             self,
-                        )
-                        .map(Into::into),
+                        ),
                     );
                 }
 
@@ -346,8 +339,7 @@ impl<
                             &config.rr_qq_offset_costs,
                             &config.base_cost,
                             self,
-                        )
-                        .map(Into::into),
+                        ),
                     );
                 }
             }
@@ -401,8 +393,7 @@ impl<
                                 cost_increment,
                                 template_switch_first_offset + 1,
                                 self,
-                            )
-                            .map(Into::into),
+                            ),
                         )
                     }
                 }
@@ -424,8 +415,7 @@ impl<
                                 cost_increment,
                                 template_switch_first_offset - 1,
                                 self,
-                            )
-                            .map(Into::into),
+                            ),
                         )
                     }
                 }
@@ -437,7 +427,6 @@ impl<
                     let secondary_root_node: Vec<_> = node
                         .generate_secondary_root_node(self)
                         .into_iter()
-                        .map(Box::new)
                         .collect();
                     opened_nodes_output = ExtendMap::new(
                         opened_nodes_direct_output,
@@ -504,9 +493,11 @@ impl<
                             );
                         }
 
-                        let successor = node
-                            .generate_secondary_diagonal_successor(cost_increment, p == s, self)
-                            .map(Into::into);
+                        let successor = node.generate_secondary_diagonal_successor(
+                            cost_increment,
+                            p == s,
+                            self,
+                        );
                         if output_detail {
                             if let Some(successor) = successor.as_ref() {
                                 println!("Generated secondary diagonal successor {successor}");
@@ -552,8 +543,7 @@ impl<
                                     .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(s, gap_type != GapType::Deletion),
                                 self,
-                            )
-                            .map(Into::into),
+                            ),
                         );
                     }
 
@@ -567,8 +557,7 @@ impl<
                                     .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(p, gap_type != GapType::Insertion),
                                 self,
-                            )
-                            .map(Into::into),
+                            ),
                         );
                     }
                 }
@@ -581,8 +570,7 @@ impl<
                     let cost_increment = length_cost + length_difference_cost;
 
                     opened_nodes_output.extend(
-                        node.generate_initial_template_switch_exit_successor(cost_increment, self)
-                            .map(Into::into),
+                        node.generate_initial_template_switch_exit_successor(cost_increment, self),
                     )
                 }
             }
@@ -631,14 +619,11 @@ impl<
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
-                        opened_nodes_output.extend(
-                            node.generate_template_switch_exit_successor(
-                                cost_increment,
-                                anti_descendant_gap + 1,
-                                self,
-                            )
-                            .map(Into::into),
-                        )
+                        opened_nodes_output.extend(node.generate_template_switch_exit_successor(
+                            cost_increment,
+                            anti_descendant_gap + 1,
+                            self,
+                        ))
                     }
                 }
 
@@ -654,14 +639,11 @@ impl<
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
-                        opened_nodes_output.extend(
-                            node.generate_template_switch_exit_successor(
-                                cost_increment,
-                                anti_descendant_gap - 1,
-                                self,
-                            )
-                            .map(Into::into),
-                        )
+                        opened_nodes_output.extend(node.generate_template_switch_exit_successor(
+                            cost_increment,
+                            anti_descendant_gap - 1,
+                            self,
+                        ))
                     }
                 }
 
@@ -675,7 +657,7 @@ impl<
                     node.generate_primary_reentry_successor(self, anti_descendant_gap_cost)
                         .map(|mut node| {
                             node.strategies.template_switch_count.increment_count();
-                            node.into()
+                            node
                         }),
                 );
             }
@@ -738,11 +720,8 @@ fn generate_output_mapper_function<
 + Fn(
     <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
 ) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
-    move |mut node| {
-        // Reuse the allocation of the box instead of allocating a new one.
-        *node =
-            <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(*node, context);
-        node
+    move |node| {
+        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(node, context)
     }
 }
 

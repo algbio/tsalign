@@ -429,6 +429,8 @@ def test_costs_string_and_config_directory():
         # Disabled in the CLI because it is broken.
         ({"max_anchor_mutations": 1, "inexact_chaining_lower_bound": "windowed-min-mutations"}, "disabled"),
         ({"max_anchor_mutations": 1, "inexact_chaining_lower_bound": "foo"}, "inexact_chaining_lower_bound"),
+        ({"arena_index": "u16"}, "arena_index"),
+        ({"arena_index": "U64"}, "arena_index"),
     ],
 )
 def test_invalid_parameters_raise_value_error(kwargs, match):
@@ -529,3 +531,30 @@ def test_inferred_k_is_validated():
 def test_invalid_method():
     with pytest.raises(ValueError, match="method"):
         tsalign.align(TS_REFERENCE, TS_QUERY, method="foo")
+
+
+# The arena index type only limits how many nodes the chaining can store, so it does not change the alignment.
+@pytest.mark.parametrize("max_anchor_mutations, k", [(0, 4), (1, 5)])
+def test_arena_index_u64_gives_same_alignment(max_anchor_mutations, k):
+    reference, query = read_pair_fasta(TEST_FILES / "twin_100_0.01.fa")
+    results = [
+        ChainAligner(costs_file=CHAIN_CONFIG, k=k, max_anchor_mutations=max_anchor_mutations, **kwargs).align(
+            reference, query
+        )
+        for kwargs in [{}, {"arena_index": "u32"}, {"arena_index": "u64"}]
+    ]
+    results.append(
+        tsalign.align(
+            reference,
+            query,
+            method="a-star-chain-ts",
+            costs_file=CHAIN_CONFIG,
+            k=k,
+            max_anchor_mutations=max_anchor_mutations,
+            arena_index="u64",
+        )
+    )
+    assert all(result is not None for result in results)
+    assert len({result.cigar() for result in results}) == 1
+    assert len({result.stats()["cost"] for result in results}) == 1
+    assert len({result.chain_statistics()["chaining_rounds"] for result in results}) == 1

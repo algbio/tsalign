@@ -1,21 +1,58 @@
 use std::io;
 
 use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
+use generic_a_star::AStarError;
 use lib_tsalign::{
     Aligner,
     alignment_geometry::{AlignmentCoordinates, AlignmentRange},
     alignment_result::{AlignmentResult, TSMUncertaintyRangeExtensionMode},
+    arena_index::ArenaIndexType,
     costs::U64Cost,
+    error::AlignerInputError,
 };
 use lib_tsshow::plain_text::show_template_switches;
 use pyo3::{
-    exceptions::{PyRuntimeError, PyValueError},
+    create_exception,
+    exceptions::{PyMemoryError, PyRuntimeError, PyValueError},
     prelude::*,
     types::PyDict,
 };
 use pythonize::{depythonize, pythonize};
 
 mod chain;
+
+create_exception!(
+    _tsalign,
+    ArenaFullError,
+    PyMemoryError,
+    "The A* search needs more nodes at the same time than its arena index type allows.\n\n\
+     Raised by the ``align`` methods. Create the aligner with ``arena_index=\"u64\"`` to allow more nodes."
+);
+
+/// Parses the `arena_index` argument of the aligners.
+fn parse_arena_index(arena_index: &str) -> PyResult<ArenaIndexType> {
+    match arena_index {
+        "u32" => Ok(ArenaIndexType::U32),
+        "u64" => Ok(ArenaIndexType::U64),
+        _ => Err(PyValueError::new_err(format!(
+            "invalid arena_index '{arena_index}', expected one of 'u32', 'u64'"
+        ))),
+    }
+}
+
+/// Converts the error of a failed A* search into a Python exception.
+///
+/// A full node arena raises [`ArenaFullError`], with a hint to use a larger index type if there is one.
+fn search_error(error: &AStarError, arena_index: ArenaIndexType) -> PyErr {
+    match (error, arena_index) {
+        (AStarError::ArenaFull(_), ArenaIndexType::U32) => ArenaFullError::new_err(format!(
+            "{error}; create the aligner with arena_index=\"u64\" to allow more nodes \
+             (this needs a bit more memory per node)"
+        )),
+        (AStarError::ArenaFull(_), _) => ArenaFullError::new_err(error.to_string()),
+        _ => PyRuntimeError::new_err(error.to_string()),
+    }
+}
 
 #[pyclass]
 struct TSPairwiseAlignment {
@@ -72,6 +109,7 @@ fn gap_characters_to_ascii(gap_characters: &str) -> PyResult<Vec<u8>> {
 #[pyclass(name = "Aligner")]
 struct TSAligner {
     aligner: Aligner<DnaAlphabetOrN>,
+    arena_index: ArenaIndexType,
 }
 
 #[pymethods]
@@ -82,6 +120,7 @@ impl TSAligner {
         let Some(kwargs) = kwargs else {
             return Ok(Self {
                 aligner: Aligner::new(),
+                arena_index: ArenaIndexType::default(),
             });
         };
 
@@ -93,7 +132,16 @@ impl TSAligner {
             None
         };
 
+        let arena_index = if let Some(arena_index) = kwargs.get_item("arena_index")? {
+            let arena_index = parse_arena_index(arena_index.extract()?)?;
+            kwargs.del_item("arena_index")?;
+            arena_index
+        } else {
+            ArenaIndexType::default()
+        };
+
         let mut aligner: Aligner<DnaAlphabetOrN> = depythonize(kwargs)?;
+        aligner.set_arena_index(arena_index);
 
         if let Some(costs_str) = costs_str {
             aligner
@@ -101,7 +149,10 @@ impl TSAligner {
                 .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         }
 
-        Ok(Self { aligner })
+        Ok(Self {
+            aligner,
+            arena_index,
+        })
     }
 
     /// Align two sequences, accounting for template switches
@@ -160,7 +211,10 @@ impl TSAligner {
                 true,
                 TSMUncertaintyRangeExtensionMode::EqualCostIgnoreGeometry,
             )
-            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            .map_err(|error| match error {
+                AlignerInputError::Search(error) => search_error(&error, self.arena_index),
+                error => PyValueError::new_err(error.to_string()),
+            })?;
 
         match result {
             result @ AlignmentResult::WithTarget { .. } => {
@@ -179,6 +233,7 @@ fn tsalign(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<TSPairwiseAlignment>()?;
     m.add_class::<TSAligner>()?;
     m.add_class::<chain::TSChainAligner>()?;
+    m.add("ArenaFullError", m.py().get_type::<ArenaFullError>())?;
     m.add(
         "CHAIN_ALIGNER_DEFAULT_COSTS",
         lib_ts_chainalign::costs::DEFAULT_CONFIG_TSA,

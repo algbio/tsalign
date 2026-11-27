@@ -4,7 +4,7 @@ use compact_genome::{
     implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN,
     interface::sequence::GenomeSequence,
 };
-use generic_a_star::cost::U64Cost;
+use generic_a_star::{arena::ArenaIndex, cost::U64Cost};
 use traitsequence::interface::Sequence;
 
 use crate::{
@@ -30,6 +30,7 @@ use crate::{
         ts_14_out_of_range::{AdditionalExplicitTSMStartsAndEnds, Ts14OutOfRangeStrategy},
     },
     alignment_result::TSMUncertaintyRangeExtensionMode,
+    arena_index::ArenaIndexType,
     config::TemplateSwitchConfig,
     error::{AlignerInputError, SequenceRole, sequence_from_ascii},
 };
@@ -169,6 +170,10 @@ pub struct Aligner<AlphabetType: Alphabet = DnaAlphabetOrN> {
     primary_range_strategy: PrimaryRangeStrategySelector,
     no_ts: bool,
 
+    // ↓ Settings that do not change the alignment
+    /// The integer type of the node indices of the A* search, see [`ArenaIndexType`].
+    arena_index: ArenaIndexType,
+
     /// Force the A* search to run in label-correcting mode. This is for debug purposes only.
     force_label_correcting: bool,
 }
@@ -193,6 +198,7 @@ impl<AlphabetType: Alphabet> Default for Aligner<AlphabetType> {
             ts_14_out_of_range_strategy: Default::default(),
             primary_range_strategy: Default::default(),
             no_ts: false,
+            arena_index: Default::default(),
             force_label_correcting: false,
         }
     }
@@ -266,6 +272,16 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         self
     }
 
+    /// Set the integer type of the node indices of the A* search.
+    ///
+    /// The default [`ArenaIndexType::U32`] limits the search to `u32::MAX` nodes at the same time.
+    /// If a search needs more, then [`Self::align`] returns [`AlignerInputError::Search`],
+    /// and the alignment can be repeated with [`ArenaIndexType::U64`], which needs a bit more memory.
+    pub fn set_arena_index(&mut self, arena_index: ArenaIndexType) -> &mut Self {
+        self.arena_index = arena_index;
+        self
+    }
+
     /// Force the A* search to run in label-correcting mode.
     ///
     /// This is for debug purposes only.
@@ -307,6 +323,8 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     /// or if the inputs are invalid, see [`AlignerInputError`]:
     /// if a sequence contains a character that is not part of the alphabet (after removing the gap characters),
     /// or if the range does not fit the sequences without gap characters.
+    /// Returns [`AlignerInputError::Search`] if the A* search fails, i.e. if it needs more nodes at the same time
+    /// than the arena index type allows (see [`Self::set_arena_index`]).
     #[allow(
         clippy::too_many_arguments,
         reason = "For now, this is the intended API"
@@ -388,6 +406,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     /// if the range does not fit the sequences,
     /// or if `additional_tsm_starts_and_ends` is not empty although the [`Ts14OutOfRangeStrategy`] is
     /// [`Disallow`](Ts14OutOfRangeStrategy::Disallow), such that it would be ignored.
+    /// Returns [`AlignerInputError::Search`] if the A* search fails, see [`Self::align`].
     #[allow(
         clippy::too_many_arguments,
         reason = "For now, this is the intended API"
@@ -430,7 +449,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             extend_beyond_range,
             tsm_uncertainty_range_extension_mode,
         };
-        Ok(self.align_select_min_length_strategy(data))
+        self.align_select_min_length_strategy(data)
     }
 
     fn align_select_min_length_strategy<
@@ -438,7 +457,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         match self.min_length_strategy {
             MinLengthStrategySelector::None => self
                 .align_select_chaining_strategy::<_, NoTemplateSwitchMinLengthStrategy<U64Cost>>(data),
@@ -455,7 +474,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         match self.chaining_strategy {
             ChainingStrategySelector::None => {
                 self.align_select_total_length_strategy::<_, ML, NoChainingStrategy<U64Cost>>(data)
@@ -475,7 +494,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         match self.total_length_strategy {
             TotalLengthStrategySelector::None => self
                 .align_select_no_ts_strategy::<_, ML, CH, NoTemplateSwitchTotalLengthStrategy>(
@@ -496,7 +515,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
     >(
         &self,
         data: QueryData<SubsequenceType>,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         if self.no_ts {
             self.align_select_descendant_strategy::<_, ML, CH, TL, MaxTemplateSwitchCountStrategy>(
                 data, 0,
@@ -519,7 +538,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         match self.descendant_strategy {
             DescendantStrategySelector::AllowAny => self
                 .align_select_primary_range_strategy::<_, ML, CH, TL, TC, AnyTemplateSwitchDescendantStrategy>(
@@ -545,7 +564,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<U64Cost> {
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
         match self.primary_range_strategy {
             PrimaryRangeStrategySelector::Prune => self
                 .align_call::<_, ML, CH, TL, TC, DS, RangePrunePrimaryRangeStrategy>(
@@ -572,8 +591,39 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
         &self,
         data: QueryData<SubsequenceType>,
         count_strategy_memory: TC::Memory,
-    ) -> AlignmentResult<U64Cost> {
-        template_switch_distance_a_star_align::<
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
+        match self.arena_index {
+            ArenaIndexType::U32 => self.align_call_with_index::<_, ML, CH, TL, TC, DS, PR, u32>(
+                data,
+                count_strategy_memory,
+            ),
+            ArenaIndexType::U64 => self.align_call_with_index::<_, ML, CH, TL, TC, DS, PR, u64>(
+                data,
+                count_strategy_memory,
+            ),
+            #[cfg(test)]
+            ArenaIndexType::U16 => self.align_call_with_index::<_, ML, CH, TL, TC, DS, PR, u16>(
+                data,
+                count_strategy_memory,
+            ),
+        }
+    }
+
+    fn align_call_with_index<
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        ML: TemplateSwitchMinLengthStrategy<U64Cost>,
+        CH: ChainingStrategy<U64Cost>,
+        TL: TemplateSwitchTotalLengthStrategy,
+        TC: TemplateSwitchCountStrategy,
+        DS: TemplateSwitchDescendantStrategy,
+        PR: PrimaryRangeStrategy,
+        I: ArenaIndex,
+    >(
+        &self,
+        data: QueryData<SubsequenceType>,
+        count_strategy_memory: TC::Memory,
+    ) -> Result<AlignmentResult<U64Cost>, AlignerInputError> {
+        Ok(template_switch_distance_a_star_align::<
             AlignmentStrategySelection<
                 AlphabetType,
                 U64Cost,
@@ -589,6 +639,7 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
                 DS,
             >,
             _,
+            I,
         >(
             data.reference,
             data.query,
@@ -606,6 +657,6 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             data.extend_beyond_range,
             data.tsm_uncertainty_range_extension_mode,
             count_strategy_memory,
-        )
+        )?)
     }
 }

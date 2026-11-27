@@ -5,7 +5,7 @@ use compact_genome::interface::alphabet::Alphabet;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
-use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use generic_a_star::{AStar, AStarContext, AStarError, AStarNode, AStarResult};
 use log::{info, warn};
 use rustc_hash::{FxHashMapSeed, FxSeededState};
 use template_switch_error_free_inners::MatchTable;
@@ -127,6 +127,23 @@ fn too_few_characters_for_min_length_match(
             .is_none_or(|last_start| descendant_index > last_start)
 }
 
+/// Handles a failed lookahead search, i.e. one whose node arena became full.
+///
+/// The lookahead only raises the lower bound of the secondary root node (or drops it),
+/// and the minimum length is enforced by the length costs when the template switch ends.
+/// So the node is kept with its previous lower bound, which is still admissible, and the alignment stays optimal.
+/// The lookahead searches are small, so this should never happen.
+#[cold]
+fn lookahead_failed<Node>(secondary_root_node: Node, error: AStarError) -> Node {
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        warn!(
+            "A template switch min length lookahead search failed, ignoring its lower bound: {error}"
+        );
+    }
+    secondary_root_node
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct LookaheadMemoryKey {
     template_switch_descendant: TemplateSwitchDescendant,
@@ -219,7 +236,12 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 
             let alignment_result = a_star.search();
 
-            if let AStarResult::FoundTarget { identifier, .. } = alignment_result {
+            if let Err(error) = alignment_result {
+                context.a_star_buffers = a_star.into_buffers();
+                return Some(lookahead_failed(secondary_root_node, error));
+            }
+
+            if let Ok(AStarResult::FoundTarget { identifier, .. }) = alignment_result {
                 let target_cost = a_star.closed_node(&identifier).unwrap().cost();
                 context.a_star_buffers = a_star.into_buffers();
                 let lower_bound = target_cost - initial_cost;
@@ -490,7 +512,12 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 
                 let alignment_result = a_star.search();
 
-                if let AStarResult::FoundTarget { identifier, .. } = alignment_result {
+                if let Err(error) = alignment_result {
+                    context.a_star_buffers = a_star.into_buffers();
+                    return Some(lookahead_failed(secondary_root_node, error));
+                }
+
+                if let Ok(AStarResult::FoundTarget { identifier, .. }) = alignment_result {
                     let target_cost = a_star.closed_node(&identifier).unwrap().cost();
                     context.a_star_buffers = a_star.into_buffers();
                     let lower_bound = target_cost - initial_cost;
@@ -663,10 +690,10 @@ impl<
     Strategies: AlignmentStrategySelector,
 > AStarContext for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
-    type Node = Box<Node<Strategies>>;
+    type Node = Node<Strategies>;
 
     fn create_root(&self) -> Self::Node {
-        self.root_node.clone().into()
+        self.root_node.clone()
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {

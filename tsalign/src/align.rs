@@ -22,6 +22,7 @@ use lib_tsalign::{
     },
     alignment_geometry::{AlignmentCoordinates, AlignmentRange},
     alignment_result::TSMUncertaintyRangeExtensionMode,
+    arena_index::ArenaIndexType,
     costs::U64Cost,
     error::{SequenceRole, sequence_from_ascii},
 };
@@ -146,6 +147,17 @@ struct CommonArgs {
     /// For inexact anchors, the cost of the alignment may be lower than its chain cost.
     #[clap(long)]
     cost_limit: Option<U64Cost>,
+
+    /// The integer type of the node indices of the A* search.
+    ///
+    /// The nodes of the search (of the classic aligner, or of the chaining of tschainalign) are stored in an arena
+    /// and referred to by index.
+    /// With `u32`, the search can store at most 4294967295 nodes at the same time,
+    /// which suffices unless it needs a few hundred GB of memory.
+    /// `u64` removes this limit, but needs more memory per node (about 3 % in total for the classic aligner).
+    /// If the limit is reached, tsalign stops with an error that suggests `--arena-index u64`.
+    #[clap(long, default_value = "u32")]
+    arena_index: ArenaIndexType,
 }
 
 // Options of the classic aligner (`a-star-template-switch`).

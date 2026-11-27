@@ -10,7 +10,9 @@ use self::{
     },
 };
 use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::{AStar, AStarContext, AStarResult, reset::Reset};
+use generic_a_star::{
+    AStar, AStarContext, AStarError, AStarResult, arena::ArenaIndex, reset::Reset,
+};
 use log::{debug, info};
 
 use crate::{
@@ -35,6 +37,13 @@ pub use identifier::{
 };
 pub use node::{Node, NodeData};
 
+/// Align two sequences with the classic aligner.
+///
+/// `I` is the integer type of the node indices of the A* search, see [`ArenaIndexType`](crate::arena_index::ArenaIndexType).
+///
+/// # Errors
+///
+/// Returns [`AStarError::ArenaFull`] if the search needs more nodes at the same time than `I` allows.
 #[expect(clippy::too_many_arguments)]
 pub fn template_switch_distance_a_star_align<
     Strategies: AlignmentStrategySelector<
@@ -42,6 +51,7 @@ pub fn template_switch_distance_a_star_align<
             PrimaryMatch = AllowPrimaryMatchStrategy,
         >,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    I: ArenaIndex,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
@@ -60,7 +70,7 @@ pub fn template_switch_distance_a_star_align<
     extend_beyond_range: bool,
     tsm_uncertainty_range_extension_mode: TSMUncertaintyRangeExtensionMode,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<Strategies::Cost>
+) -> Result<AlignmentResult<Strategies::Cost>, AStarError>
 where
     Strategies::Cost: From<u64>,
 {
@@ -101,9 +111,9 @@ where
     let start_time = Instant::now();
 
     // Perform forwards search.
-    let mut a_star = AStar::<_>::new(context);
+    let mut a_star = AStar::<_, I>::new(context);
     a_star.initialise();
-    let search_result = a_star.search();
+    let search_result = a_star.search()?;
     let has_target = matches!(search_result, AStarResult::FoundTarget { .. });
 
     let mut alignment = Vec::new();
@@ -230,5 +240,5 @@ where
         }
     }
 
-    result
+    Ok(result)
 }

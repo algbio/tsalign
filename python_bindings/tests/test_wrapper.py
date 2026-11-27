@@ -183,3 +183,35 @@ def test_non_alphabet_character_raises_value_error(align):
         align(REFERENCE, "AAG-CCAG")
     # Gap characters are removed before checking the alphabet.
     assert align(REFERENCE, "AAG-CCAG", gap_characters="-") is not None
+
+
+# The arena index type only limits how many nodes the search can store, so it does not change the alignment.
+@pytest.mark.parametrize(
+    "align",
+    [
+        lambda reference, query: Aligner(arena_index="u64").align(reference, query),
+        lambda reference, query: tsalign.align(reference, query, arena_index="u64"),
+    ],
+)
+def test_arena_index_u64_gives_same_alignment(align):
+    # test_files/twin_10_ts_only.fa: a template switch, so that the lookahead searches run as well.
+    for reference, query in [(REFERENCE, QUERY), ("GGAGGAGGTT", "AACCTCCTCC")]:
+        default = Aligner().align(reference, query)
+        u32 = Aligner(arena_index="u32").align(reference, query)
+        u64 = align(reference, query)
+        assert default is not None and u32 is not None and u64 is not None
+        assert default.cigar() == u32.cigar() == u64.cigar()
+        assert default.stats()["cost"] == u32.stats()["cost"] == u64.stats()["cost"]
+        assert default.alignments() == u64.alignments()
+
+
+@pytest.mark.parametrize("arena_index", ["u16", "U64", "", "64"])
+def test_invalid_arena_index_raises_value_error(arena_index):
+    with pytest.raises(ValueError, match="arena_index"):
+        Aligner(arena_index=arena_index)
+
+
+def test_arena_full_error_is_a_memory_error():
+    # A full arena cannot be provoked from Python (it needs 2^32 nodes), see the Rust tests of lib_tsalign.
+    assert issubclass(tsalign.ArenaFullError, MemoryError)
+    assert "arena_index" in tsalign.ArenaFullError.__doc__

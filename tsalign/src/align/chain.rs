@@ -1,10 +1,11 @@
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
 };
 use generic_a_star::cost::AStarCost;
 use lib_ts_chainalign::{
+    ChainAlignError,
     chain_align::{
         limits::AlignmentLimits,
         performance_parameters::{
@@ -23,8 +24,8 @@ use std::{fmt::Debug, fs::File, path::PathBuf};
 use crate::{
     align::{Cli, InexactLowerBound},
     util::{
-        infer_tschain_k, infer_tschain_max_n, load_tschain_config, tschain_preprocess_cache_file,
-        validate_tschain_config, write_cache_file_atomically,
+        infer_tschain_k, infer_tschain_max_n, load_tschain_config, search_error,
+        tschain_preprocess_cache_file, validate_tschain_config, write_cache_file_atomically,
     },
 };
 
@@ -139,6 +140,7 @@ pub fn align_a_star_chain_ts<
         open_list: cli.chain.chaining_open_list,
         anchor_pruning,
         inexact_pruning,
+        arena_index: cli.common.arena_index,
     };
 
     let limits = AlignmentLimits {
@@ -165,7 +167,11 @@ pub fn align_a_star_chain_ts<
         reference_name,
         query_name,
         &chaining_lower_bounds,
-    )?;
+    )
+    .map_err(|error| match error {
+        ChainAlignError::Search(error) => search_error(&error, cli.common.arena_index),
+        error => anyhow!(error),
+    })?;
     info!("Finished aligning");
 
     if let Some(output) = cli.output {

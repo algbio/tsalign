@@ -3,12 +3,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{ArgMatches, parser::ValueSource};
 use compact_genome::interface::alphabet::Alphabet;
+use generic_a_star::AStarError;
 use generic_a_star::cost::{AStarCost, U32Cost};
 use lib_ts_chainalign::{
     config::{ChainingLowerBoundConfig, InexactLowerBoundKind},
     costs::{AlignmentCosts, DEFAULT_CONFIG_TSA},
 };
-use lib_tsalign::config::TemplateSwitchConfig;
+use lib_tsalign::{arena_index::ArenaIndexType, config::TemplateSwitchConfig};
 use log::info;
 
 pub fn load_tsa_config<AlphabetType: Alphabet, Cost: AStarCost>(
@@ -126,4 +127,49 @@ pub fn tschain_preprocess_cache_file(
         &inexact_lower_bound,
         max_n,
     ))
+}
+
+/// Converts the error of a failed A* search into the error message of the CLI.
+///
+/// If the node arena is full and a larger `--arena-index` exists, then the message suggests it.
+pub fn search_error(error: &AStarError, arena_index: ArenaIndexType) -> anyhow::Error {
+    match (error, arena_index) {
+        (AStarError::ArenaFull(_), ArenaIndexType::U32) => anyhow!(
+            "{error}; rerun with `--arena-index u64` to allow more nodes (this needs a bit more memory per node)"
+        ),
+        _ => anyhow!("{error}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use generic_a_star::{AStarError, arena::ArenaFullError};
+    use lib_tsalign::arena_index::ArenaIndexType;
+
+    use super::search_error;
+
+    #[test]
+    fn full_arena_suggests_u64() {
+        let error = AStarError::ArenaFull(ArenaFullError {
+            capacity: 4_294_967_295,
+            index_type: "u32",
+        });
+        assert_eq!(
+            search_error(&error, ArenaIndexType::U32).to_string(),
+            "the A* node arena is full: it can hold at most 4294967295 nodes with u32 node indices; \
+             rerun with `--arena-index u64` to allow more nodes (this needs a bit more memory per node)"
+        );
+
+        let error = AStarError::ArenaFull(ArenaFullError {
+            capacity: usize::MAX,
+            index_type: "u64",
+        });
+        assert_eq!(
+            search_error(&error, ArenaIndexType::U64).to_string(),
+            format!(
+                "the A* node arena is full: it can hold at most {} nodes with u64 node indices",
+                usize::MAX
+            )
+        );
+    }
 }

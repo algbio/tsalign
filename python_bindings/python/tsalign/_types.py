@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Literal, Union
+
+#: The integer type of the node indices of the A* search, see the ``arena_index``
+#: parameter of :class:`tsalign.Aligner` and :class:`tsalign.ChainAligner`.
+ArenaIndex = Literal["u32", "u64"]
 
 
 @dataclass

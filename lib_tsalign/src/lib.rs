@@ -3,6 +3,7 @@
 pub mod aligner;
 pub mod alignment_geometry;
 pub mod alignment_result;
+pub mod arena_index;
 pub mod config;
 pub mod costs;
 pub mod error;

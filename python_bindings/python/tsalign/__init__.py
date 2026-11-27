@@ -5,12 +5,14 @@ import pathlib
 from typing import Iterable, List, Optional, Tuple, Union
 
 from tsalign._tsalign import Aligner as _Aligner  # type: ignore[import]
+from tsalign._tsalign import ArenaFullError  # type: ignore[import]
 from tsalign._tsalign import CHAIN_ALIGNER_DEFAULT_COSTS as _CHAIN_ALIGNER_DEFAULT_COSTS  # type: ignore[import]
 from tsalign._tsalign import ChainAligner as _ChainAligner  # type: ignore[import]
 from tsalign._tsalign import TSPairwiseAlignment as _TSPairwiseAlignment  # type: ignore[import]
 from tsalign._types import (
     AlignmentOp,
     AlignmentRange,
+    ArenaIndex,
     SimpleAlignmentOp,
     TemplateSwitchEntranceOp,
     TemplateSwitchExitOp,
@@ -18,7 +20,15 @@ from tsalign._types import (
 )
 
 _ALIGNER_KWARG_NAMES = frozenset(
-    {"no_ts", "min_length_strategy", "chaining_strategy", "total_length_strategy", "costs", "costs_file"}
+    {
+        "no_ts",
+        "min_length_strategy",
+        "chaining_strategy",
+        "total_length_strategy",
+        "costs",
+        "costs_file",
+        "arena_index",
+    }
 )
 
 #: The default costs of :class:`ChainAligner` as a raw ``.tsa``-format string:
@@ -42,6 +52,7 @@ _CHAIN_ALIGNER_KWARG_NAMES = frozenset(
         "exact_overlap_diagonal_distance",
         "cache_directory",
         "force_no_preprocessing",
+        "arena_index",
     }
 )
 
@@ -57,6 +68,8 @@ __all__ = [
     "align",
     "AlignmentRange",
     "AlignmentOp",
+    "ArenaFullError",
+    "ArenaIndex",
     "SimpleAlignmentOp",
     "TemplateSwitchEntranceOp",
     "TemplateSwitchExitOp",
@@ -160,6 +173,14 @@ class Aligner:
         Path to a ``.tsa`` cost configuration file.
         Mutually exclusive with ``costs``.
         See ``sample_tsa_config/config.tsa`` for a skeleton.
+    arena_index : str
+        The integer type of the node indices of the A* search: ``"u32"``
+        (default) or ``"u64"``.  With ``"u32"``, the search can store at
+        most 4294967295 nodes at the same time, which suffices unless it
+        needs a few hundred GB of memory; if it needs more,
+        :meth:`align` raises :class:`ArenaFullError`.  ``"u64"`` removes
+        this limit, but needs more memory per node (about 3 % in total).
+        It does not change the alignment.  Like the CLI's ``--arena-index``.
 
     Examples
     --------
@@ -181,6 +202,7 @@ class Aligner:
         total_length_strategy: str = "maximise",
         costs: Optional[str] = None,
         costs_file: Optional[Union[str, pathlib.Path]] = None,
+        arena_index: ArenaIndex = "u32",
     ) -> None:
         if costs is not None and costs_file is not None:
             raise ValueError("Provide at most one of 'costs' or 'costs_file'.")
@@ -197,6 +219,7 @@ class Aligner:
             "min_length_strategy": min_length_strategy,
             "chaining_strategy": chaining_strategy,
             "total_length_strategy": total_length_strategy,
+            "arena_index": arena_index,
         }
         if costs is not None:
             kwargs["costs"] = costs
@@ -270,6 +293,10 @@ class Aligner:
             ``gap_characters``, if ``gap_characters`` contains non-ASCII
             characters, or if the range does not fit the sequences without
             gap characters.
+        ArenaFullError
+            If the search needs more nodes at the same time than the
+            ``arena_index`` of the aligner allows.  Create the aligner with
+            ``arena_index="u64"`` to align these sequences.
         """
         if range is not None:
             reference_start = range.reference_start
@@ -379,6 +406,13 @@ class ChainAligner:
         Never preprocess in :meth:`align`; raise :class:`FileNotFoundError`
         if the lower bounds are neither in memory (from :meth:`preprocess` or
         an earlier :meth:`align`) nor in the cache directory.  Default: ``False``.
+    arena_index : str
+        The integer type of the node indices of the chaining search:
+        ``"u32"`` (default) or ``"u64"``.  With ``"u32"``, the chaining can
+        store at most 4294967295 nodes at the same time (about 200 GB of
+        memory); if it needs more, :meth:`align` raises
+        :class:`ArenaFullError`.  ``"u64"`` removes this limit.  It does not
+        change the alignment.  Like the CLI's ``--arena-index``.
 
     Raises
     ------
@@ -416,6 +450,7 @@ class ChainAligner:
         exact_overlap_diagonal_distance: Optional[int] = None,
         cache_directory: Optional[Union[str, os.PathLike]] = None,
         force_no_preprocessing: bool = False,
+        arena_index: ArenaIndex = "u32",
     ) -> None:
         if costs is not None and costs_file is not None:
             raise ValueError("Provide at most one of 'costs' or 'costs_file'.")
@@ -437,6 +472,7 @@ class ChainAligner:
             exact_overlap_diagonal_distance=exact_overlap_diagonal_distance,
             cache_directory=None if cache_directory is None else os.fspath(cache_directory),
             force_no_preprocessing=force_no_preprocessing,
+            arena_index=arena_index,
         )
 
     def preprocess(self, max_length: int) -> None:
@@ -504,6 +540,10 @@ class ChainAligner:
             If ``force_no_preprocessing`` is set and the lower bounds are not available.
         OSError
             If reading or writing a cache file fails.
+        ArenaFullError
+            If the chaining search needs more nodes at the same time than the
+            ``arena_index`` of the aligner allows.  Create the aligner with
+            ``arena_index="u64"`` to align these sequences.
         """
         if range is not None:
             reference_start = range.reference_start
@@ -546,7 +586,7 @@ def align(
     Keyword arguments that belong to the aligner's constructor (for
     :class:`Aligner`: ``no_ts``, ``min_length_strategy``,
     ``chaining_strategy``, ``total_length_strategy``, ``costs``,
-    ``costs_file``; for :class:`ChainAligner`: all of its parameters) are
+    ``costs_file``, ``arena_index``; for :class:`ChainAligner`: all of its parameters) are
     forwarded to the constructor; all remaining keyword arguments are
     forwarded to ``align``.
 

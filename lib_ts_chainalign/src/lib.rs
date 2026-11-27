@@ -1,12 +1,13 @@
 #![allow(rustdoc::redundant_explicit_links)]
 
-use generic_a_star::cost::U32Cost;
+use generic_a_star::{arena::ArenaIndex, cost::U32Cost};
 use std::time::Instant;
 
 use clap::ValueEnum;
 use lib_tsalign::{
     alignment_geometry::{AlignmentRange, InvalidAlignmentRange},
     alignment_result::{AlignmentResult, ChainStatistics},
+    arena_index::ArenaIndexType,
     error::SequenceRole,
 };
 use log::{debug, info, trace};
@@ -53,7 +54,7 @@ pub fn dna_rc_fn(c: u8) -> u8 {
     }
 }
 
-/// A reason why the inputs of [`align`] are invalid.
+/// A reason why [`align`] fails: the inputs are invalid, or the chaining search failed ([`Self::Search`]).
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ChainAlignError {
     /// The config of the chaining lower bounds is not supported, see [`ChainingLowerBoundConfig::validate`].
@@ -86,6 +87,15 @@ pub enum ChainAlignError {
         position: usize,
         character: char,
     },
+
+    /// The chaining search failed.
+    ///
+    /// This happens if it needs more nodes at the same time than the arena index type allows
+    /// ([`AStarError::ArenaFull`](generic_a_star::AStarError::ArenaFull)).
+    /// Then the alignment can be repeated with a larger index type, see
+    /// [`AlignmentPerformanceParameters::arena_index`].
+    #[error(transparent)]
+    Search(#[from] generic_a_star::AStarError),
 }
 
 /// Perform preprocessing for tschainalign.
@@ -147,7 +157,8 @@ pub fn validate_sequences(
 ///
 /// # Errors
 ///
-/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
+/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`],
+/// or [`ChainAlignError::Search`] if the chaining search needs more nodes than the arena index type allows.
 #[expect(clippy::too_many_arguments)]
 pub fn align(
     reference: Vec<u8>,
@@ -192,9 +203,50 @@ pub fn align(
 ///
 /// # Errors
 ///
-/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`].
+/// Returns an error if the inputs are invalid, see [`ChainAlignError`] and [`validate_sequences`],
+/// or [`ChainAlignError::Search`] if the chaining search needs more nodes than the arena index type allows.
 #[expect(clippy::too_many_arguments)]
 pub fn align_with_limits(
+    reference: Vec<u8>,
+    query: Vec<u8>,
+    range: AlignmentRange,
+    performance_parameters: &AlignmentPerformanceParameters<U32Cost>,
+    limits: &AlignmentLimits<U32Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    reference_name: &str,
+    query_name: &str,
+    chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
+) -> Result<AlignmentResult<U32Cost>, ChainAlignError> {
+    match performance_parameters.arena_index {
+        ArenaIndexType::U32 => align_with_index::<u32>(
+            reference,
+            query,
+            range,
+            performance_parameters,
+            limits,
+            rc_fn,
+            reference_name,
+            query_name,
+            chaining_lower_bounds,
+        ),
+        ArenaIndexType::U64 => align_with_index::<u64>(
+            reference,
+            query,
+            range,
+            performance_parameters,
+            limits,
+            rc_fn,
+            reference_name,
+            query_name,
+            chaining_lower_bounds,
+        ),
+    }
+}
+
+/// [`align_with_limits`] with the node index type `I` of the chaining search,
+/// ignoring [`AlignmentPerformanceParameters::arena_index`].
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn align_with_index<I: ArenaIndex>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
@@ -257,7 +309,7 @@ pub fn align_with_limits(
     );
     statistics.cost_function_seconds = seconds_since(cost_function_start_time);
 
-    let mut result = chain_align::align(
+    let mut result = chain_align::align::<_, I>(
         &sequences,
         performance_parameters,
         limits,
@@ -267,7 +319,7 @@ pub fn align_with_limits(
         chaining_lower_bounds.config(),
         &anchors,
         &mut chaining_cost_function,
-    );
+    )?;
     result.statistics_mut().chain_statistics = Some(statistics);
     Ok(result)
 }
