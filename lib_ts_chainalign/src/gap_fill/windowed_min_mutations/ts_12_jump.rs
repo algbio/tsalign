@@ -71,14 +71,16 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         let mut a_star = AStar::<_>::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
         a_star.initialise();
-        let (cost, alignment) = match a_star.search() {
+        let (cost, alignment) = match a_star.search().expect(super::ARENA_FULL) {
             AStarResult::FoundTarget { cost, .. } => (cost, a_star.reconstruct_path().into()),
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
 
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
+        a_star
+            .search_until_with_target_policy(|_, node| node.cost > cost, true)
+            .expect(super::ARENA_FULL);
         Self::fill_additional_targets(&a_star, end.ts_kind(), additional_secondary_targets_output);
         self.a_star_buffers = Some(a_star.into_buffers());
 
@@ -107,7 +109,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
-        a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
+        a_star
+            .search_until_with_target_policy(|_, node| node.cost > cost_limit, true)
+            .expect(super::ARENA_FULL);
 
         Self::fill_additional_targets(&a_star, end.ts_kind(), additional_secondary_targets_output);
 

@@ -1,17 +1,17 @@
 use std::fmt::Debug;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     Aligner, aligner::configurable::PrimaryRangeStrategySelector,
     aligner::ts_14_out_of_range::AdditionalExplicitTSMStartsAndEnds,
-    alignment_geometry::AlignmentRange,
+    alignment_geometry::AlignmentRange, error::AlignerInputError,
 };
 use log::info;
 
 use super::Cli;
-use crate::util::load_tsa_config;
+use crate::util::{load_tsa_config, search_error};
 
 /// The node ordering of the classic aligner.
 ///
@@ -33,6 +33,7 @@ pub fn configure_aligner<AlphabetType: Alphabet>(cli: &Cli) -> Aligner<AlphabetT
         .set_no_ts(cli.a_star.no_ts)
         .set_ts_14_out_of_range_strategy(cli.a_star.allow_ts_14_out_of_range)
         .set_primary_range_strategy(PrimaryRangeStrategySelector::Prune)
+        .set_arena_index(cli.common.arena_index)
         .set_force_label_correcting(cli.a_star.force_label_correcting);
     aligner
 }
@@ -58,18 +59,23 @@ pub fn align_a_star_template_switch_distance<
         info!("Using the built-in default config");
     }
 
-    let alignment = aligner.align_sequences(
-        reference_name,
-        reference,
-        query_name,
-        query,
-        range,
-        additional_tsm_starts_and_ends,
-        cli.common.cost_limit,
-        cli.a_star.memory_limit,
-        !cli.a_star.dont_extend_beyond_range,
-        cli.a_star.ts_uncertainty_range_extension_mode,
-    )?;
+    let alignment = aligner
+        .align_sequences(
+            reference_name,
+            reference,
+            query_name,
+            query,
+            range,
+            additional_tsm_starts_and_ends,
+            cli.common.cost_limit,
+            cli.a_star.memory_limit,
+            !cli.a_star.dont_extend_beyond_range,
+            cli.a_star.ts_uncertainty_range_extension_mode,
+        )
+        .map_err(|error| match error {
+            AlignerInputError::Search(error) => search_error(&error, cli.common.arena_index),
+            error => anyhow!(error),
+        })?;
     info!("Finished aligning");
 
     if let Some(output) = cli.output {

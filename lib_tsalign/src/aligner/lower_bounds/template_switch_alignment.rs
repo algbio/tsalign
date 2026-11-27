@@ -170,7 +170,10 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 | Identifier::TemplateSwitchExit { .. } => {
                     unreachable!()
                 }
-            }) {
+            })
+            // Like the limits below, this cannot happen: the lower bound searches are tiny compared to the arena.
+            .expect("a lower bound search does not fill the node arena")
+            {
                 AStarResult::FoundTarget { identifier, cost } => {
                     trace!("Search terminated with target {identifier} at cost {cost}");
 

@@ -2,7 +2,7 @@ use std::{cmp::Ordering, iter};
 
 use generic_a_star::{
     AStarNode,
-    arena::{NodeArena, NodeIndex},
+    arena::{ArenaIndex, NodeArena, NodeIndex},
     closed_lists::AStarClosedList,
     cost::AStarCost,
     reset::Reset,
@@ -356,7 +356,7 @@ impl<Cost: AStarCost> ChainerClosedList<Cost> {
     }
 }
 
-impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
+impl<Cost: AStarCost, I: ArenaIndex> AStarClosedList<Node<Cost>, I> for ChainerClosedList<Cost> {
     fn new() -> Self {
         Self::new_list()
     }
@@ -365,7 +365,7 @@ impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
         self.len
     }
 
-    fn insert(&mut self, index: NodeIndex, nodes: &mut NodeArena<Node<Cost>>) -> bool {
+    fn insert(&mut self, index: NodeIndex<I>, nodes: &mut NodeArena<Node<Cost>, I>) -> bool {
         let node = nodes.remove(index);
         self.insert_node(node.identifier, node).is_some()
     }
@@ -373,14 +373,14 @@ impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
     fn get<'nodes>(
         &'nodes self,
         identifier: &Identifier,
-        _nodes: &'nodes NodeArena<Node<Cost>>,
+        _nodes: &'nodes NodeArena<Node<Cost>, I>,
     ) -> Option<&'nodes Node<Cost>> {
         self.get_node(identifier)
     }
 
     fn iter<'nodes>(
         &'nodes self,
-        _nodes: &'nodes NodeArena<Node<Cost>>,
+        _nodes: &'nodes NodeArena<Node<Cost>, I>,
     ) -> impl Iterator<Item = &'nodes Node<Cost>>
     where
         Node<Cost>: 'nodes,
@@ -391,7 +391,7 @@ impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
     fn can_skip_node(
         &self,
         node: &Node<Cost>,
-        _nodes: &NodeArena<Node<Cost>>,
+        _nodes: &NodeArena<Node<Cost>, I>,
         _is_label_setting: bool,
     ) -> bool {
         self.can_skip(node)

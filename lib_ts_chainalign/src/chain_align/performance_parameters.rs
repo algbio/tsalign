@@ -1,4 +1,5 @@
 use clap::ValueEnum;
+pub use lib_tsalign::arena_index::ArenaIndexType;
 
 pub use crate::anchors::inexact_pruning::{
     InexactPruningParameters, InexactPruningRule, InexactPruningRules,
@@ -33,6 +34,13 @@ pub struct AlignmentPerformanceParameters<Cost> {
     ///
     /// Ignored for the other modes.
     pub inexact_pruning: InexactPruningParameters,
+
+    /// The integer type of the node indices of the chaining search, see [`ArenaIndexType`].
+    ///
+    /// With the default [`ArenaIndexType::U32`], the chaining search can store at most `u32::MAX` nodes at the same time
+    /// (about 200 GB of memory); if it needs more, the alignment fails with
+    /// [`ChainAlignError::Search`](crate::ChainAlignError::Search).
+    pub arena_index: ArenaIndexType,
 }
 
 /// The mode of removing inexact anchors before chaining.
@@ -87,6 +95,7 @@ impl<Cost: From<u8>> Default for AlignmentPerformanceParameters<Cost> {
             open_list: ChainingOpenList::LinearHeap,
             anchor_pruning: AnchorPruning::default(),
             inexact_pruning: InexactPruningParameters::default(),
+            arena_index: ArenaIndexType::default(),
         }
     }
 }

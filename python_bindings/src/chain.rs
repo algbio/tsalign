@@ -12,6 +12,7 @@ use compact_genome::implementation::alphabets::{
 };
 use generic_a_star::cost::U32Cost;
 use lib_ts_chainalign::{
+    ChainAlignError,
     cache::{cache_file_path, infer_k, infer_max_n, write_cache_file_atomically},
     chain_align::{
         limits::AlignmentLimits,
@@ -38,7 +39,9 @@ use pyo3::{
 };
 use pythonize::{depythonize, pythonize};
 
-use crate::{TSPairwiseAlignment, gap_characters_to_ascii, py_to_str};
+use crate::{
+    TSPairwiseAlignment, gap_characters_to_ascii, parse_arena_index, py_to_str, search_error,
+};
 
 type LowerBounds = Arc<ChainingLowerBounds<U32Cost>>;
 
@@ -288,6 +291,7 @@ impl TSChainAligner {
         exact_overlap_diagonal_distance=None,
         cache_directory=None,
         force_no_preprocessing=false,
+        arena_index="u32",
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -304,7 +308,9 @@ impl TSChainAligner {
         exact_overlap_diagonal_distance: Option<i64>,
         cache_directory: Option<PathBuf>,
         force_no_preprocessing: bool,
+        arena_index: &str,
     ) -> PyResult<Self> {
+        let arena_index = parse_arena_index(arena_index)?;
         let max_anchor_mutations: u8 = convert_integer(
             max_anchor_mutations,
             "max_anchor_mutations",
@@ -400,6 +406,7 @@ impl TSChainAligner {
                 open_list,
                 anchor_pruning,
                 inexact_pruning,
+                arena_index,
             },
             cache_directory,
             force_no_preprocessing,
@@ -528,7 +535,12 @@ impl TSChainAligner {
                 &query_name,
                 &lower_bounds,
             )
-            .map_err(|error| value_error(error.to_string()))
+            .map_err(|error| match error {
+                ChainAlignError::Search(error) => {
+                    search_error(&error, self.performance_parameters.arena_index)
+                }
+                error => value_error(error.to_string()),
+            })
         })?;
 
         match result {

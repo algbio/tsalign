@@ -29,7 +29,11 @@ impl<Cost: AStarCost> Chain<Cost> {
         info!("Computing chain...");
         let mut a_star = AStar::<_>::new(Context::new(chaining_costs, chaining_anchors));
         a_star.initialise();
-        a_star.search();
+        // Chains are only computed for the classic aligner's lower bound chaining strategy (disabled, #248),
+        // whose searches are far too small to fill the node arena.
+        a_star
+            .search()
+            .expect("the chaining search does not fill the node arena");
 
         let mut chain = Vec::new();
         chain.extend(

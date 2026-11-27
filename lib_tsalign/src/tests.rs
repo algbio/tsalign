@@ -66,6 +66,7 @@ fn tsnax_disc1_473() {
             AnyTemplateSwitchDescendantStrategy,
         >,
         _,
+        u32,
     >(
         reference.as_genome_subsequence(),
         query.as_genome_subsequence(),
@@ -83,7 +84,8 @@ fn tsnax_disc1_473() {
         true,
         TSMUncertaintyRangeExtensionMode::None,
         (),
-    );
+    )
+    .unwrap();
     assert_eq!(
         result.statistics().reference_offset,
         result.statistics().query_offset
@@ -113,6 +115,7 @@ fn tsnax_disc1_473() {
             AnyTemplateSwitchDescendantStrategy,
         >,
         _,
+        u32,
     >(
         reference.as_genome_subsequence(),
         query.as_genome_subsequence(),
@@ -130,7 +133,8 @@ fn tsnax_disc1_473() {
         true,
         TSMUncertaintyRangeExtensionMode::None,
         (),
-    );
+    )
+    .unwrap();
     println!("{sample_alignment}");
     assert_eq!(result.statistics().cost, r64(8.0));
 
@@ -150,6 +154,7 @@ fn tsnax_disc1_473() {
             AnyTemplateSwitchDescendantStrategy,
         >,
         _,
+        u32,
     >(
         reference.as_genome_subsequence(),
         query.as_genome_subsequence(),
@@ -167,7 +172,8 @@ fn tsnax_disc1_473() {
         true,
         TSMUncertaintyRangeExtensionMode::None,
         (),
-    );
+    )
+    .unwrap();
     println!("{sample_alignment}");
     assert_eq!(result.statistics().cost, r64(8.0));
 
@@ -187,6 +193,7 @@ fn tsnax_disc1_473() {
             AnyTemplateSwitchDescendantStrategy,
         >,
         _,
+        u32,
     >(
         reference.as_genome_subsequence(),
         query.as_genome_subsequence(),
@@ -204,7 +211,8 @@ fn tsnax_disc1_473() {
         true,
         TSMUncertaintyRangeExtensionMode::None,
         (),
-    );
+    )
+    .unwrap();
     println!("{sample_alignment}");
     assert_eq!(result.statistics().cost, r64(8.0));
 }

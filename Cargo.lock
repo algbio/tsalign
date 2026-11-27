@@ -581,7 +581,7 @@ dependencies = [
 [[package]]
 name = "generic_a_star"
 version = "8.0.3"
-source = "git+https://github.com/sebschmi/generic_a_star?branch=agent%2Farena#daf56c4daa54285b25d94bedd2ea4d21565f413d"
+source = "git+https://github.com/sebschmi/generic_a_star?branch=agent%2Farena#c29dfc3b5316b45ca101961dbf1a25b33f74d87c"
 dependencies = [
  "compare",
  "hashbrown 0.17.1",
@@ -589,6 +589,7 @@ dependencies = [
  "num-traits",
  "rustc-hash",
  "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -127,98 +127,107 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
 
                 trace!("Searching for target ({x}, {y})");
 
-                let has_target = match a_star.search_until(|context, node| {
-                    match *node.identifier() {
-                        Identifier::Root | Identifier::AlternativeStart { .. } => false,
-                        Identifier::Primary {
-                            reference_index,
-                            query_index,
-                            ..
-                        } => {
-                            reference_index == 0
-                                || query_index == 0
-                                || reference_index == genome_length - 1
-                                || query_index == genome_length - 1
+                let has_target = match a_star
+                    .search_until(|context, node| {
+                        match *node.identifier() {
+                            Identifier::Root | Identifier::AlternativeStart { .. } => false,
+                            Identifier::Primary {
+                                reference_index,
+                                query_index,
+                                ..
+                            } => {
+                                reference_index == 0
+                                    || query_index == 0
+                                    || reference_index == genome_length - 1
+                                    || query_index == genome_length - 1
+                            }
+                            Identifier::PrimaryReentry {
+                                reference_index,
+                                query_index,
+                                gap_type,
+                                ..
+                            } => {
+                                debug_assert_eq!(gap_type, GapType::None);
+
+                                let reentry_x =
+                                    isize::try_from(reference_index).unwrap() - root_xy_isize;
+                                let reentry_y =
+                                    isize::try_from(query_index).unwrap() - root_xy_isize;
+
+                                trace!(
+                                    "Found target {} at cost {}",
+                                    node.identifier(),
+                                    node.cost()
+                                );
+
+                                let previous =
+                                    closed_lower_bounds.insert((reentry_x, reentry_y), node.cost());
+
+                                // If previous exists, then it was inserted when searching with a shorter string.
+                                debug_assert!(previous.is_none());
+                                let previous_previous = previous_closed_lower_bounds
+                                    .get(&(reentry_x, reentry_y))
+                                    .copied();
+                                debug_assert!(
+                                    previous_previous.is_none()
+                                        || previous_previous == Some(node.cost())
+                                );
+
+                                enqueue_neighbours(
+                                    reentry_x,
+                                    reentry_y,
+                                    &mut closed_lower_bounds,
+                                    &mut open_lower_bounds,
+                                );
+
+                                /*trace!(
+                                    "Found primary reentry node {} at cost {}",
+                                    node.identifier(),
+                                    node.cost()
+                                );*/
+                                reentry_x == x && reentry_y == y
+                            }
+                            Identifier::TemplateSwitchEntrance {
+                                entrance_reference_index,
+                                entrance_query_index,
+                                template_switch_first_offset,
+                                ..
+                            } => {
+                                entrance_reference_index == 0
+                                    || entrance_query_index == 0
+                                    || entrance_reference_index == genome_length - 1
+                                    || entrance_query_index == genome_length - 1
+                                    || template_switch_first_offset + root_xy_isize == 0
+                                    || template_switch_first_offset + root_xy_isize
+                                        == string_length_isize - 1
+                            }
+                            Identifier::Secondary {
+                                descendant_index,
+                                ancestor_index,
+                                ..
+                            } => {
+                                descendant_index == 0
+                                    || descendant_index == genome_length - 1
+                                    || ancestor_index == 0
+                                    || ancestor_index == genome_length - 1
+                            }
+                            Identifier::TemplateSwitchExit {
+                                template_switch_direction,
+                                anti_descendant_gap,
+                                ..
+                            } => {
+                                let cost_increment = context
+                                    .config
+                                    .anti_descendant_gap_costs(template_switch_direction)
+                                    .evaluate(&anti_descendant_gap);
+                                node.generate_primary_reentry_successor(context, cost_increment)
+                                    .is_none()
+                            }
                         }
-                        Identifier::PrimaryReentry {
-                            reference_index,
-                            query_index,
-                            gap_type,
-                            ..
-                        } => {
-                            debug_assert_eq!(gap_type, GapType::None);
-
-                            let reentry_x =
-                                isize::try_from(reference_index).unwrap() - root_xy_isize;
-                            let reentry_y = isize::try_from(query_index).unwrap() - root_xy_isize;
-
-                            trace!("Found target {} at cost {}", node.identifier(), node.cost());
-
-                            let previous =
-                                closed_lower_bounds.insert((reentry_x, reentry_y), node.cost());
-
-                            // If previous exists, then it was inserted when searching with a shorter string.
-                            debug_assert!(previous.is_none());
-                            let previous_previous = previous_closed_lower_bounds
-                                .get(&(reentry_x, reentry_y))
-                                .copied();
-                            debug_assert!(
-                                previous_previous.is_none()
-                                    || previous_previous == Some(node.cost())
-                            );
-
-                            enqueue_neighbours(
-                                reentry_x,
-                                reentry_y,
-                                &mut closed_lower_bounds,
-                                &mut open_lower_bounds,
-                            );
-
-                            /*trace!(
-                                "Found primary reentry node {} at cost {}",
-                                node.identifier(),
-                                node.cost()
-                            );*/
-                            reentry_x == x && reentry_y == y
-                        }
-                        Identifier::TemplateSwitchEntrance {
-                            entrance_reference_index,
-                            entrance_query_index,
-                            template_switch_first_offset,
-                            ..
-                        } => {
-                            entrance_reference_index == 0
-                                || entrance_query_index == 0
-                                || entrance_reference_index == genome_length - 1
-                                || entrance_query_index == genome_length - 1
-                                || template_switch_first_offset + root_xy_isize == 0
-                                || template_switch_first_offset + root_xy_isize
-                                    == string_length_isize - 1
-                        }
-                        Identifier::Secondary {
-                            descendant_index,
-                            ancestor_index,
-                            ..
-                        } => {
-                            descendant_index == 0
-                                || descendant_index == genome_length - 1
-                                || ancestor_index == 0
-                                || ancestor_index == genome_length - 1
-                        }
-                        Identifier::TemplateSwitchExit {
-                            template_switch_direction,
-                            anti_descendant_gap,
-                            ..
-                        } => {
-                            let cost_increment = context
-                                .config
-                                .anti_descendant_gap_costs(template_switch_direction)
-                                .evaluate(&anti_descendant_gap);
-                            node.generate_primary_reentry_successor(context, cost_increment)
-                                .is_none()
-                        }
-                    }
-                }) {
+                    })
+                    // Like the limits below, this cannot happen: the lower bound searches are tiny compared to the arena.
+                    .expect("a lower bound search does not fill the node arena")
+                {
                     AStarResult::FoundTarget { identifier, cost } => {
                         trace!("Search termianted with target {identifier} at cost {cost}");
 

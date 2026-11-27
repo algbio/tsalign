@@ -3,7 +3,8 @@ use compact_genome::{
     interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 use generic_a_star::{
-    AStar, AStarResult,
+    AStar, AStarError, AStarResult,
+    arena::ArenaIndex,
     closed_lists::{AStarClosedList, HashClosedList},
     cost::AStarCost,
     open_lists::{AStarOpenList, binary_heap::BinaryHeap, linear_heap::LinearHeap},
@@ -47,8 +48,15 @@ mod evaluation;
 pub mod limits;
 pub mod performance_parameters;
 
+/// Chains the anchors and aligns the gaps between them.
+///
+/// `I` is the integer type of the node indices of the chaining search.
+///
+/// # Errors
+///
+/// Returns [`AStarError::ArenaFull`] if the chaining search needs more nodes at the same time than `I` allows.
 #[expect(clippy::too_many_arguments)]
-pub(crate) fn align<Cost: AStarCost>(
+pub(crate) fn align<Cost: AStarCost, I: ArenaIndex>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     limits: &AlignmentLimits<Cost>,
@@ -58,9 +66,9 @@ pub(crate) fn align<Cost: AStarCost>(
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<Cost> {
+) -> Result<AlignmentResult<Cost>, AStarError> {
     match performance_parameters.open_list {
-        ChainingOpenList::StdHeap => choose_closed_list::<_, BinaryHeap<Node<Cost>>>(
+        ChainingOpenList::StdHeap => choose_closed_list::<_, I, BinaryHeap<Node<Cost>, I>>(
             sequences,
             performance_parameters,
             limits,
@@ -71,7 +79,7 @@ pub(crate) fn align<Cost: AStarCost>(
             anchors,
             chaining_cost_function,
         ),
-        ChainingOpenList::LinearHeap => choose_closed_list::<_, LinearHeap<_>>(
+        ChainingOpenList::LinearHeap => choose_closed_list::<_, I, LinearHeap<_, I>>(
             sequences,
             performance_parameters,
             limits,
@@ -86,7 +94,11 @@ pub(crate) fn align<Cost: AStarCost>(
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
+pub(crate) fn choose_closed_list<
+    Cost: AStarCost,
+    I: ArenaIndex,
+    OpenList: AStarOpenList<Node<Cost>, I>,
+>(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     limits: &AlignmentLimits<Cost>,
@@ -96,9 +108,9 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<Cost> {
+) -> Result<AlignmentResult<Cost>, AStarError> {
     match performance_parameters.closed_list {
-        ChainingClosedList::FxHashMap => actually_align::<_, HashClosedList, OpenList>(
+        ChainingClosedList::FxHashMap => actually_align::<_, I, HashClosedList<I>, OpenList>(
             sequences,
             performance_parameters,
             limits,
@@ -109,7 +121,7 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
             anchors,
             chaining_cost_function,
         ),
-        ChainingClosedList::Special => actually_align::<_, ChainerClosedList<_>, OpenList>(
+        ChainingClosedList::Special => actually_align::<_, I, ChainerClosedList<_>, OpenList>(
             sequences,
             performance_parameters,
             limits,
@@ -126,8 +138,9 @@ pub(crate) fn choose_closed_list<Cost: AStarCost, OpenList: AStarOpenList<Node<C
 #[expect(clippy::too_many_arguments)]
 fn actually_align<
     Cost: AStarCost,
-    ClosedList: AStarClosedList<Node<Cost>>,
-    OpenList: AStarOpenList<Node<Cost>>,
+    I: ArenaIndex,
+    ClosedList: AStarClosedList<Node<Cost>, I>,
+    OpenList: AStarOpenList<Node<Cost>, I>,
 >(
     sequences: &AlignmentSequences,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
@@ -138,7 +151,7 @@ fn actually_align<
     config: &ChainingLowerBoundConfig,
     anchors: &Anchors<Cost>,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-) -> AlignmentResult<Cost> {
+) -> Result<AlignmentResult<Cost>, AStarError> {
     info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));
@@ -154,7 +167,7 @@ fn actually_align<
         performance_parameters.max_successors,
         limits.cost_limit,
     );
-    let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
+    let mut astar = AStar::<_, I, ClosedList, OpenList>::new(context);
 
     let mut chain_evaluator = build_chain_evaluator(sequences, alignment_costs, rc_fn, config);
 
@@ -179,7 +192,10 @@ fn actually_align<
             debug!(
                 "Reached the iteration limit of {iteration_limit} chaining rounds with a chain cost lower bound of {current_lower_bound}"
             );
-            return AlignmentResult::new_exceeded_iteration_limit::<DnaAlphabet, _>(
+            return Ok(AlignmentResult::new_exceeded_iteration_limit::<
+                DnaAlphabet,
+                _,
+            >(
                 iteration_limit,
                 current_lower_bound,
                 VectorGenome::from_slice_u8(sequences.seq1())
@@ -197,7 +213,7 @@ fn actually_align<
                 0,
                 sequences.seq1().len(),
                 sequences.seq2().len(),
-            );
+            ));
         }
 
         progress_bar.inc(1);
@@ -211,7 +227,9 @@ fn actually_align<
 
         astar.reset();
         astar.initialise();
-        let result = astar.search();
+        let result = astar
+            .search()
+            .inspect_err(|_| progress_bar.finish_and_clear())?;
         total_chaining_opened_nodes += astar.performance_counters().opened_nodes;
         total_chaining_suboptimal_opened_nodes +=
             astar.performance_counters().suboptimal_opened_nodes;
@@ -302,7 +320,7 @@ fn actually_align<
                 debug!(
                     "Exceeded the cost limit of {cost_limit} in chaining round {chaining_execution_count}"
                 );
-                return AlignmentResult::new_without_target::<DnaAlphabet, _>(
+                return Ok(AlignmentResult::new_without_target::<DnaAlphabet, _>(
                     AStarResult::ExceededCostLimit { cost_limit },
                     VectorGenome::from_slice_u8(sequences.seq1())
                         .unwrap()
@@ -319,7 +337,7 @@ fn actually_align<
                     0,
                     sequences.seq1().len(),
                     sequences.seq2().len(),
-                );
+                ));
             }
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Memory limit is None"),
             AStarResult::NoTarget => panic!("No chain found"),
@@ -586,7 +604,7 @@ fn actually_align<
         sequences.seq2().len(),
     );
     alignment_result.statistics_mut().chain_cost = Some(chain_cost.as_f64().try_into().unwrap());
-    alignment_result
+    Ok(alignment_result)
 }
 
 fn alignment_range(sequences: &AlignmentSequences) -> AlignmentRange {

@@ -176,25 +176,28 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         );
         let mut a_star = AStar::<_>::new(context);
         a_star.initialise();
-        a_star.search_until(|_, node| {
-            let lower_bound = &mut lower_bounds[[
-                node.identifier.coordinates.primary_ordinate_a().unwrap(),
-                node.identifier.coordinates.primary_ordinate_b().unwrap(),
-            ]];
+        a_star
+            .search_until(|_, node| {
+                let lower_bound = &mut lower_bounds[[
+                    node.identifier.coordinates.primary_ordinate_a().unwrap(),
+                    node.identifier.coordinates.primary_ordinate_b().unwrap(),
+                ]];
 
-            if *lower_bound == Cost::max_value() {
-                reached_lower_bounds += 1;
-                debug_assert!(node.cost() < Cost::max_value());
-                trace!(
-                    "Reached lower bound {reached_lower_bounds}/{total_lower_bounds} = {:.2}%",
-                    reached_lower_bounds as f64 / total_lower_bounds as f64 * 100.0
-                );
-            }
+                if *lower_bound == Cost::max_value() {
+                    reached_lower_bounds += 1;
+                    debug_assert!(node.cost() < Cost::max_value());
+                    trace!(
+                        "Reached lower bound {reached_lower_bounds}/{total_lower_bounds} = {:.2}%",
+                        reached_lower_bounds as f64 / total_lower_bounds as f64 * 100.0
+                    );
+                }
 
-            *lower_bound = (*lower_bound).min(node.cost());
+                *lower_bound = (*lower_bound).min(node.cost());
 
-            reached_lower_bounds >= total_lower_bounds
-        });
+                reached_lower_bounds >= total_lower_bounds
+            })
+            // This lower bound is disabled in the CLI and the Python bindings (#224).
+            .expect("the windowed min mutations lower bound search does not fill the node arena");
         let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
             (0..=max_n)
                 .map(|gap2| lower_bounds[[gap1, gap2]])
